@@ -45,7 +45,7 @@ How to run the tests
 Notes
 -----
 This is  a FIX message library that includes simple  FIX session management system.  It does not contain an order management 
-core, or anything similar. It is purely message parsing-manipulation-serialisation and focused on testing. 
+core. It is purely message parsing-manipulation-serialisation and focused on testing. 
 
 More documentation
 ------------------
