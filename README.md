@@ -36,6 +36,7 @@ Core classes
  * `Codec` defines how to parse a buffer into a FixMessage, and how to serialise it back
  * `Spec` defines the ``FIX`` specification to follow. Only required for support of repeating group. Defined from 
  Quickfix's spec XML files.
+ * `FixSession` defines the base ``FIX`` session logic for TCP and SSL connectivity.
  
 
 How to run the tests
@@ -47,8 +48,8 @@ How to run the tests
 
 Notes
 -----
-This is only a FIX message library. It doesn't include a FIX session management system or an order management 
-core, or anything similar. It is purely message parsing-manipulation-serialisation. It is however easy to integrate
+This is  a FIX message library that includes simple  FIX session management system.  It does not contain an order management 
+core, or anything similar. It is purely message parsing-manipulation-serialisation and focused on testing. It is however easy to integrate
 into an order management or a exchange/broker simulator, etc.
 
 
