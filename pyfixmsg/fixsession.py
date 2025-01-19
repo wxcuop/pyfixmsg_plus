@@ -1,8 +1,8 @@
 import time
 import socket
 import ssl
-from pyfixmsg.fixmessage import FixMessage
 import logging
+from pyfixmsg.fixmessage import FixMessage
 
 logging.basicConfig(level=logging.INFO)
 
@@ -13,6 +13,7 @@ class FixSession:
         self.sequence_number = 1
         self.is_logged_on = False
         self.connection = None
+        self.message_store = {} # Store messages for resend requests
 
     def logon(self):
         logon_msg = FixMessage()
@@ -50,13 +51,34 @@ class FixSession:
         if self.connection:
             encoded_msg = message.encode()
             self.connection.sendall(encoded_msg)
+            self.message_store[self.sequence_number] = encoded_msg
             self.increment_sequence()
+
+    def handle_resend_request(self, begin_seq_no, end_seq_no):
+        for seq_no in range(begin_seq_no, end_seq_no + 1):
+            if seq_no in self.message_store:
+                self.connection.sendall(self.message_store[seq_no])
+            else:
+                self.send_gap_fill(seq_no, end_seq_no)
+                break
+
+    def send_gap_fill(self, begin_seq_no, end_seq_no):
+        gap_fill_msg = FixMessage()
+        gap_fill_msg.set_field(35, '4')  # MsgType = Sequence Reset (Gap Fill)
+        gap_fill_msg.set_field(49, self.sender_comp_id)
+        gap_fill_msg.set_field(56, self.target_comp_id)
+        gap_fill_msg.set_field(34, self.sequence_number)
+        gap_fill_msg.set_field(123, 'Y')  # Gap Fill Flag
+        gap_fill_msg.set_field(36, end_seq_no + 1)  # New Sequence Number
+        self.send_message(gap_fill_msg)
+        logging.info(f"Sent gap fill from {begin_seq_no} to {end_seq_no}")
 
     def increment_sequence(self):
         self.sequence_number += 1
 
-    def reset_sequence(self):
-        self.sequence_number = 1
+    def reset_sequence(self, new_sequence_number=1):
+        self.sequence_number = new_sequence_number
+        logging.info(f"Sequence number reset to {self.sequence_number}")
 
     def connect(self, host, port, use_tls=False):
         if use_tls:
