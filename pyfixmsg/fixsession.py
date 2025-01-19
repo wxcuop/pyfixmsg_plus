@@ -13,7 +13,7 @@ class FixSession:
         self.sequence_number = 1
         self.is_logged_on = False
         self.connection = None
-        self.message_store = {} # Store messages for resend requests
+        self.message_store = {}  # Store messages for resend requests
 
     def logon(self):
         logon_msg = FixMessage()
@@ -94,8 +94,7 @@ class FixSession:
         if self.connection:
             self.connection.close()
             logging.info("Connection closed")
-            
-# FixInitiator class in fixsession.py
+
 class FixInitiator(FixSession):
     def start(self, host, port, use_tls=False):
         try:
@@ -113,7 +112,6 @@ class FixInitiator(FixSession):
             self.logout()
             self.disconnect()
 
-# FixAcceptor class in fixsession.py
 class FixAcceptor(FixSession):
     def start(self, host, port, use_tls=False):
         try:
