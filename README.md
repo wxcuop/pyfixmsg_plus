@@ -1,4 +1,4 @@
-Pyfixmsg
+Pyfixmsgexp
 ========
 
 ![Lifecycle:Experimental](https://img.shields.io/badge/Lifecycle-Experimental-339999)
@@ -8,9 +8,8 @@ Pyfixmsg
 [![Build Status](https://travis-ci.com/MorganStanley/pyfixmsg.svg?branch=master)](https://travis-ci.com/MorganStanley/pyfixmsg)
 //-->
 
-``pyfixmsg``is a library for parsing, manipulating and serialising [FIX](http://www.fixtradingcommunity.org)
-messages, primarily geared towards testing. The library supports both Python 2 and 3.
-
+``pyfixmsgexp``is a library for parsing, manipulating and serialising [FIX](http://www.fixtradingcommunity.org)
+messages, primarily geared towards testing forked from https://github.com/morganstanley/pyfixmsg with experminal fixsession management supporting TCP and SSL fix sessions
 Objectives
 -----------
  * provide a rich API to compare and manipulate messages. 
