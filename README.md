@@ -50,7 +50,7 @@ into an order management or a exchange/broker simulator, etc.
 
 More documentation
 ------------------
-Read the [documentation](http://pyfixmsg.readthedocs.io/), or browse the [examples](examples/pyfixmsg_examples.py) file for 
+Read the [documentation](http://pyfixmsg.readthedocs.io/), or browse the [examples](examples/pyfixmsg_example.py) file for 
 many examples
 
  
