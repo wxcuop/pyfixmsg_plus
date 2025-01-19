@@ -1,0 +1,28 @@
+name: CI
+
+on: [push, pull_request]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        python-version: ['3.12']
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v2
+
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v2
+      with:
+        python-version: ${{ matrix.python-version }}
+
+    - name: Install dependencies
+      run: |
+        curl https://raw.githubusercontent.com/quickfix/quickfix/master/spec/FIX50.xml -o FIX50.xml
+        pip install -r requirements.txt -U
+
+    - name: Run tests
+      run: py.test --spec=FIX50.xml
