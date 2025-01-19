@@ -37,7 +37,7 @@ Core classes
 
 How to run the tests
 --------------------
- * `` pytest --spec=FIX50.xml `` will launch the tests against the spec file in /var/tmp. You will need to load
+ * `` pytest --spec=/var/tmp/FIX50.xml `` will launch the tests against the spec file in /var/tmp. You will need to load
  the [spec files from quickfix](https://github.com/quickfix/quickfix/tree/master/spec) to get the tests to work. 
  The spec files are not included in this distribution.
 
