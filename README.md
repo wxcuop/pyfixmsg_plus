@@ -1,7 +1,7 @@
 Pyfixmsg
 ========
 
-![Lifecycle:Maturing](https://img.shields.io/badge/Lifecycle-Maturing-007EC6)
+![Lifecycle:Experimental](https://img.shields.io/badge/Lifecycle-Experimental-339999)
 
 <!--
 [![Documentation Status](https://readthedocs.org/projects/pyfixmsg/badge/?version=latest)](http://pyfixmsg.readthedocs.io/en/latest/?badge=latest)
