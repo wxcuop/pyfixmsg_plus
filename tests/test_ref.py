@@ -388,7 +388,7 @@ class TestOperators(object):
         assert a.get(7807) is None
 
     def test_fix_equal(self):
-        now = datetime.datetime.now()
+        now = datetime.datetime.now(datetime.timezone.utc)
         a = self.FixMessage()
         a.load_fix(self.fixmessage)
         a.time = now
@@ -398,7 +398,7 @@ class TestOperators(object):
         assert a == b
         b[25] = 7807
         assert (a == b) is False
-        b.time = datetime.datetime.now()
+        b.time = datetime.datetime.now(datetime.timezone.utc)
         assert a != b
 
     def test_delete_add_tag(self):
@@ -423,9 +423,9 @@ class TestOperators(object):
         a.load_fix(self.fixmessage)
         b.load_fix(self.fixmessage)
         c.load_fix(self.fixmessage)
-        now = datetime.datetime.now()
+        now = datetime.datetime.now(datetime.timezone.utc)
         time.sleep(0.1)
-        after = datetime.datetime.now()
+        after = datetime.datetime.now(datetime.timezone.utc)
         a.time = now
         b.time = now
         c.time = after
