@@ -8,7 +8,7 @@ jobs:
 
     strategy:
       matrix:
-        python-version: ['3.12']
+        python-version: ['3.7', '3.12']
 
     steps:
     - name: Checkout repository
@@ -23,6 +23,7 @@ jobs:
       run: |
         curl https://raw.githubusercontent.com/quickfix/quickfix/master/spec/FIX50.xml -o FIX50.xml
         pip install -r requirements.txt -U
+        pip install pytest  # Ensure that pytest is installed
 
     - name: Run tests
-      run: py.test --spec=FIX50.xml
+      run: pytest --spec=FIX50.xml  # Use pytest instead of py.test
