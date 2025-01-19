@@ -237,7 +237,7 @@ class FixMessage(FixFragment):  # pylint: disable=R0904
           * ``self.process`` an opaque value (to store the process that received or processed the message,
             defaults to empty string).
           * ``self.separator`` the default separator to use when parsing messages. Defaults to ``';'``
-          * ``self.time`` the time the message has been created or received. Defaults to ``datetime.utcnow()``
+          * ``self.time`` the time the message has been created or received. Defaults to ``datetime.datetime.now(datetime.UTC)``
           * ``self.recipient`` opaque value (to store for whom the message was intended)
           * ``self.direction`` Whether the message was received (``0``), sent (``1``) or unknown (``None``)
           * ``self.typed_values`` Whether the values in the message are typed. Defaults to ``False``
@@ -247,7 +247,7 @@ class FixMessage(FixFragment):  # pylint: disable=R0904
         """
         self.process = ''
         self.separator = ';'
-        self.time = datetime.datetime.utcnow()
+        self.time = datetime.datetime.now(datetime.UTC)
         self.recipient = ''
         self.direction = None
         self.typed_values = False
