@@ -34,7 +34,7 @@ class FixSession:
         self.is_logged_on = False
         self.connection = None
         self.message_store = {}  # Stores messages for potential resend requests
-
+        self.session_id = session_id or f"{sender_comp_id}->{target_comp_id}"
         # Load persisted sequence number state and message store if available
         self.load_state()
 
@@ -50,8 +50,8 @@ class FixSession:
         logon_msg.set_field(52, time.strftime('%Y%m%d-%H:%M:%S'))
         self.send_message(logon_msg)
         self.is_logged_on = True
-        logging.info("Logged on to FIX session")
-
+        logging.info(f"Logon: {self.session_id}")
+        
     def logout(self):
         """
         Sends a FIX Logout message to the counterparty.
@@ -64,7 +64,7 @@ class FixSession:
         logout_msg.set_field(52, time.strftime('%Y%m%d-%H:%M:%S'))
         self.send_message(logout_msg)
         self.is_logged_on = False
-        logging.info("Logged out of FIX session")
+        logging.info(f"Logout: {self.session_id}")
 
     def send_heartbeat(self):
         """
@@ -77,7 +77,7 @@ class FixSession:
         heartbeat_msg.set_field(34, self.sequence_number)
         heartbeat_msg.set_field(52, time.strftime('%Y%m%d-%H:%M:%S'))
         self.send_message(heartbeat_msg)
-        logging.info("Heartbeat sent")
+        logging.info(f"Heartbeat sent: {self.session_id}")
 
     def send_message(self, message):
         """
@@ -117,7 +117,8 @@ class FixSession:
         gap_fill_msg.set_field(123, 'Y')  # Gap Fill Flag
         gap_fill_msg.set_field(36, end_seq_no + 1)  # New Sequence Number
         self.send_message(gap_fill_msg)
-        logging.info(f"Sent gap fill from {begin_seq_no} to {end_seq_no}")
+        logging.info(f"Sent gap fill: {self.session_id} from {begin_seq_no} to {end_seq_no}")
+
 
     def increment_sequence(self):
         """
@@ -133,7 +134,8 @@ class FixSession:
         """
         self.sequence_number = new_sequence_number
         self.save_state()
-        logging.info(f"Sequence number reset to {self.sequence_number}")
+        logging.info(f"Sequence number reset: {self.session_id} to {self.sequence_number}")
+
 
     def connect(self):
         """
@@ -148,7 +150,7 @@ class FixSession:
             self.connection = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
         self.connection.connect((self.host, self.port))
-        logging.info(f"Connected to {self.host}:{self.port}")
+        logging.info(f"Connected: {self.session_id} to {host}:{port}")
 
     def disconnect(self):
         """
@@ -157,7 +159,7 @@ class FixSession:
         if self.connection:
             self.connection.close()
             self.connection = None
-            logging.info("Connection closed")
+            logging.info(f"Connection closed: {self.session_id}")
 
     def save_state(self):
         """
@@ -169,7 +171,7 @@ class FixSession:
         }
         with open(self.state_file, 'w') as f:
             json.dump(state, f)
-        logging.info(f"State saved to {self.state_file}")
+        logging.info(f"State saved: {self.session_id} to {self.state_file}")
 
     def load_state(self):
         """
@@ -181,9 +183,9 @@ class FixSession:
                 state = json.load(f)
                 self.sequence_number = state.get('sequence_number', 1)
                 self.message_store = state.get('message_store', {})
-            logging.info(f"State loaded from {self.state_file}")
+            logging.info(f"State loaded: {self.session_id} from {self.state_file}")
         else:
-            logging.info("No existing state file found. Starting fresh.")
+            logging.info(f"No state file found for {self.session_id}, starting fresh")
 
 class FixInitiator(FixSession):
     def start(self):
