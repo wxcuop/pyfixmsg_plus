@@ -34,6 +34,10 @@ class FixSession:
         self.connection = None
         self.message_store = {}  # Stores messages for potential resend requests
         self.session_id = f"{self.sender_comp_id}->{self.target_comp_id}"
+
+        self.last_heartbeat_time = None
+        self.missed_heartbeats = 0
+
         self.load_state()
 
     def logon(self):
@@ -48,6 +52,7 @@ class FixSession:
         logon_msg.set_field(52, time.strftime('%Y%m%d-%H:%M:%S'))
         self.send_message(logon_msg)
         self.is_logged_on = True
+        self.last_heartbeat_time = time.time()
         logging.info(f"Logon: {self.session_id}")
         
     def logout(self):
@@ -75,6 +80,7 @@ class FixSession:
         heartbeat_msg.set_field(34, self.sequence_number)
         heartbeat_msg.set_field(52, time.strftime('%Y%m%d-%H:%M:%S'))
         self.send_message(heartbeat_msg)
+        self.last_heartbeat_time = time.time()
         logging.info(f"Heartbeat sent: {self.session_id}")
 
     def send_test_request(self, test_req_id):
@@ -109,6 +115,20 @@ class FixSession:
         heartbeat_msg.set_field(112, test_req_id)  # TestReqID
         self.send_message(heartbeat_msg)
         logging.info(f"Heartbeat sent in response to Test Request: {self.session_id} with TestReqID={test_req_id}")
+
+    def check_heartbeat(self):
+        """
+        Checks if a heartbeat was received within the expected interval.
+        If not, sends a Test Request.
+        """
+        current_time = time.time()
+        if self.last_heartbeat_time and current_time - self.last_heartbeat_time > self.heartbeat_interval:
+            self.missed_heartbeats += 1
+            logging.warning(f"Missed heartbeat {self.missed_heartbeats} times for {self.session_id}")
+            
+            if self.missed_heartbeats >= 1:  # Adjust threshold as needed
+                test_req_id = f"TEST{int(current_time)}"
+                self.send_test_request(test_req_id)
 
     def send_message(self, message):
         """
@@ -230,6 +250,9 @@ class FixInitiator(FixSession):
                 # Send periodic heartbeats
                 self.send_heartbeat()
                 time.sleep(self.heartbeat_interval)  # Heartbeat interval from config
+                
+                # Check for missed heartbeats and send Test Request if necessary
+                self.check_heartbeat()
 
         except Exception as e:
             logging.error(f"Error in FixInitiator: {e}")
@@ -252,6 +275,9 @@ class FixAcceptor(FixSession):
                 # Send periodic heartbeats
                 self.send_heartbeat()
                 time.sleep(self.heartbeat_interval)  # Heartbeat interval from config
+
+                # Check for missed heartbeats and send Test Request if necessary
+                self.check_heartbeat()
 
         except Exception as e:
             logging.error(f"Error in FixAcceptor: {e}")
