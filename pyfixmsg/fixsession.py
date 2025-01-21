@@ -26,16 +26,14 @@ class FixSession:
         self.host = self.config['FIX'].get('host', 'localhost')
         self.port = int(self.config['FIX'].get('port', '5000'))
         self.use_tls = self.config['FIX'].getboolean('use_tls', False)
-        # Read the state_file path from config
-        # Default file name: 'fix_session_state.json'
+        self.heartbeat_interval = int(self.config['FIX'].get('heartbeat_interval', '30'))
         self.state_file = self.config['FIX'].get('state_file', 'fix_session_state.json')
 
         self.sequence_number = 1
         self.is_logged_on = False
         self.connection = None
         self.message_store = {}  # Stores messages for potential resend requests
-        self.session_id = session_id or f"{sender_comp_id}->{target_comp_id}"
-        # Load persisted sequence number state and message store if available
+        self.session_id = f"{self.sender_comp_id}->{self.target_comp_id}"
         self.load_state()
 
     def logon(self):
@@ -119,7 +117,6 @@ class FixSession:
         self.send_message(gap_fill_msg)
         logging.info(f"Sent gap fill: {self.session_id} from {begin_seq_no} to {end_seq_no}")
 
-
     def increment_sequence(self):
         """
         Increments the outgoing sequence number and saves updated state.
@@ -136,7 +133,6 @@ class FixSession:
         self.save_state()
         logging.info(f"Sequence number reset: {self.session_id} to {self.sequence_number}")
 
-
     def connect(self):
         """
         Establishes a connection to the counterparty, either using TLS or plain TCP.
@@ -150,7 +146,7 @@ class FixSession:
             self.connection = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
         self.connection.connect((self.host, self.port))
-        logging.info(f"Connected: {self.session_id} to {host}:{port}")
+        logging.info(f"Connected: {self.session_id} to {self.host}:{self.port}")
 
     def disconnect(self):
         """
@@ -200,7 +196,7 @@ class FixInitiator(FixSession):
             while self.is_logged_on:
                 # Send periodic heartbeats
                 self.send_heartbeat()
-                time.sleep(30)  # Heartbeat interval (adjust as needed)
+                time.sleep(self.heartbeat_interval)  # Heartbeat interval from config
 
         except Exception as e:
             logging.error(f"Error in FixInitiator: {e}")
@@ -222,7 +218,7 @@ class FixAcceptor(FixSession):
             while self.is_logged_on:
                 # Send periodic heartbeats
                 self.send_heartbeat()
-                time.sleep(30)  # Heartbeat interval (adjust as needed)
+                time.sleep(self.heartbeat_interval)  # Heartbeat interval from config
 
         except Exception as e:
             logging.error(f"Error in FixAcceptor: {e}")
