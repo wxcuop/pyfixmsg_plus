@@ -77,6 +77,39 @@ class FixSession:
         self.send_message(heartbeat_msg)
         logging.info(f"Heartbeat sent: {self.session_id}")
 
+    def send_test_request(self, test_req_id):
+        """
+        Sends a FIX Test Request message.
+        
+        :param test_req_id: The Test Request ID to be included in the message.
+        """
+        test_request_msg = FixMessage()
+        test_request_msg.set_field(35, '1')  # MsgType = Test Request
+        test_request_msg.set_field(49, self.sender_comp_id)
+        test_request_msg.set_field(56, self.target_comp_id)
+        test_request_msg.set_field(34, self.sequence_number)
+        test_request_msg.set_field(52, time.strftime('%Y%m%d-%H:%M:%S'))
+        test_request_msg.set_field(112, test_req_id)  # TestReqID
+        self.send_message(test_request_msg)
+        logging.info(f"Test Request sent: {self.session_id} with TestReqID={test_req_id}")
+
+    def handle_test_request(self, message):
+        """
+        Handles an incoming FIX Test Request message by responding with a Heartbeat.
+        
+        :param message: The incoming Test Request message.
+        """
+        test_req_id = message.get_field(112)
+        heartbeat_msg = FixMessage()
+        heartbeat_msg.set_field(35, '0')  # MsgType = Heartbeat
+        heartbeat_msg.set_field(49, self.sender_comp_id)
+        heartbeat_msg.set_field(56, self.target_comp_id)
+        heartbeat_msg.set_field(34, self.sequence_number)
+        heartbeat_msg.set_field(52, time.strftime('%Y%m%d-%H:%M:%S'))
+        heartbeat_msg.set_field(112, test_req_id)  # TestReqID
+        self.send_message(heartbeat_msg)
+        logging.info(f"Heartbeat sent in response to Test Request: {self.session_id} with TestReqID={test_req_id}")
+
     def send_message(self, message):
         """
         Serializes and sends a FIX message over the active connection.
