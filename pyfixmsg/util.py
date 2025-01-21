@@ -2,6 +2,7 @@
 
 import sys
 import datetime
+import time
 
 import six
 
@@ -42,3 +43,13 @@ def utc_timestamp():
     @rtype: C{str}
     """
     return datetime.datetime.utcnow().strftime(DATEFORMAT)
+
+
+def generate_clordid(prefix="ORD"):
+    """
+    Generates a unique Client Order ID (ClOrdID).
+    :param prefix: A prefix for the ClOrdID (default is "ORD").
+    :return: A unique ClOrdID string.
+    """
+    timestamp = int(time.time() * 1000)  # Current time in milliseconds
+    return f"{prefix}{timestamp}"
