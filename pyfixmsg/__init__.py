@@ -4,10 +4,12 @@ TODO Write doc
 import sys
 import itertools
 
-if sys.version_info[0] < 3:
-    raise ImportError("This module only supports Python 3.")
+import six
 
-STRSUM = sum
+if six.PY2:
+    STRSUM = lambda x: sum(bytearray(x))
+else:
+    STRSUM = sum
 
 
 class RepeatingGroup(list):
@@ -46,7 +48,8 @@ class RepeatingGroup(list):
 
     def __add__(self, other):
         """ addition of groups"""
-        result = RepeatingGroupFactory(self.number_tag, self.standard, self.first_tag).get_r_group(*self)
+        result = RepeatingGroupFactory(self.number_tag, self.standard,
+                                       self.first_tag).get_r_group(*self)
         for group in other:
             result.append(group)
         return result
@@ -95,7 +98,7 @@ class RepeatingGroup(list):
         return sum(len_and_chsum(member)[0] for member in self)
 
 
-class RepeatingGroupFactory:
+class RepeatingGroupFactory(object):
     """ An easy way to create a repeating group for a given tag, without having to define all the tags yourself, takes
     the standard ones"""
 
@@ -122,7 +125,7 @@ def len_and_chsum(msg, group=False):
         if not isinstance(tag, bytes):
             tag = str(tag).encode('ascii')
         if not isinstance(value, bytes) and not isinstance(value, RepeatingGroup):
-            if isinstance(value, str):
+            if isinstance(value, six.text_type):
                 value = value.encode('UTF-8')
             else:
                 value = str(value).encode('UTF-8')
