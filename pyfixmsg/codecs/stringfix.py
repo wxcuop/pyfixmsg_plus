@@ -4,8 +4,6 @@ import re
 import warnings
 from collections import deque
 
-import six
-
 from pyfixmsg import RepeatingGroup
 from pyfixmsg.util import int_or_str
 from pyfixmsg.reference import HEADER_TAGS, HEADER_SORT_MAP, ENCODED_DATA_TAGS
@@ -27,7 +25,7 @@ HEADER_TAGS_SET = {str(tag) for tag in HEADER_TAGS}
 ENCODED_TAG_SET = {str(tag) for tag in ENCODED_DATA_TAGS}
 
 
-class Codec(object):
+class Codec:
     """
     FIX codec. Initialise with a :py:class:`~pyfixmsg.reference.FixSpec` to support
     repeating groups.
@@ -58,10 +56,7 @@ class Codec(object):
         self.encoding = decode_as
         self.decode_all_as_347 = decode_all_as_347
         self.spec = spec
-        if spec is None:
-            self._no_groups = True
-        else:
-            self._no_groups = no_groups
+        self._no_groups = no_groups if spec is not None else True
         self._frg_class = fragment_class
 
     def parse(self, buff, delimiter=DELIMITER, separator=SEPARATOR):
@@ -74,7 +69,7 @@ class Codec(object):
         :param buff: Buffer to parse
         :type buff:  ``bytestr`` or ``unicode``
         :param delimiter: A character that separate key and values inside the FIX message. Generally '='. Note the type:
-          because of the way the buffer is tokenised, this needs to be unicode (or ``str`` in python 2.7*).
+          because of the way the buffer is tokenised, this needs to be unicode.
         :type delimiter: ``unicode``
         :param separator: A character that separate key+value pairs inside the FIX message. Generally '\1'. See type
           observations above.
@@ -85,12 +80,12 @@ class Codec(object):
             Generator which allows to push back a previously picked item
             for example:
             gen = pushback_generator(range(10))
-            print next(gen)
-            print next(gen)
+            print(next(gen))
+            print(next(gen))
             v = next(gen)
-            print v
+            print(v)
             gen.send(v)
-            print next(gen)
+            print(next(gen))
             :param iterator:
             :return:
             """
@@ -106,18 +101,18 @@ class Codec(object):
         input_in_unicode = False
         msg_type = None
 
-        if isinstance(buff, six.text_type):
+        if isinstance(buff, str):
             input_in_unicode = True
-            custom_r = re.compile(six.ensure_text(FIX_REGEX_STRING.format(
-                d=re.escape(delimiter), s=re.escape(separator)), encoding='ascii'), re.DOTALL)
+            custom_r = re.compile(FIX_REGEX_STRING.format(
+                d=re.escape(delimiter), s=re.escape(separator)), re.DOTALL)
             if self.encoding is not None:
                 encoding = None  # No need to decode
-                warnings.warn('Processing a unicode message and ignore the argument "decode_as={}"'.format(self.encoding))
+                warnings.warn('Processing a unicode message and ignoring the argument "decode_as={}"'.format(self.encoding))
             if self.decode_all_as_347:
-                warnings.warn('Processing a unicode message and ignore the argument "decode_all_as_347={}"'.format(self.decode_all_as_347))
+                warnings.warn('Processing a unicode message and ignoring the argument "decode_all_as_347={}"'.format(self.decode_all_as_347))
         elif isinstance(buff, bytes):
-            custom_r = re.compile(six.ensure_binary(FIX_REGEX_STRING.format(
-                d=re.escape(delimiter), s=re.escape(separator)), encoding='ascii'), re.DOTALL)
+            custom_r = re.compile(FIX_REGEX_STRING.format(
+                d=re.escape(delimiter), s=re.escape(separator)), re.DOTALL)
         else:
             raise ValueError('Unsupported type of input: {}'.format(type(buff)))
 
@@ -125,33 +120,27 @@ class Codec(object):
 
         if not self._no_groups and self.spec is not None:
             for i in range(4):
-                if tagvals[i][0] in (b'35', u'35'):
+                if tagvals[i][0] in ('35', '35'):
                     msg_type = self.spec.msg_types.get(tagvals[i][1])
 
         if not input_in_unicode:
             for tag, val in tagvals:
                 if int_or_str(tag) == 347:
-                    encoding_347 = six.ensure_str(val)
+                    encoding_347 = val.decode()
                     break
-                if six.ensure_str(tag) not in HEADER_TAGS_SET:  # already enter the message body
+                if tag.decode() not in HEADER_TAGS_SET:  # already enter the message body
                     break
 
         if self.decode_all_as_347 and encoding_347:
-            tagvals = ((int_or_str(tval[0], encoding_347), six.ensure_text(tval[1], encoding_347)) for tval in tagvals)
+            tagvals = ((int_or_str(tval[0], encoding_347), tval[1].decode(encoding_347)) for tval in tagvals)
         elif encoding:
             tagvals = ((int_or_str(tval[0], encoding),
-                        six.ensure_text(tval[1], (encoding_347 if encoding_347 and tval[0].decode() in ENCODED_TAG_SET else encoding))
-                       ) for tval in tagvals)
-        elif not input_in_unicode and six.PY3:
-            tagvals = ((int_or_str(tval[0], 'ascii'),
-                        six.ensure_text(tval[1], (encoding_347 if encoding_347 and tval[0].decode() in ENCODED_TAG_SET else 'UTF-8'))
-                       ) for tval in tagvals)
-        elif input_in_unicode and six.PY2:
-            tagvals = ((int_or_str(six.ensure_binary(tval[0]), 'ascii'),
-                        six.ensure_binary(tval[1], (encoding_347 if encoding_347 and tval[0].encode() in ENCODED_TAG_SET else 'UTF-8'))
-                        ) for tval in tagvals)
+                        tval[1].decode((encoding_347 if encoding_347 and tval[0].decode() in ENCODED_TAG_SET else encoding)))
+                       for tval in tagvals)
         else:
-            tagvals = ((int_or_str(tval[0]), tval[1]) for tval in tagvals)
+            tagvals = ((int_or_str(tval[0], 'ascii'),
+                        tval[1].decode((encoding_347 if encoding_347 and tval[0].decode() in ENCODED_TAG_SET else 'UTF-8')))
+                       for tval in tagvals)
 
         if self._no_groups or self.spec is None or msg_type is None:
             # no groups can be found without a spec, so no point looking up the msg type.
@@ -163,7 +152,7 @@ class Codec(object):
             if tag not in groups:
                 msg[tag] = value
             else:
-                if value in (b'0', u'0'):
+                if value in ('0', '0'):
                     msg[tag] = RepeatingGroup.create_repeating_group(tag)
                 else:
                     contents, last_tagval = self._process_group(tag, tagvals,
@@ -277,7 +266,7 @@ class Codec(object):
                 output.append(str(tag).encode('ascii'))
             elif isinstance(tag, bytes):
                 output.append(tag)
-            elif isinstance(tag, six.text_type):
+            elif isinstance(tag, str):
                 output.append(tag.encode('ascii'))
             else:
                 output.append(str(tag).encode('ascii'))
@@ -287,8 +276,8 @@ class Codec(object):
             elif isinstance(value, bytes):
                 output.append(value)
             else:
-                if not isinstance(value, six.text_type):
-                    value = six.ensure_text(value)
+                if not isinstance(value, str):
+                    value = str(value)
                 if encoding is not None:
                     output.append(value.encode(encoding))
                 elif self.encoding is not None:
