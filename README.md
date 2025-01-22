@@ -1,9 +1,9 @@
-Pyfixmsg_exp
+Pyfixmsg_plus
 ========
 
 ![Lifecycle:Experimental](https://img.shields.io/badge/Lifecycle-Experimental-339999)
 
-``pyfixmsg_exp``is a library for parsing, manipulating and serialising [FIX](http://www.fixtradingcommunity.org)
+``pyfixmsg_plus``is a library for parsing, manipulating and serialising [FIX](http://www.fixtradingcommunity.org)
 messages, primarily geared towards testing forked from https://github.com/morganstanley/pyfixmsg with experimental fixsession management supporting TCP and SSL fix sessions
 
 Objectives
