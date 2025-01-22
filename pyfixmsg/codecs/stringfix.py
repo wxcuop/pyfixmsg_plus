@@ -8,15 +8,15 @@ from pyfixmsg import RepeatingGroup
 from pyfixmsg.util import int_or_str
 from pyfixmsg.reference import HEADER_TAGS, HEADER_SORT_MAP, ENCODED_DATA_TAGS
 
-SEPARATOR = b'\1'
+SEPARATOR = '\1'
 """
 Standard separator for the StringFIX codec between tag value pairs.
 However, the codec supports an arbitrary separator as using | or ; or "<SOH>" is
 common.
 """
 
-DELIMITER = b'='
-FIX_REGEX_STRING = rb'([^{s}{d}]*)[{d}](.*?){s}(?!\w+{s})'
+DELIMITER = '='
+FIX_REGEX_STRING = r'([^{s}{d}]*)[{d}](.*?){s}(?!\w+{s})'
 MICROSECONDS = 0
 MILLISECONDS = 1
 
@@ -102,8 +102,8 @@ class Codec:
 
         if isinstance(buff, str):
             input_in_unicode = True
-            custom_r = re.compile(FIX_REGEX_STRING.decode().format(
-                d=re.escape(delimiter.decode()), s=re.escape(separator.decode())), re.DOTALL)
+            custom_r = re.compile(FIX_REGEX_STRING.format(
+                d=re.escape(delimiter), s=re.escape(separator)), re.DOTALL)
             if self.encoding is not None:
                 encoding = None  # No need to decode
                 warnings.warn('Processing a unicode message and ignoring the argument "decode_as={}"'.format(self.encoding))
@@ -111,34 +111,34 @@ class Codec:
                 warnings.warn('Processing a unicode message and ignoring the argument "decode_all_as_347={}"'.format(self.decode_all_as_347))
         elif isinstance(buff, bytes):
             custom_r = re.compile(FIX_REGEX_STRING.format(
-                d=re.escape(delimiter), s=re.escape(separator)), re.DOTALL)
+                d=re.escape(delimiter.decode()), s=re.escape(separator.decode())), re.DOTALL)
         else:
             raise ValueError('Unsupported type of input: {}'.format(type(buff)))
 
-        tagvals = custom_r.findall(buff)
+        tagvals = custom_r.findall(buff.decode() if isinstance(buff, bytes) else buff)
 
         if not self._no_groups and self.spec is not None:
             for i in range(4):
-                if tagvals[i][0] in (b'35', u'35'):
+                if tagvals[i][0] in ('35', '35'):
                     msg_type = self.spec.msg_types.get(tagvals[i][1])
 
         if not input_in_unicode:
             for tag, val in tagvals:
                 if int_or_str(tag) == 347:
-                    encoding_347 = val.decode()
+                    encoding_347 = val
                     break
-                if tag.decode() not in HEADER_TAGS_SET:  # already enter the message body
+                if tag not in HEADER_TAGS_SET:  # already enter the message body
                     break
 
         if self.decode_all_as_347 and encoding_347:
-            tagvals = ((int_or_str(tval[0], encoding_347), tval[1].decode(encoding_347)) for tval in tagvals)
+            tagvals = ((int_or_str(tval[0], encoding_347), tval[1]) for tval in tagvals)
         elif encoding:
             tagvals = ((int_or_str(tval[0], encoding),
-                        tval[1].decode((encoding_347 if encoding_347 and tval[0].decode() in ENCODED_TAG_SET else encoding)))
+                        tval[1])
                        for tval in tagvals)
         else:
             tagvals = ((int_or_str(tval[0], 'ascii'),
-                        tval[1].decode((encoding_347 if encoding_347 and tval[0].decode() in ENCODED_TAG_SET else 'UTF-8')))
+                        tval[1])
                        for tval in tagvals)
 
         if self._no_groups or self.spec is None or msg_type is None:
@@ -151,7 +151,7 @@ class Codec:
             if tag not in groups:
                 msg[tag] = value
             else:
-                if value in (b'0', u'0'):
+                if value in ('0', '0'):
                     msg[tag] = RepeatingGroup.create_repeating_group(tag)
                 else:
                     contents, last_tagval = self._process_group(tag, tagvals,
@@ -269,7 +269,7 @@ class Codec:
                 output.append(tag.encode('ascii'))
             else:
                 output.append(str(tag).encode('ascii'))
-            output.append(delimiter)
+            output.append(delimiter.encode('ascii'))
             if isinstance(value, int):
                 output.append(str(value).encode('UTF-8'))
             elif isinstance(value, bytes):
@@ -283,5 +283,5 @@ class Codec:
                     output.append(value.encode(self.encoding))
                 else:
                     output.append(value.encode('UTF-8'))
-            output.append(separator)
+            output.append(separator.encode('ascii'))
         return b''.join(output)
