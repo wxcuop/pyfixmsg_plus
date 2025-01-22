@@ -6,6 +6,8 @@ import decimal
 import warnings
 import datetime
 
+import six
+
 import pyfixmsg
 from pyfixmsg.codecs.stringfix import Codec
 from pyfixmsg.util import native_str
@@ -81,6 +83,11 @@ class FixFragment(dict):
         """ returns true if the tag is in the message or anywhere inside any contained repeating group"""
         if tag in self:
             return True
+        # Needs a full name for RepeatingGroup for unknown reasons....
+        # the isinstance here annoys me as it is not duck-typing-safe
+        # but the only quick alternative is to search for i in values which is going to match way too much
+        # as the values are string on normal tags, searching for tag 12 in "48=21;31=12;' will match, which
+        # is obviously wrong
         for group in (i for i in list(self.values()) if isinstance(i, pyfixmsg.RepeatingGroup)):
             if any((msg.anywhere(tag) for msg in group)):
                 return True
@@ -111,7 +118,8 @@ class FixFragment(dict):
         return list(set(tag for tag in self._all_tags()))
 
 
-class FixMessage(FixFragment):
+class FixMessage(FixFragment):  # pylint: disable=R0904
+    # too many public methods. Needed for compatibility and functionality
     """ Simple dictionary-like object, for use with FIX raw messages. Note that the tags are converted (when possible)
     to integers, and that the values are kept as strings. The default separator is ``;``, but can be specified.
     Check the definition of :py:meth:`~pyfixmsg.FixMessage.load_fix` for details.
@@ -229,7 +237,7 @@ class FixMessage(FixFragment):
           * ``self.process`` an opaque value (to store the process that received or processed the message,
             defaults to empty string).
           * ``self.separator`` the default separator to use when parsing messages. Defaults to ``';'``
-          * ``self.time`` the time the message has been created or received. Defaults to ``datetime.datetime.now(datetime.UTC)``
+          * ``self.time`` the time the message has been created or received. Defaults to ``datetime.utcnow()``
           * ``self.recipient`` opaque value (to store for whom the message was intended)
           * ``self.direction`` Whether the message was received (``0``), sent (``1``) or unknown (``None``)
           * ``self.typed_values`` Whether the values in the message are typed. Defaults to ``False``
@@ -239,7 +247,7 @@ class FixMessage(FixFragment):
         """
         self.process = ''
         self.separator = ';'
-        self.time = datetime.datetime.now(datetime.UTC)
+        self.time = datetime.datetime.utcnow()
         self.recipient = ''
         self.direction = None
         self.typed_values = False
@@ -292,11 +300,11 @@ class FixMessage(FixFragment):
         :param string: the string containing the FIX message to be parsed
         :type string: ``bytes``
         :param process: Optional originator of the FIX message
-        :type process: ``str``
+        :type process: ``unicode``
         :param separator: Character delimiting "tag=val" pairs.
           Optional. By default this is a ';' character.
           Specify ``pyfixmsg.SEPARATOR`` when parsing standard FIX.
-        :type separator: ``str``
+        :type separator: ``unicode``
         :return: A parsed fix message
         :rtype: ``FixMessage``
         """
@@ -352,10 +360,10 @@ class FixMessage(FixFragment):
         """
         out = self.output_fix()
         try:
-            out = out.encode('UTF-8')
+            out = six.ensure_text(out).encode('UTF-8')
         except (UnicodeDecodeError, NameError):
             pass
-        return out.decode('UTF-8')
+        return six.ensure_str(out)
 
     def calculate_checksum(self):
         """ calculates the standard fix checksum"""
