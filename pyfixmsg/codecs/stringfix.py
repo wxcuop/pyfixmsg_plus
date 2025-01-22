@@ -111,11 +111,11 @@ class Codec:
                 warnings.warn('Processing a unicode message and ignoring the argument "decode_all_as_347={}"'.format(self.decode_all_as_347))
         elif isinstance(buff, bytes):
             custom_r = re.compile(FIX_REGEX_STRING.format(
-                d=re.escape(delimiter.decode()), s=re.escape(separator.decode())), re.DOTALL)
+                d=re.escape(delimiter.decode('ascii')), s=re.escape(separator.decode('ascii'))), re.DOTALL)
         else:
             raise ValueError('Unsupported type of input: {}'.format(type(buff)))
 
-        tagvals = custom_r.findall(buff.decode() if isinstance(buff, bytes) else buff)
+        tagvals = custom_r.findall(buff.decode('ascii') if isinstance(buff, bytes) else buff)
 
         if not self._no_groups and self.spec is not None:
             for i in range(4):
