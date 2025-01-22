@@ -4,7 +4,7 @@ import time
 import json
 import os
 from unittest.mock import patch, MagicMock
-from fixsession import FixInitiator, FixAcceptor, FixMessage
+from pyfixmsg.fixsession import FixInitiator, FixAcceptor, FixMessage
 
 @pytest.fixture
 def mock_config(tmp_path):
