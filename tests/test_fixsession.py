@@ -4,6 +4,8 @@ import time
 import json
 import os
 from unittest.mock import patch, MagicMock
+
+sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..'))
 from pyfixmsg.fixsession import FixInitiator, FixAcceptor, FixMessage
 
 @pytest.fixture
