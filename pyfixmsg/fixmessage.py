@@ -6,8 +6,6 @@ import decimal
 import warnings
 import datetime
 
-import six
-
 import pyfixmsg
 from pyfixmsg.codecs.stringfix import Codec
 from pyfixmsg.util import native_str
@@ -83,11 +81,6 @@ class FixFragment(dict):
         """ returns true if the tag is in the message or anywhere inside any contained repeating group"""
         if tag in self:
             return True
-        # Needs a full name for RepeatingGroup for unknown reasons....
-        # the isinstance here annoys me as it is not duck-typing-safe
-        # but the only quick alternative is to search for i in values which is going to match way too much
-        # as the values are string on normal tags, searching for tag 12 in "48=21;31=12;' will match, which
-        # is obviously wrong
         for group in (i for i in list(self.values()) if isinstance(i, pyfixmsg.RepeatingGroup)):
             if any((msg.anywhere(tag) for msg in group)):
                 return True
@@ -118,8 +111,7 @@ class FixFragment(dict):
         return list(set(tag for tag in self._all_tags()))
 
 
-class FixMessage(FixFragment):  # pylint: disable=R0904
-    # too many public methods. Needed for compatibility and functionality
+class FixMessage(FixFragment):
     """ Simple dictionary-like object, for use with FIX raw messages. Note that the tags are converted (when possible)
     to integers, and that the values are kept as strings. The default separator is ``;``, but can be specified.
     Check the definition of :py:meth:`~pyfixmsg.FixMessage.load_fix` for details.
@@ -300,11 +292,11 @@ class FixMessage(FixFragment):  # pylint: disable=R0904
         :param string: the string containing the FIX message to be parsed
         :type string: ``bytes``
         :param process: Optional originator of the FIX message
-        :type process: ``unicode``
+        :type process: ``str``
         :param separator: Character delimiting "tag=val" pairs.
           Optional. By default this is a ';' character.
           Specify ``pyfixmsg.SEPARATOR`` when parsing standard FIX.
-        :type separator: ``unicode``
+        :type separator: ``str``
         :return: A parsed fix message
         :rtype: ``FixMessage``
         """
@@ -360,10 +352,10 @@ class FixMessage(FixFragment):  # pylint: disable=R0904
         """
         out = self.output_fix()
         try:
-            out = six.ensure_text(out).encode('UTF-8')
+            out = out.encode('UTF-8')
         except (UnicodeDecodeError, NameError):
             pass
-        return six.ensure_str(out)
+        return out.decode('UTF-8')
 
     def calculate_checksum(self):
         """ calculates the standard fix checksum"""
