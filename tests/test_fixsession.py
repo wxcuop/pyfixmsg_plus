@@ -78,18 +78,20 @@ def test_fix_initiator_send_message(fix_initiator):
     with patch('socket.socket.sendall') as mock_sendall:
         fix_initiator.connect()
         fix_initiator.sequence_number = 1
-        message = FixMessage()
-        message.set_field(35, 'D')  # MsgType = New Order - Single
-        message.set_field(49, fix_initiator.sender_comp_id)
-        message.set_field(56, fix_initiator.target_comp_id)
-        message.set_field(34, fix_initiator.sequence_number)
-        message.set_field(52, time.strftime('%Y%m%d-%H:%M:%S'))
+        data = (
+            b'8=FIX.4.2|9=97|35=6|49=ABC|56=CAB|34=14|52=20100204-09:18:42|'
+            b'23=115685|28=N|55=BLAH|54=2|44=2200.75|27=S|25=H|10=248|'
+        )
+        message = FixMessage().load_fix(data, separator='|')
         fix_initiator.send_message(message)
         assert fix_initiator.sequence_number == 2
         mock_sendall.assert_called_once()
 
 def test_fix_acceptor_receive_message(fix_acceptor):
-    mock_data = b'8=FIX.4.2\x019=176\x0135=D\x0149=SENDER\x0156=TARGET\x0134=1\x0152=20230101-12:00:00\x0110=000\x01'
+    mock_data = (
+        b'8=FIX.4.2|9=97|35=6|49=ABC|56=CAB|34=14|52=20100204-09:18:42|'
+        b'23=115685|28=N|55=BLAH|54=2|44=2200.75|27=S|25=H|10=248|'
+    )
     with patch('socket.socket.recv') as mock_recv:
         mock_recv.return_value = mock_data
         fix_acceptor.listen()
@@ -117,8 +119,11 @@ def test_fix_initiator_check_heartbeat(fix_initiator):
 
 def test_fix_initiator_send_message_not_connected(fix_initiator):
     with pytest.raises(ConnectionError):
-        message = FixMessage()
-        message.set_field(35, 'D')  # MsgType = New Order - Single
+        data = (
+            b'8=FIX.4.2|9=97|35=6|49=ABC|56=CAB|34=14|52=20100204-09:18:42|'
+            b'23=115685|28=N|55=BLAH|54=2|44=2200.75|27=S|25=H|10=248|'
+        )
+        message = FixMessage().load_fix(data, separator='|')
         fix_initiator.send_message(message)
 
 def test_fix_acceptor_receive_message_not_connected(fix_acceptor):
