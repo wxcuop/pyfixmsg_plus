@@ -1,10 +1,7 @@
 """Small utility-type functions"""
 
-import sys
 import datetime
 import time
-
-import six
 
 DATEFORMAT = '%Y%m%d-%H:%M:%S.%f'
 
@@ -15,7 +12,7 @@ def int_or_str(val, decode_as=None):
         return int(val)
     except ValueError:
         if decode_as is None:
-            if isinstance(val, (bytes, six.text_type)):
+            if isinstance(val, (bytes, str)):
                 return val.strip()
             else:
                 return str(val)
@@ -31,16 +28,15 @@ def native_str(val, encoding='UTF-8'):
         return val
     if isinstance(val, int):
         return str(val)
-    try:
-        return six.ensure_str(val, encoding=encoding)
-    except TypeError:
-        return str(val)  # i.e. val is Decimal type
+    if isinstance(val, bytes):
+        return val.decode(encoding)
+    return str(val)
 
 
 def utc_timestamp():
     """
     @return: a UTCTimestamp (see FIX spec)
-    @rtype: C{str}
+    @rtype: str
     """
     return datetime.datetime.utcnow().strftime(DATEFORMAT)
 
