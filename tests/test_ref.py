@@ -1,4 +1,3 @@
-
 from __future__ import print_function
 
 import pickle
@@ -7,6 +6,8 @@ import datetime
 import time
 import sys
 import os
+
+import six
 import pytest
 
 sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..'))
@@ -387,7 +388,7 @@ class TestOperators(object):
         assert a.get(7807) is None
 
     def test_fix_equal(self):
-        now = datetime.datetime.now(datetime.timezone.utc)
+        now = datetime.datetime.now()
         a = self.FixMessage()
         a.load_fix(self.fixmessage)
         a.time = now
@@ -397,7 +398,7 @@ class TestOperators(object):
         assert a == b
         b[25] = 7807
         assert (a == b) is False
-        b.time = datetime.datetime.now(datetime.timezone.utc)
+        b.time = datetime.datetime.now()
         assert a != b
 
     def test_delete_add_tag(self):
@@ -422,9 +423,9 @@ class TestOperators(object):
         a.load_fix(self.fixmessage)
         b.load_fix(self.fixmessage)
         c.load_fix(self.fixmessage)
-        now = datetime.datetime.now(datetime.timezone.utc)
+        now = datetime.datetime.now()
         time.sleep(0.1)
-        after = datetime.datetime.now(datetime.timezone.utc)
+        after = datetime.datetime.now()
         a.time = now
         b.time = now
         c.time = after
@@ -646,7 +647,7 @@ class TestOperators(object):
         after = FixMessage()
         after.codec = Codec(spec=spec, fragment_class=FixFragment)
         after.load_fix(data, separator='|')
-        assert isinstance(before[268], (bytes, str))  # 268 is not parsed as a repeating group
+        assert isinstance(before[268], (six.binary_type, six.text_type))  # 268 is not parsed as a repeating group
         assert before[270] == '1.37224'  # 268 is not parsed as a repeating group, so 270 takes the second value
         assert isinstance(after[268], RepeatingGroup)
         with pytest.raises(KeyError):
