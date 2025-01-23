@@ -7,7 +7,7 @@ from unittest.mock import patch, MagicMock
 import sys
 
 sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..'))
-from pyfixmsg.fixsession import FixInitiator, FixAcceptor, FixMessage
+from pyfixmsg_plus.fixsession import FixInitiator, FixAcceptor, FixMessage
 
 @pytest.fixture
 def mock_config(tmp_path):
