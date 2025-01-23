@@ -6,58 +6,53 @@ from Crypto.Cipher import AES
 from Crypto.Random import get_random_bytes
 
 class CryptException(Exception):
-    def __init__(self, msg):
-        super(CryptException, self).__init__(msg)
+    pass
 
-class CryptEvents(object):
+class CryptEvents:
     def CRYPT_NotifyMsg(self, msg, level):
         raise NotImplementedError('Subclass responsibility')
-        
-class CryptEventsNotifier(object):  
+
+class CryptEventsNotifier:
     def __init__(self, cevent):
         self.ste = cevent
-        
+
     def CRYPT_NotifyMsg(self, msg, level):
         self.ste.CRYPT_NotifyMsg(msg, level)
-        
-class crypt(object):
-    def __init__(self, cryptpass, en, log=None):
-        self.cryptpass = cryptpass
-        self.EN = en
-        self.L = log
-        self.ITERATIONS = 1000
-        
-    def LogMessage(self, Msg, level):
-        if self.EN:
-            self.EN.CRYPT_NotifyMsg(Msg, level)
-        if self.L:
-            if level == "DEBUG":
-                self.L.debug(Msg)
-            elif level == "ERROR":
-                self.L.error(Msg)
-            elif level == "FATAL":
-                self.L.fatal(Msg)
-            elif level == "INFO":
-                self.L.info(Msg)
-            elif level == "WARNING":
-                self.L.warn(Msg)
-                
-    def checkCrypt(self, param):
-        CRYPTPassword = self.cryptpass.encode('utf-8')
-        Res = ""
+
+class Crypt:
+    def __init__(self, crypt_pass, event_notifier=None, logger=None, iterations=1000):
+        self.crypt_pass = crypt_pass
+        self.event_notifier = event_notifier
+        self.logger = logger
+        self.iterations = iterations
+
+    def log_message(self, msg, level):
+        if self.event_notifier:
+            self.event_notifier.CRYPT_NotifyMsg(msg, level)
+        if self.logger:
+            log_methods = {
+                "DEBUG": self.logger.debug,
+                "ERROR": self.logger.error,
+                "FATAL": self.logger.fatal,
+                "INFO": self.logger.info,
+                "WARNING": self.logger.warn
+            }
+            log_methods.get(level, self.logger.info)(msg)
+
+    def check_crypt(self, param):
+        crypt_password = self.crypt_pass.encode('utf-8')
         if param.startswith("clear:"):
-            self.LogMessage(param + ", will be encrypted", "INFO")
-            encryptedValue = self.encrypt(CRYPTPassword, param.split(':', 1)[1])
-            Res = encryptedValue
-            self.LogMessage("Encrypted value is:\n" + encryptedValue, "INFO")
+            self.log_message(f"{param}, will be encrypted", "INFO")
+            encrypted_value = self.encrypt(crypt_password, param.split(':', 1)[1])
+            self.log_message(f"Encrypted value is:\n{encrypted_value}", "INFO")
+            return encrypted_value
         else:
-            self.LogMessage("decrypting " + param, "INFO")
-            Res = self.decrypt(CRYPTPassword, param)
-        return Res
+            self.log_message(f"Decrypting {param}", "INFO")
+            return self.decrypt(crypt_password, param)
 
     def encrypt(self, password, plaintext):
         salt = get_random_bytes(16)
-        key = hashlib.pbkdf2_hmac('sha256', password, salt, self.ITERATIONS, dklen=32)
+        key = hashlib.pbkdf2_hmac('sha256', password, salt, self.iterations, dklen=32)
         cipher = AES.new(key, AES.MODE_GCM)
         ciphertext, tag = cipher.encrypt_and_digest(plaintext.encode('utf-8'))
         return base64.b64encode(salt + cipher.nonce + tag + ciphertext).decode('utf-8')
@@ -65,7 +60,7 @@ class crypt(object):
     def decrypt(self, password, text):
         data = base64.b64decode(text)
         salt, nonce, tag, ciphertext = data[:16], data[16:32], data[32:48], data[48:]
-        key = hashlib.pbkdf2_hmac('sha256', password, salt, self.ITERATIONS, dklen=32)
+        key = hashlib.pbkdf2_hmac('sha256', password, salt, self.iterations, dklen=32)
         cipher = AES.new(key, AES.MODE_GCM, nonce=nonce)
         try:
             plaintext = cipher.decrypt_and_verify(ciphertext, tag)
