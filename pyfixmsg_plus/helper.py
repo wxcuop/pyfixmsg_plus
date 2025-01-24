@@ -1,89 +1,85 @@
-from java.lang import Runnable,Thread,Integer,NumberFormatException
-from java.io import File,FileOutputStream,FileNotFoundException,FileReader,IOException
+import threading
 from fixmessage import FixMessage
 from threading import Lock
 from fixcommon.errors import ErrorLevel
 
 def enum(*sequential, **named):
     enums = dict(zip(sequential, range(len(sequential))), **named)
-    reverse = dict((value, key) for key, value in enums.iteritems())
+    reverse = dict((value, key) for key, value in enums.items())
     enums['reverse_mapping'] = reverse
     return type('Enum', (), enums)
-#http://stackoverflow.com/questions/36932/how-can-i-represent-an-enum-in-python  
 
-TYPE = enum('NUMBER_IN','NUMBER_OUT')
+TYPE = enum('NUMBER_IN', 'NUMBER_OUT')
 
-class HeartBeat(Runnable):
+class HeartBeat(threading.Thread):
     b_continue = False
-    
-    
-    def __init__(self, fixengine,fixmessage):
+
+    def __init__(self, fixengine, fixmessage):
+        super().__init__()
         self.FE = fixengine
         self.FP = fixmessage
         self.lock = Lock()
-        
-    def Start(self):
+
+    def start(self):
         with self.lock:
             if not self.b_continue:
-                self.t_thread = Thread(self)
                 self.b_continue = True
-                self.t_thread.start()            
-                
-    def Stop(self):
+                super().start()
+
+    def stop(self):
         with self.lock:
             self.b_continue = False
-            self.t_thread = None
-            
-    def Send(self,fixmessage):
-        self.FE.sendFixMessToServer(fixmessage,0)
-        
+
+    def send(self, fixmessage):
+        self.FE.sendFixMessToServer(fixmessage, 0)
+
     def run(self):
         message = FixMessage()
-        message.f35_MsgType="0"
+        message.f35_MsgType = "0"
         message.f49_SenderCompID = self.FP.f49_SenderCompID
         message.f50_SenderSubID = "ADMIN"
         message.f57_TargetSubID = "ADMIN"
         message.f56_TargetCompID = self.FP.f56_TargetCompID
-        i = int(self.FP.f108_HeartBtInt)*1000
+        interval = int(self.FP.f108_HeartBtInt) * 1000
         while True:
             try:
-                Thread.sleep(i)
+                threading.Event().wait(interval / 1000)
             except:
                 pass
             if self.b_continue:
-                self.Send(message) #avoid hb sent when stop requested
-        
+                self.send(message)
             if not self.b_continue:
                 break
 
-class TimeOut(Runnable):
-    def __init__(self,fixengine,logger):
+class TimeOut(threading.Thread):
+    def __init__(self, fixengine, logger):
+        super().__init__()
         self.FE = fixengine
-        self.m_logger=logger
+        self.logger = logger
         self.b_run = True
-        self.timeout=0
-        self.testreqtimeout=0
-        self.hbextdelta=0
-        self.hbint=0
-    
-    def Start(self,fixmessage,hbint, testreqtimeout,hbextdelta):
-        self.b_run=True
+        self.timeout = 0
+        self.testreqtimeout = 0
+        self.hbextdelta = 0
+        self.hbint = 0
+
+    def start(self, fixmessage, hbint, testreqtimeout, hbextdelta):
+        self.b_run = True
         self.hbint = hbint
         self.FP = fixmessage
         self.testreqtimeout = testreqtimeout
         self.hbextdelta = hbextdelta
-        Thread(self).start()
-        
-    def StopTimeOut(self):
-        self.b_run=False
-    
-    def ResetTimeOut(self):
-        self.timeout=0
-        
+        super().start()
+
+    def stop_timeout(self):
+        self.b_run = False
+
+    def reset_timeout(self):
+        self.timeout = 0
+
     def run(self):
-        self.timeout=0
+        self.timeout = 0
         FixTestReq = FixMessage()
-        FixTestReq.f35_MsgType="1"
+        FixTestReq.f35_MsgType = "1"
         FixTestReq.f49_SenderCompID = self.FP.f49_SenderCompID
         FixTestReq.f50_SenderSubID = "ADMIN"
         FixTestReq.f57_TargetSubID = "ADMIN"
@@ -91,91 +87,52 @@ class TimeOut(Runnable):
         FixTestReq.f112_TestReqID = "HB timed out"
         while True:
             try:
-                Thread.sleep(1000)
+                threading.Event().wait(1)
             except:
                 pass
-            self.timeout+=1
-            if self.timeout > self.hbint+self.hbextdelta:
+            self.timeout += 1
+            if self.timeout > self.hbint + self.hbextdelta:
                 if self.b_run and self.FE.getLoggedInStatus():
-                    self.FE.sendFixMessToServer(FixTestReq,-1)
+                    self.FE.sendFixMessToServer(FixTestReq, -1)
                     try:
-                        Thread.sleep(self.testreqtimeout*1000) #sleep this.testrequesttimeout seconds to allow other side to answer
+                        threading.Event().wait(self.testreqtimeout)
                     except:
                         pass
-                    
-            if not (self.b_run and self.FE.getLoggedInStatus):
+            if not (self.b_run and self.FE.getLoggedInStatus()):
                 break
-        
-class SequenceNumberFile(object):
-    
-    def __init__(self,seqtype,fixeventsnotifier,filename):
-        self.m_EN = fixeventsnotifier
-        self.Path = filename
-        self.m_SequentialNumber = 0
-        
-    def getSequentialNumber(self):
-        return self.m_SequentialNumber
-    def setSequentialNumber(self,SeqNumber):
-        self.m_SequentialNumber = SeqNumber
-        self.StoreSequenceNumber(self.m_SequentialNumber)
-        
-    def incrementSequentialNumber(self):
-        self.m_SequentialNumber+=1
-        self.StoreSequenceNumber(self.m_SequentialNumber)
-        
-    def decrementSequentialNumber(self):
-        self.m_SequentialNumber-=1
-        self.StoreSequenceNumber(self.m_SequentialNumber)
-        
-    def StoreSequenceNumber(self,SeqNumber):
+
+class SequenceNumberFile:
+    def __init__(self, seqtype, fixeventsnotifier, filename):
+        self.notifier = fixeventsnotifier
+        self.path = filename
+        self.sequential_number = 0
+
+    def get_sequential_number(self):
+        return self.sequential_number
+
+    def set_sequential_number(self, seq_number):
+        self.sequential_number = seq_number
+        self.store_sequence_number(self.sequential_number)
+
+    def increment_sequential_number(self):
+        self.sequential_number += 1
+        self.store_sequence_number(self.sequential_number)
+
+    def decrement_sequential_number(self):
+        self.sequential_number -= 1
+        self.store_sequence_number(self.sequential_number)
+
+    def store_sequence_number(self, seq_number):
         try:
-            StreamOut = FileOutputStream(self.Path)
-        except FileNotFoundException:
-            self.m_EN.notifyMsg("FAILED to open file=" + self.Path, ErrorLevel.ERROR);
-        return
+            with open(self.path, 'w') as file:
+                file.write(str(seq_number))
+        except IOError:
+            self.notifier.notifyMsg(f"FAILED to write to file={self.path}", ErrorLevel.ERROR)
+
+    def read_sequence_number_from_file(self):
         try:
-            StreamOut.write(Integer(SeqNumber).toString().getBytes());
-            StreamOut.flush();
-        except IOException: 
-            self.m_EN.notifyMsg("FAILED to write to file=" + self.Path, ErrorLevel.ERROR)
-        try:
-            StreamOut.close()
- 
-        except IOException:
-            self.m_EN.notifyMsg("FAILED to close file=" + self.Path, ErrorLevel.ERROR)
-        StreamOut = None
-    
-    def ReadFromFileTheSequentialNumber(self):
-        f = File(self.Path)
-        if not f.exists():
-            self.m_SequentialNumber = 0;
-            f = None
-            return
-        f = None
-        try: 
-            FileR = FileReader(self.Path)
-        except FileNotFoundException:
-            self.m_EN.notifyMsg("FAILED to read from file=" + self.Path, ErrorLevel.ERROR);  
-            self.m_SequentialNumber = 1;
-        return
-        s_tmp = ""
-        
-        i_tmp=0
-        while (i_tmp > -1) and (i_tmp !='\n'): 
-            try: 
-                i_tmp = FileR.read()
-            except IOException:
-                pass
-            if (i_tmp > -1) and (i_tmp !='\n'):
-                s_tmp += chr(i_tmp)
-        try:
-            FileR.close()
-        except IOException:
-            self.m_EN.notifyMsg("FAILED close after read from file=" + self.Path, ErrorLevel.ERROR)  
-        
-        FileR = None;
-     
-        try:
-            self.m_SequentialNumber = Integer(s_tmp).intValue()
-        except NumberFormatException:
-            self.m_SequentialNumber=1
+            with open(self.path, 'r') as file:
+                self.sequential_number = int(file.readline().strip())
+        except (IOError, ValueError):
+            self.notifier.notifyMsg(f"FAILED to read from file={self.path}", ErrorLevel.ERROR)
+            self.sequential_number = 1
