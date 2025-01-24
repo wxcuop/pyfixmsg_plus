@@ -3,100 +3,80 @@ from io import BytesIO
 from collections import defaultdict
 
 class FIXTools:
-    c_FixSep = '\x01'
-    repeatingGroupType_LEG = "leg"
-    repeatingGroupType_ALTID = "altid"
+    FIX_SEP = '\x01'
+    REPEATING_GROUP_TYPE_LEG = "leg"
+    REPEATING_GROUP_TYPE_ALTID = "altid"
 
     def __init__(self, en=None, version=None, strict=False):
-        self.Strict = strict
-        self.FTEN = en
-        self.DIC_wx = []
-        self.DIC_BlockInstrument = []
-        self.DIC_BlockInstrumentLeg = []
-        self.DIC_BlockInstrumentAltId = []
+        self.strict = strict
+        self.notifier = en
+        self.dic_wx = []
+        self.dic_block_instrument = []
+        self.dic_block_instrument_leg = []
+        self.dic_block_instrument_alt_id = []
         if version:
-            self.CommonConstructor(version)
+            self._initialize_dictionaries(version)
 
-    def CommonConstructor(self, version):
+    def _initialize_dictionaries(self, version):
         if version == "4.2":
-            self.DIC_wx.extend(["269", "270", "15", "271", "272", "273", "274", "275", "336", "276", "277", "282", "283", "284", "286", "59", "432", "126", "110", "18", "287", "37", "299", "288", "289", "346", "290", "58", "354", "355", "207", "387"])
-            self.DIC_BlockInstrumentLeg.extend(["308", "309", "10456", "311", "310", "319", "313", "314", "315", "316", "54"])
+            self.dic_wx.extend(["269", "270", "15", "271", "272", "273", "274", "275", "336", "276", "277", "282", "283", "284", "286", "59", "432", "126", "110", "18", "287", "37", "299", "288", "289", "346", "290", "58", "354", "355", "207", "387"])
+            self.dic_block_instrument_leg.extend(["308", "309", "10456", "311", "310", "319", "313", "314", "315", "316", "54"])
         elif version == "4.4":
-            self.DIC_wx.extend(["269", "270", "15", "271", "272", "273", "274", "275", "336", "336", "625", "277", "282", "283", "284", "286", "59", "432", "126", "110", "18", "287", "37", "299", "288", "289", "346", "290", "546", "811", "58", "354", "355"])
-            self.DIC_BlockInstrument.extend(["55", "65", "48", "22", "454", "455", "456", "461", "167", "762", "200", "541", "224", "225", "239", "226", "227", "228", "255", "543", "470", "471", "472", "240", "202", "947", "206", "231", "223", "207", "106", "348", "349", "107", "350", "351", "691", "667", "875", "876", "864", "865", "866", "867", "868", "873", "874"])
-            self.DIC_BlockInstrumentLeg.extend(["600", "601", "602", "603", "604", "605", "606", "607", "608", "609", "764", "610", "611", "248", "249", "250", "251", "252", "253", "257", "599", "596", "597", "598", "254", "612", "942", "613", "614", "615", "616", "617", "618", "619", "620", "621", "622", "623", "624", "556", "740", "739", "955", "956"])
-            self.DIC_BlockInstrumentAltId.extend(["455", "456"])
+            self.dic_wx.extend(["269", "270", "15", "271", "272", "273", "274", "275", "336", "336", "625", "277", "282", "283", "284", "286", "59", "432", "126", "110", "18", "287", "37", "299", "288", "289", "346", "290", "546", "811", "58", "354", "355"])
+            self.dic_block_instrument.extend(["55", "65", "48", "22", "454", "455", "456", "461", "167", "762", "200", "541", "224", "225", "239", "226", "227", "228", "255", "543", "470", "471", "472", "240", "202", "947", "206", "231", "223", "207", "106", "348", "349", "107", "350", "351", "691", "667", "875", "876", "864", "865", "866", "867", "868", "873", "874"])
+            self.dic_block_instrument_leg.extend(["600", "601", "602", "603", "604", "605", "606", "607", "608", "609", "764", "610", "611", "248", "249", "250", "251", "252", "253", "257", "599", "596", "597", "598", "254", "612", "942", "613", "614", "615", "616", "617", "618", "619", "620", "621", "622", "623", "624", "556", "740", "739", "955", "956"])
+            self.dic_block_instrument_alt_id.extend(["455", "456"])
 
-    def addValuesDIC_e(self, v):
-        self.DIC_wx.extend(v)
+    def add_values_dic(self, values):
+        self.dic_wx.extend(values)
 
-    def getAllTags(self, FIX):
-        h = {}
-        tmp = FIX
-        while self.c_FixSep in tmp:
-            tag = tmp.split(self.c_FixSep, 1)[0].split('=', 1)
-            tmp = tmp.split(self.c_FixSep, 1)[1]
-            h[tag[0]] = tag
-        return self.sort(h)
+    def get_all_tags(self, fix_message):
+        tags = {}
+        while self.FIX_SEP in fix_message:
+            tag, fix_message = fix_message.split(self.FIX_SEP, 1)
+            key, value = tag.split('=', 1)
+            tags[key] = [key, value]
+        return self._sort_tags(tags)
 
-    def sort(self, hs):
-        sorted_keys = sorted(hs.keys(), key=int)
-        return [hs[key] for key in sorted_keys]
+    def _sort_tags(self, tags):
+        sorted_keys = sorted(tags.keys(), key=int)
+        return [tags[key] for key in sorted_keys]
 
-    def getField(self, FIX, Field, sep=c_FixSep):
-        if f"{sep}{Field}=" in FIX:
-            s_tmp = FIX.split(f"{sep}{Field}=", 1)[1]
-            return s_tmp.split(sep, 1)[0]
+    def get_field(self, fix_message, field, sep=FIX_SEP):
+        if f"{sep}{field}=" in fix_message:
+            return fix_message.split(f"{sep}{field}=", 1)[1].split(sep, 1)[0]
         return ""
 
-    def getLongField(self, sFixMessage, nTagNumber):
-        sField = str(nTagNumber)
-        sValue = self.getField(sFixMessage, sField)
-        if not sValue:
-            return None
-        try:
-            return int(sValue)
-        except ValueError:
-            return None
+    def get_long_field(self, fix_message, tag_number):
+        value = self.get_field(fix_message, str(tag_number))
+        return int(value) if value else None
 
-    def getFloatField(self, sFixMessage, nTagNumber):
-        sField = str(nTagNumber)
-        sValue = self.getField(sFixMessage, sField)
-        if not sValue:
-            return None
-        try:
-            return float(sValue)
-        except ValueError:
-            return None
+    def get_float_field(self, fix_message, tag_number):
+        value = self.get_field(fix_message, str(tag_number))
+        return float(value) if value else None
 
-    def getIntegerField(self, sFixMessage, nTagNumber):
-        sField = str(nTagNumber)
-        sValue = self.getField(sFixMessage, sField)
-        if not sValue:
-            return None
-        try:
-            return int(sValue)
-        except ValueError:
-            return None
+    def get_integer_field(self, fix_message, tag_number):
+        value = self.get_field(fix_message, str(tag_number))
+        return int(value) if value else None
 
-    def getTabField(self, FIX, Field):
-        v = []
-        while f"{self.c_FixSep}{Field}=" in FIX:
-            s_tmp = FIX.split(f"{self.c_FixSep}{Field}=", 1)[1]
-            s_result = s_tmp.split(self.c_FixSep, 1)[0]
-            v.append(s_result)
-            FIX = FIX.rsplit(f"{self.c_FixSep}{Field}=", 1)[0] + self.c_FixSep
-        return v
+    def get_tab_field(self, fix_message, field):
+        values = []
+        while f"{self.FIX_SEP}{field}=" in fix_message:
+            fix_message = fix_message.split(f"{self.FIX_SEP}{field}=", 1)[1]
+            value = fix_message.split(self.FIX_SEP, 1)[0]
+            values.append(value)
+            fix_message = fix_message.rsplit(f"{self.FIX_SEP}{field}=", 1)[0] + self.FIX_SEP
+        return values
 
-    def zip(self, FIX_Head, data):
+    def zip(self, fix_head, data):
         with BytesIO() as baos, gzip.GzipFile(fileobj=baos, mode='w') as zip_file:
             zip_file.write(data.encode('ISO-8859-1'))
             uncompressed_bytes = baos.getvalue()
         res = uncompressed_bytes.decode('ISO-8859-1')
-        return f"{FIX_Head}01{self.c_FixSep}{res}{self.c_FixSep}10=000{self.c_FixSep}"
+        return f"{fix_head}01{self.FIX_SEP}{res}{self.FIX_SEP}10=000{self.FIX_SEP}"
 
     def unzip(self, data):
-        data = data.split(self.c_FixSep, 2)[-1][:-8]
+        data = data.split(self.FIX_SEP, 2)[-1][:-8]
         data_bytes = data.encode('ISO-8859-1')
         with BytesIO(data_bytes) as bios, BytesIO() as baos:
             with gzip.GzipFile(fileobj=bios, mode='rb') as unzip:
@@ -107,135 +87,111 @@ class FIXTools:
                     baos.write(chunk)
             return baos.getvalue().decode('ISO-8859-1')
 
-    def AddField(self, FIX, Field, Value):
-        if f"{self.c_FixSep}10=" in FIX:
-            s_Result = FIX.rsplit(f"{self.c_FixSep}10=", 1)[0]
-        else:
-            s_Result = FIX
-        return f"{s_Result}{self.c_FixSep}{Field}={Value}{self.c_FixSep}10=000{self.c_FixSep}"
+    def add_field(self, fix_message, field, value):
+        if f"{self.FIX_SEP}10=" in fix_message:
+            fix_message = fix_message.rsplit(f"{self.FIX_SEP}10=", 1)[0]
+        return f"{fix_message}{self.FIX_SEP}{field}={value}{self.FIX_SEP}10=000{self.FIX_SEP}"
 
-    def ChangeField(self, FIX, Field, newValue):
-        if f"{self.c_FixSep}{Field}=" in FIX:
-            s_tmp = FIX.split(f"{self.c_FixSep}{Field}=", 1)[1].split(self.c_FixSep, 1)[1]
-            s_Result = FIX.rsplit(f"{self.c_FixSep}{Field}=", 1)[0] + f"{self.c_FixSep}{Field}={newValue}{self.c_FixSep}{s_tmp}"
+    def change_field(self, fix_message, field, new_value):
+        if f"{self.FIX_SEP}{field}=" in fix_message:
+            s_tmp = fix_message.split(f"{self.FIX_SEP}{field}=", 1)[1].split(self.FIX_SEP, 1)[1]
+            fix_message = fix_message.rsplit(f"{self.FIX_SEP}{field}=", 1)[0] + f"{self.FIX_SEP}{field}={new_value}{self.FIX_SEP}{s_tmp}"
         else:
-            s_Result = self.AddField(FIX, Field, newValue)
-        return s_Result
+            fix_message = self.add_field(fix_message, field, new_value)
+        return fix_message
 
-    def RemoveField(self, FIX, Field):
-        if f"{self.c_FixSep}{Field}=" in FIX:
-            s_tmp = FIX.split(f"{self.c_FixSep}{Field}=", 1)[1]
-            if self.c_FixSep in s_tmp:
-                s_tmp = s_tmp.split(self.c_FixSep, 1)[1]
-                s_Result = FIX.rsplit(f"{self.c_FixSep}{Field}=", 1)[0] + self.c_FixSep + s_tmp
+    def remove_field(self, fix_message, field):
+        if f"{self.FIX_SEP}{field}=" in fix_message:
+            s_tmp = fix_message.split(f"{self.FIX_SEP}{field}=", 1)[1]
+            if self.FIX_SEP in s_tmp:
+                s_tmp = s_tmp.split(self.FIX_SEP, 1)[1]
+                fix_message = fix_message.rsplit(f"{self.FIX_SEP}{field}=", 1)[0] + self.FIX_SEP + s_tmp
             else:
-                s_Result = FIX.rsplit(f"{self.c_FixSep}{Field}=", 1)[0] + self.c_FixSep
+                fix_message = fix_message.rsplit(f"{self.FIX_SEP}{field}=", 1)[0] + self.FIX_SEP
+        return fix_message
+
+    def new_size_new_checksum(self, fix_message):
+        size = len(fix_message) - 20 - len(self.get_field(fix_message, "9"))
+        fix_message = self.change_field(fix_message, "9", str(size))
+        return self.new_checksum(fix_message)
+
+    def new_checksum(self, fix_message):
+        fix_message = self.remove_field(fix_message, "10")
+        return f"{fix_message}10={self.checksum(fix_message)}{self.FIX_SEP}"
+
+    def checksum(self, fix_message):
+        checksum_value = sum(ord(char) for char in fix_message) % 256
+        return f"{checksum_value:03}"
+
+    def get_repeating_group_data(self, nb_values, repeat_group_string, delimit_tag, group_type):
+        if repeat_group_string.startswith(self.FIX_SEP):
+            if not self.get_field(repeat_group_string, delimit_tag):
+                raise ValueError(f"Repeating group does not have mandatory first tag {delimit_tag}\t{repeat_group_string}")
         else:
-            s_Result = FIX
-        return s_Result
+            if not self.get_field(self.FIX_SEP + repeat_group_string, delimit_tag):
+                raise ValueError(f"Repeating group does not have mandatory first tag {delimit_tag}\t{repeat_group_string}")
 
-    def NewSizeNewCheckSum(self, FIX):
-        size = len(FIX) - 20 - len(self.getField(FIX, "9"))
-        s_Result = self.ChangeField(FIX, "9", str(size))
-        s_Result = self.NewChecksum(s_Result)
-        return s_Result
+        res = []
+        leg_entries = repeat_group_string
 
-    def NewChecksum(self, FIX):
-        s_Result = self.RemoveField(FIX, "10")
-        s_Result = f"{s_Result}10={self.Checksum(s_Result)}{self.c_FixSep}"
-        return s_Result
-
-    def Checksum(self, S_FIX):
-        i_tmp = sum(ord(char) for char in S_FIX) % 256
-        return f"{i_tmp:03}"
-
-    def getRepeatingGroupData(self, nbValues, repeatgroupstring, DelimitTag, type):
-        if repeatgroupstring.startswith(self.c_FixSep):
-            if not self.getField(repeatgroupstring, DelimitTag):
-                raise Exception(f"Repeating group does not have mandatory first tag {DelimitTag}\t{repeatgroupstring}")
-        else:
-            if not self.getField(self.c_FixSep + repeatgroupstring, DelimitTag):
-                raise Exception(f"Repeating group does not have mandatory first tag {DelimitTag}\t{repeatgroupstring}")
-
-        Res = []
-        s_tmp = ""
-        LegEntries = repeatgroupstring
-        for _ in range(nbValues):
-            Res = []
-            if f"{self.c_FixSep}{DelimitTag}=" in LegEntries:
-                s_tmp = LegEntries.split(f"{self.c_FixSep}{DelimitTag}=", 1)[0]
-                LegEntries = LegEntries.split(f"{self.c_FixSep}{DelimitTag}=", 1)[1]
+        for _ in range(nb_values):
+            group_data = []
+            if f"{self.FIX_SEP}{delimit_tag}=" in leg_entries:
+                s_tmp = leg_entries.split(f"{self.FIX_SEP}{delimit_tag}=", 1)[0]
+                leg_entries = leg_entries.split(f"{self.FIX_SEP}{delimit_tag}=", 1)[1]
             else:
-                s_tmp = LegEntries
+                s_tmp = leg_entries
 
-            while self.c_FixSep in s_tmp:
-                Tags = ["", ""]
-                Tags[0] = s_tmp.split('=', 1)[0]
-                if type == self.repeatingGroupType_LEG:
-                    if not self.isBlockInstrumentLeg(Tags[0]):
-                        break
-                    Tags[1] = s_tmp.split('=', 1)[1].split(self.c_FixSep, 1)[0]
-                    s_tmp = s_tmp.split(self.c_FixSep, 1)[1]
-                    Res.append(Tags)
-                elif type == self.repeatingGroupType_ALTID:
-                    if not self.isBlockInstrumentAltId(Tags[0]):
-                        break
-                    Tags[1] = s_tmp.split('=', 1)[1].split(self.c_FixSep, 1)[0]
-                    s_tmp = s_tmp.split(self.c_FixSep, 1)[1]
-                    Res.append(Tags)
+            while self.FIX_SEP in s_tmp:
+                tag, s_tmp = s_tmp.split('=', 1)
+                if group_type == self.REPEATING_GROUP_TYPE_LEG and not self.is_block_instrument_leg(tag):
+                    break
+                if group_type == self.REPEATING_GROUP_TYPE_ALTID and not self.is_block_instrument_alt_id(tag):
+                    break
+                value, s_tmp = s_tmp.split(self.FIX_SEP, 1)
+                group_data.append([tag, value])
 
-            if Res:
-                vs.v.append(Res)
+            res.append(group_data)
 
-        if "stop" in locals():
-            vs.s = f";{self.c_FixSep}{s_tmp}"
-        else:
-            vs.s = s_tmp
-        return vs
+        return res, leg_entries
 
-    def isBlockInstrumentLeg(self, Tag):
-        return Tag in self.DIC_BlockInstrumentLeg
+    def is_block_instrument_leg(self, tag):
+        return tag in self.dic_block_instrument_leg
 
-    def isBlockInstrumentAltId(self, Tag):
-        return Tag in self.DIC_BlockInstrumentAltId
+    def is_block_instrument_alt_id(self, tag):
+        return tag in self.dic_block_instrument_alt_id
 
-    def getDictionaryFields_OneInstrumentPerReq(self, FIX, DelimitTag, DelimitTagLeg):
-        if f"{self.c_FixSep}{DelimitTag}=" not in FIX:
-            raise Exception(f"no tag {DelimitTag} to parse instrument")
-        s_tmp = FIX.split(f"{self.c_FixSep}{DelimitTag}=", 1)[1].split(f"{self.c_FixSep}10=", 1)[0]
-        vDicEntry = []
-        while self.c_FixSep in s_tmp:
-            Tags = ["", ""]
-            vDicEntry.append(Tags)
-            Tags[0] = s_tmp.split('=', 1)[0]
-            Tags[1] = s_tmp.split('=', 1)[1].split(self.c_FixSep, 1)[0]
-            s_tmp = s_tmp.split(self.c_FixSep, 1)[1]
+    def get_dictionary_fields_one_instrument_per_req(self, fix_message, delimit_tag, delimit_tag_leg):
+        if f"{self.FIX_SEP}{delimit_tag}=" not in fix_message:
+            raise ValueError(f"no tag {delimit_tag} to parse instrument")
 
-            if Tags[0] == "146":
-                if int(Tags[1]) > 0:
-                    vs = self.getRepeatingGroupData(int(Tags[1]), s_tmp, DelimitTagLeg, self.repeatingGroupType_LEG)
-                    s_tmp = vs.s
+        s_tmp = fix_message.split(f"{self.FIX_SEP}{delimit_tag}=", 1)[1].split(f"{self.FIX_SEP}10=", 1)[0]
+        dic_entry = []
+        legs = None
 
-        DE = DicEntry()
-        DE.setTags(vDicEntry)
-        if 'vs' in locals():
-            DE.setLegs(vs.v)
-        return DE
+        while self.FIX_SEP in s_tmp:
+            tag, s_tmp = s_tmp.split('=', 1)
+            value, s_tmp = s_tmp.split(self.FIX_SEP, 1)
+            dic_entry.append([tag, value])
+
+            if tag == "146" and int(value) > 0:
+                legs, s_tmp = self.get_repeating_group_data(int(value), s_tmp, delimit_tag_leg, self.REPEATING_GROUP_TYPE_LEG)
+
+        return DicEntry(dic_entry, legs)
 
 class DicEntry:
-    def __init__(self):
-        self._tags = []
-        self._legs = []
+    def __init__(self, tags=None, legs=None):
+        self.tags = tags or []
+        self.legs = legs or []
 
-    def setTags(self, tags):
-        self._tags = tags
+    def set_tags(self, tags):
+        self.tags = tags
 
-    def setLegs(self, legs):
-        self._legs = legs
+    def set_legs(self, legs):
+        self.legs = legs
 
-    def getTags(self):
-        return self._tags
+    def get_tags(self):
+        return self.tags
 
-    def getLegs(self):
-        return self._legs
-
+    def get_legs(self):
+        return self.legs
