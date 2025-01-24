@@ -36,13 +36,13 @@ class SequenceNumberFile:
         if not os.path.exists(self.Path):
             self.m_SequentialNumber = 0
             return
-
+    
         try:
-            with open(self.Path, 'r') as file_in:
-                s_tmp = file_in.readline().strip()
-                self.m_SequentialNumber = int(s_tmp) if s_tmp else 1
+           with open(self.Path, 'r') as file_in:
+            s_tmp = file_in.readline().strip()
+            self.m_SequentialNumber = int(s_tmp) if s_tmp else 1
         except (FileNotFoundError, IOError) as e:
-            self.m_EN.FE_NotifyMsg(f"FAILED to read from file={self.Path}", "ERROR")
+            self.m_EN.notify_msg(f"FAILED to read from file={self.Path}", "ERROR")
             self.m_SequentialNumber = 1
         except ValueError:
             self.m_SequentialNumber = 1
@@ -50,4 +50,5 @@ class SequenceNumberFile:
             try:
                 file_in.close()
             except IOError:
-                self.m_EN.FE_NotifyMsg(f"FAILED to close 
+                self.m_EN.notify_msg(f"FAILED to close file after reading={self.Path}", "ERROR")
+
