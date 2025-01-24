@@ -1,6 +1,6 @@
 import os
 from datetime import datetime, timedelta
-from fixcommon.errors import ErrorLevel
+from errors import ErrorLevel
 
 class HandleLogFilesEvents:
     def HLF_NotifyMsg(self, s, level):
