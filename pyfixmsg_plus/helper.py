@@ -1,7 +1,7 @@
 import threading
 from fixmessage import FixMessage
 from threading import Lock
-from fixcommon.errors import ErrorLevel
+from errors import ErrorLevel
 
 def enum(*sequential, **named):
     enums = dict(zip(sequential, range(len(sequential))), **named)
