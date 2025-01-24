@@ -1,8 +1,12 @@
 from threading import Thread, Lock
 from crypt import CryptEvents, CryptEventsNotifier, Crypt, CryptException
-from helpers import FIXTools, ReadConfigFiles, FIXEException, FixMessage, SequenceNumberFile, TimeOut, HeartBeat, TYPE, FIXEventsNotifier
+from helpers import FIXTools, ReadConfigFiles, FixMessage, SequenceNumberFile, TimeOut, HeartBeat, TYPE, FIXEventsNotifier
 from dbtools import DBTools
 from connection import ConnectionManager
+
+class FIXEException(Exception):
+    def __init__(self,msg):
+        Exception.__init__(self,msg)
 
 class FIXEngine(CryptEvents, Thread):
     CRYPT_PASS = "fixenginecryptpassword"
