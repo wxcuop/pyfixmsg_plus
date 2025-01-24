@@ -1,32 +1,8 @@
-import os
-import sys
-from datetime import datetime, timedelta
 from threading import Thread, Lock
-from fixcommon.crypto import CryptEvents, CryptEventsNotifier, crypt, CryptException
-from fixtools import FIXTools
-from fixcommon.errors import ErrorLevel
-from readconfig import ReadConfigFiles
-from fixeexception import FIXEException
-from fixtool.fixmessage import FixMessage
-from fixsessionlevel import SequenceNumberFile, TimeOut, HeartBeat, TYPE
-from fixtool.fixeventsnotifier import FIXEventsNotifier
-from fixnetwork import SocketConnector, ListenSocket
-
-class DBTools:
-    def __init__(self, a):
-        pass
-
-    def get_enrich_map_table(self, a, b):
-        pass
-
-    def get_stock_mapping_table(self, a, b, c):
-        pass
-
-    def store_for_fix(self, table_sent, seq, val):
-        pass
-
-    def store_stock_mapping_table(self, mapping):
-        pass
+from cryptography import CryptEvents, CryptEventsNotifier, crypt, CryptException
+from helpers import FIXTools, ReadConfigFiles, FIXEException, FixMessage, SequenceNumberFile, TimeOut, HeartBeat, TYPE, FIXEventsNotifier
+from dbtools import DBTools
+from connection import ConnectionManager
 
 class FIXEngine(CryptEvents, Thread):
     CRYPT_PASS = "fixenginecryptpassword"
@@ -45,7 +21,6 @@ class FIXEngine(CryptEvents, Thread):
         self.fix_tools = None
         self.seq_num_file_out = None
         self.seq_num_file_in = None
-        self.listen_socket = None
         self.crypt_events_notifier = None
         self.fix_head = f"8=FIX.4.2{FixMessage.c_FixSep}9="
         self.flag_stop_listen = False
@@ -68,6 +43,8 @@ class FIXEngine(CryptEvents, Thread):
         self.heartbeat_ext_delta = 10
         self.flag_rely_on_test_request_for_end_of_reset = True
         self.event_notifier = None
+
+        self.connection_manager = ConnectionManager(self.event_notifier)
 
         self._parse_args(args)
         self.fix_engine_end_constructor()
@@ -101,7 +78,7 @@ class FIXEngine(CryptEvents, Thread):
         self.seq_num_file_out = SequenceNumberFile(TYPE.NUMBER_OUT, self.event_notifier, f"{sequence_number_file}Out.dat")
         self.seq_num_file_in = SequenceNumberFile(TYPE.NUMBER_IN, self.event_notifier, f"{sequence_number_file}In.dat")
         self.flag_check_user_password = check_user_password
-        self.m_socket_connector = SocketConnector(self.event_notifier)
+        self.connection_manager = ConnectionManager(self.event_notifier)
 
     def _init_with_2_args(self, args):
         if isinstance(args[1], FIXEventsNotifier):
@@ -109,13 +86,13 @@ class FIXEngine(CryptEvents, Thread):
             self.event_notifier = en
             self.crypt_events_notifier = CryptEventsNotifier(self)
             self.check_config_file(config_file)
-            self.m_socket_connector = SocketConnector(en)
+            self.connection_manager = ConnectionManager(en)
         elif isinstance(args[0], FIXEventsNotifier):
             en, cfg = args
             self.event_notifier = en
             self.crypt_events_notifier = CryptEventsNotifier(self)
             self.check_config(cfg)
-            self.m_socket_connector = SocketConnector(en)
+            self.connection_manager = ConnectionManager(en)
 
     def fix_engine_end_constructor(self):
         self.fix_tools = FIXTools()
@@ -257,7 +234,7 @@ class FIXEngine(CryptEvents, Thread):
         if self.flag_is_logged_in:
             raise FIXEException("Server is logged in, cannot set parameters")
 
-        if self.m_socket_connector.is_connection_open():
+        if self.connection_manager.m_socket_connector.is_connection_open():
             raise FIXEException("Socket is not closed, cannot set parameters")
 
         if host:
@@ -286,10 +263,10 @@ class FIXEngine(CryptEvents, Thread):
         self.m_logger.info(f"Starting FIXEngine with SeqNum IN = {self.seq_num_file_in.get_sequential_number()}")
 
         if self.flag_mode_initiator:
-            self.m_socket_connector.open_connection(self.fix_host, self.fix_service)
+            self.connection_manager.open_connection(self.fix_host, self.fix_service)
             return self.connect_logon_login_password_heartbeat(reset_flag, login, password)
         elif self.fix_service > 0:
-            self.begin_listen_socket(int(self.fix_service))
+            self.connection_manager.begin_listen_socket(int(self.fix_service), self.m_logger)
         else:
             raise FIXEException("Listening port invalid")
         return True
@@ -314,28 +291,16 @@ class FIXEngine(CryptEvents, Thread):
                 return self.connect_logon_login_password_heartbeat(reset_flag, login, password)
             else:
                 self.m_logger.info(f"Starting FIXEngine in acceptor mode with existing socket, check UserPassword is {self.flag_check_user_password}")
-                self.m_socket_connector.set_socket(socket)
+                self.connection_manager.set_socket(socket)
                 self.start()
                 return True
         else:
             raise FIXEException("FE Socket is None!")
 
-    def begin_listen_socket(self, service):
-        self.listen_socket = ListenSocket(service, self, self.m_logger)
-        self.listen_socket.start()  # throws FIXEException if fails
-        self.start()
-
-    def stop_listen_incoming_connections(self):
-        if self.listen_socket is not None:
-            try:
-                self.listen_socket.stop()
-            except FIXEException as e:
-                self.m_logger.warn(f"Exception while stopping the listen socket {str(e)}")
-
     def close_socket(self):
         self.flag_stop_listen = True
         self.flag_stop_send = True
-        self.m_socket_connector.close_connection()
+        self.connection_manager.close_connection()
 
         wait = 0
         while self.flag_is_logged_in and wait < 25:
@@ -404,4 +369,29 @@ class FIXEngine(CryptEvents, Thread):
         self.m_logger.info(f"Stopping Fix Engine, {reason}")
         self.flag_is_stopping = True
         self.stop_hb_logout(reason)
-        self.stop_listen
+        self.connection_manager.stop_listen_incoming_connections(self.m_logger)
+        self.flag_is_in_resend = False
+
+    def send_fix_message_to_server(self, fix_message, retry_count):
+        # Add logic to send the FIX message to the server
+        pass
+
+    def handle_incoming_message(self, fix_message):
+        # Add logic to handle incoming FIX messages from the server
+        pass
+
+    def process_resend_request(self, start_seq_num, end_seq_num):
+        # Add logic to process resend requests
+        pass
+
+    def process_heartbeat(self):
+        # Add logic to process heartbeat messages
+        pass
+
+    def process_test_request(self):
+        # Add logic to process test requests
+        pass
+
+    def process_logout(self, reason):
+        # Add logic to process logout messages
+        pass
