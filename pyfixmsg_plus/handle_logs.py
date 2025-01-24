@@ -1,155 +1,118 @@
-from java.io import IOException,File,FileOutputStream,FileNotFoundException
-from java.text import SimpleDateFormat,ParseException
-from java.util import Calendar
+import os
+from datetime import datetime, timedelta
 from fixcommon.errors import ErrorLevel
-from java.lang import String as jString
-from java.lang import System
 
-class HandleLogFilesEvents(object):
-
-    def HLF_NotifyMsg(self,s, level):
+class HandleLogFilesEvents:
+    def HLF_NotifyMsg(self, s, level):
         raise NotImplementedError('Subclass responsibility')
 
-class HandleLogFilesEventsNotifier(object):
-    def __init__(self,event):
+class HandleLogFilesEventsNotifier:
+    def __init__(self, event):
         self.ste = event
 
-    def HLF_NotifyMsg(self,s, level):
-        self.ste.HLF_NotifyMsg(s,level)
+    def HLF_NotifyMsg(self, s, level):
+        self.ste.HLF_NotifyMsg(s, level)
 
 class HandleLogFiles:
-    LogFile = None;
-    StreamOut = None;
-    prevDate = None;
-    logFileName = "";
-    logFileNameOrig="";
-    includeTimeStamp = True;
-    rotateFile = True;
-    formatterTimestamp = SimpleDateFormat("yyyyMMdd HH:mm:ss.S");
-    use_stdout=False;
-    header="";
-    formatterFileDate= SimpleDateFormat("yyyyMMdd");
-    offsetDate=0;
-    EN = None;
+    def __init__(self, log_file_name, include_timestamp=True, rotate_file=True, event_notifier=None):
+        self.log_file_name_orig = log_file_name
+        self.log_file_name = log_file_name
+        self.include_timestamp = include_timestamp
+        self.rotate_file = rotate_file
+        self.event_notifier = event_notifier
+        self.use_stdout = False
+        self.header = ""
+        self.offset_date = 0
+        self.stream_out = None
+        self.prev_date = None
+        self.formatter_timestamp = "%Y%m%d %H:%M:%S.%f"
+        self.formatter_file_date = "%Y%m%d"
+        
+        if event_notifier:
+            self.event_notifier.HLF_NotifyMsg("HandleLogFiles Version 2.8", ErrorLevel.INFO)
 
-    def __init__(self, LogFileName, includeTimeStamp=True, rotateFile=True, en=None):
-        if en:
-            self.EN = en
-            self.EN.HLF_NotifyMsg("HandleLogFiles Version 2.8",ErrorLevel.INFO)
-        self.includeTimeStamp = includeTimeStamp;
-        self.rotateFile = rotateFile;
-        self.logFileNameOrig=LogFileName;
-        self.logFileName = LogFileName;
-        self.LogFile=File(self.logFileName);
-        
-    def setHeader(self,header):
-        self.header=header
-        
-    def WriteText(self,s_Text,extendofline=True):
-        self.Write(s_Text,extendofline)
-        
-    def Write(self,Text,RetChar):
-        if self.LogFile:
-            formatDay = SimpleDateFormat("yyyyMMdd")
-            parseDay = SimpleDateFormat("yyyyMMdd")
-            try:
-                DayNow = parseDay.parse(formatDay.format(Calendar.getInstance().getTime()))
-            except ParseException, e:
-                self.EN.HLF_NotifyMsg("parseDay ParseException in Write, "+str(e),ErrorLevel.ERROR)
-                raise IOException("error parsing day")
-            c = Calendar.getInstance()
-            c.setTime(DayNow)
-            c.add(Calendar.DATE,HandleLogFiles.offsetDate)
-            DayNow = c.getTime()
-            if not self.prevDate:
-                    c.setTime(DayNow)
-                    c.add(Calendar.DATE, -1)
-                    self.prevDate = c.getTime()
-                    
-            newFile = False
-            
-            if self.rotateFile:
-                if DayNow.after(self.prevDate):
-                    self.prevDate = DayNow
-                    if self.Streamout:
-                        self.StreamOut.close()
-                        self.StreamOut = None
-                    if jString(self.logFileNameOrig).lastIndexOf(',') > 0:
-                        self.logFileName = jString(self.logFileNameOrig).substring(0,jString(self.logFileNameOrig).lastIndexOf('.'))+"_"+self.formatterFileDate.format(DayNow)+jString(self.logFileNameOrig).substring(jString(self.logFileNameOrig).lastIndexOf('.'),jString(self.logFileNameOrig).length())
-                    
-                    else:
-                        self.logFileName += "_"+self.formatterFileDate.format(DayNow)
-                    self.LogFile = File(self.logFileName)
+    def set_header(self, header):
+        self.header = header
 
-            if not self.LogFile.exists():
-                try:
-                    self.LogFile.createNewFile()
-                except IOException, e:
-                    raise IOException("ERROR: Cannot create file, "+str(e))
-                newFile=True
-                
-            if not self.StreamOut: 
-                try:
-                    self.StreamOut = FileOutputStream(self.logFileName,True)
-                except FileNotFoundException, e:
-                    self.EN.HLF_NotifyMsg("File not found "+str(e), ErrorLevel.ERROR)
-                    
-            if self.StreamOut:
-                if newFile and jString(self.header).length() > 0:
-                    Text = self.header+System.getProperty("line.seperator")+Text
-                    
-                if self.includeTimeStamp:
-                    self.StreamOut.write(self.formatterTimestamp.format(Calendar.getInstance().getTime().toString().getBytes()))
-                    Text = " ; " + Text
-                    
-                if RetChar:
-                    Text += System.getProperty("line.seperator")
-                self.StreamOut(jString(Text).getBytes())
-                self.StreamOut.flush()
+    def write_text(self, text, append_newline=True):
+        self._write(text, append_newline)
+
+    def _write(self, text, append_newline):
+        current_date = datetime.now().strftime("%Y%m%d")
+        day_now = datetime.strptime(current_date, "%Y%m%d") + timedelta(days=self.offset_date)
+
+        if not self.prev_date:
+            self.prev_date = day_now - timedelta(days=1)
+
+        new_file = False
+
+        if self.rotate_file and day_now > self.prev_date:
+            self.prev_date = day_now
+            if self.stream_out:
+                self.stream_out.close()
+                self.stream_out = None
+            if ',' in self.log_file_name_orig:
+                self.log_file_name = f"{self.log_file_name_orig.rsplit('.', 1)[0]}_{day_now.strftime(self.formatter_file_date)}.{self.log_file_name_orig.rsplit('.', 1)[1]}"
             else:
-                raise IOException("Streamout null for some reason")
-            
-        def Stop(self):
-            if self.StreamOut:
-                try:
-                    self.StreamOut.close()
-                except IOException, e:
-                    self.EN.HLF_NotifyMsg("Could not close the stream",ErrorLevel.WARNING)
+                self.log_file_name += f"_{day_now.strftime(self.formatter_file_date)}"
+            self.log_file = self.log_file_name
 
-            self.LogFile = None
-            
-        def DeleteFile(self,s_FileName):
-            b_ok=True
-            self.LogFile = File(s_FileName)
-            if self.LogFile.exists():
-                b_ok = self.LogFile.delete()
-            return b_ok
-        
-        def logMessage(self,msg,level):
+        if not os.path.exists(self.log_file_name):
             try:
-                self.WriteText(level + " " + msg)
-            except IOException, e:
-                pass
-            if self.use_stdout:
-                System.out.println(level + " " + msg)
-        def setUse_stdout(self,v):
-            self.use_stdout=v
-            
-        def setFormatter(self,f):
-            self.formatterFileDate = f
-            
-        def setoffsetDate(self,days):
-            self.offsetDate = days
-            
-            
-                    
+                open(self.log_file_name, 'a').close()
+                new_file = True
+            except IOError as e:
+                raise IOError(f"ERROR: Cannot create file, {str(e)}")
 
+        if not self.stream_out:
+            try:
+                self.stream_out = open(self.log_file_name, 'a')
+            except FileNotFoundError as e:
+                self.event_notifier.HLF_NotifyMsg(f"File not found {str(e)}", ErrorLevel.ERROR)
 
+        if self.stream_out:
+            if new_file and self.header:
+                text = self.header + os.linesep + text
 
+            if self.include_timestamp:
+                text = datetime.now().strftime(self.formatter_timestamp) + " ; " + text
 
-                        
-            
-                
-        
-        
-        
+            if append_newline:
+                text += os.linesep
+
+            self.stream_out.write(text)
+            self.stream_out.flush()
+        else:
+            raise IOError("Streamout null for some reason")
+
+    def stop(self):
+        if self.stream_out:
+            try:
+                self.stream_out.close()
+            except IOError:
+                self.event_notifier.HLF_NotifyMsg("Could not close the stream", ErrorLevel.WARNING)
+        self.log_file = None
+
+    def delete_file(self, file_name):
+        try:
+            os.remove(file_name)
+            return True
+        except OSError:
+            return False
+
+    def log_message(self, message, level):
+        try:
+            self.write_text(f"{level} {message}")
+        except IOError:
+            pass
+        if self.use_stdout:
+            print(f"{level} {message}")
+
+    def set_use_stdout(self, value):
+        self.use_stdout = value
+
+    def set_formatter(self, formatter):
+        self.formatter_file_date = formatter
+
+    def set_offset_date(self, days):
+        self.offset_date = days
