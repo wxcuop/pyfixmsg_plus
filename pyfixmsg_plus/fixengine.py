@@ -101,7 +101,7 @@ class FIXEngine(CryptEvents, Thread):
     def fix_engine_end_constructor(self):
         self.fix_tools = FIXTools()
         self.timeout = TimeOut(self, self.m_logger)
-        self.m_logger.info("FIX Engine Version 7.3")
+        self.m_logger.info("pyfixmsg_plus Version 0.1")
 
     def set_check_seq_num_received(self, yes_no):
         self.flag_check_seq_num_received = yes_no
