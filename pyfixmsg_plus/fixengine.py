@@ -1,5 +1,5 @@
 from threading import Thread, Lock
-from cryptography import CryptEvents, CryptEventsNotifier, crypt, CryptException
+from crypt import CryptEvents, CryptEventsNotifier, Crypt, CryptException
 from helpers import FIXTools, ReadConfigFiles, FIXEException, FixMessage, SequenceNumberFile, TimeOut, HeartBeat, TYPE, FIXEventsNotifier
 from dbtools import DBTools
 from connection import ConnectionManager
