@@ -16,6 +16,7 @@ class FixEngine:
         self.logger.setLevel(logging.DEBUG)
         self.heartbeat_interval = 30
         self.last_seq_num = 0
+        self.response_message = FixMessage()  # Reusable FixMessage object
 
     def connect(self):
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -63,43 +64,46 @@ class FixEngine:
             self.logger.warning(f"Unknown message type: {msg_type}")
 
     def handle_logon(self, message):
-        response = {
+        self.response_message.clear()
+        self.response_message.update({
             8: 'FIX.4.4',
             35: 'A',
             49: 'SERVER',
             56: message.get(49),
             34: self.last_seq_num + 1,
             52: datetime.utcnow().strftime("%Y%m%d-%H:%M:%S.%f")[:-3]
-        }
-        self.send_message(response)
+        })
+        self.send_message(self.response_message)
 
     def handle_heartbeat(self, message):
         self.logger.info("Heartbeat received")
 
     def handle_test_request(self, message):
-        response = {
+        self.response_message.clear()
+        self.response_message.update({
             8: 'FIX.4.4',
             35: '0',  # Heartbeat
             49: 'SERVER',
             56: message.get(49),
             34: self.last_seq_num + 1,
             52: datetime.utcnow().strftime("%Y%m%d-%H:%M:%S.%f")[:-3]
-        }
-        self.send_message(response)
+        })
+        self.send_message(self.response_message)
 
     def handle_resend_request(self, message):
         self.logger.info("Resend request received. Implement logic to resend messages.")
 
     def handle_logout(self, message):
-        response = {
+        self.response_message.clear()
+        self.response_message.update({
             8: 'FIX.4.4',
             35: '5',  # Logout
             49: 'SERVER',
             56: message.get(49),
             34: self.last_seq_num + 1,
             52: datetime.utcnow().strftime("%Y%m%d-%H:%M:%S.%f")[:-3]
-        }
-        self.send_message(response)
+        })
+        self.send_message(self.response_message)
         self.disconnect()
 
     def handle_new_order(self, message):
@@ -110,15 +114,16 @@ class FixEngine:
 
     def start_heartbeat(self):
         while self.running:
-            heartbeat = {
+            self.response_message.clear()
+            self.response_message.update({
                 8: 'FIX.4.4',
                 35: '0',  # Heartbeat
                 49: 'SERVER',
                 56: 'CLIENT',
                 34: self.last_seq_num + 1,
                 52: datetime.utcnow().strftime("%Y%m%d-%H:%M:%S.%f")[:-3]
-            }
-            self.send_message(heartbeat)
+            })
+            self.send_message(self.response_message)
             time.sleep(self.heartbeat_interval)
 
     def start(self):
@@ -135,7 +140,8 @@ if __name__ == '__main__':
     engine.start()
 
     # Example message
-    message = {
+    message = FixMessage()
+    message.update({
         8: 'FIX.4.4',
         35: 'D',
         49: 'SENDER',
@@ -146,7 +152,7 @@ if __name__ == '__main__':
         54: '1',
         38: '100',
         40: '2'
-    }
+    })
 
     engine.send_message(message)
     engine.stop()
