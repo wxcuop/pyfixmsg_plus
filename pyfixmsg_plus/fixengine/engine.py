@@ -6,7 +6,7 @@ from pyfixmsg.fixmessage import FixMessage
 from pyfixmsg.codecs.stringfix import Codec
 import uuid  # For generating unique ClOrdID
 from heartbeat import Heartbeat
-from test_request import send_test_request
+from testrequest import send_test_request
 from gapfill import send_gapfill
 
 class FixEngine:
