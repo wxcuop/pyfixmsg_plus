@@ -5,6 +5,9 @@ from datetime import datetime
 from pyfixmsg.fixmessage import FixMessage
 from pyfixmsg.codecs.stringfix import Codec
 import uuid  # For generating unique ClOrdID
+from heartbeat import Heartbeat
+from test_request import send_test_request
+from gapfill import send_gapfill
 
 class FixEngine:
     def __init__(self, host, port):
@@ -20,6 +23,7 @@ class FixEngine:
         self.response_message = FixMessage()  # Reusable FixMessage object
         self.received_message = FixMessage()  # Reusable FixMessage object for received messages
         self.lock = threading.Lock()  # Lock for thread safety
+        self.heartbeat = Heartbeat(self.send_message, self.heartbeat_interval)
 
     def connect(self):
         with self.lock:
@@ -88,20 +92,10 @@ class FixEngine:
         self.logger.info("Heartbeat received")
 
     def handle_test_request(self, message):
-        with self.lock:
-            self.response_message.clear()
-            self.response_message.update({
-                8: 'FIX.4.4',
-                35: '0',  # Heartbeat
-                49: 'SERVER',
-                56: message.get(49),
-                34: self.last_seq_num + 1,
-                52: datetime.utcnow().strftime("%Y%m%d-%H:%M:%S.%f")[:-3]
-            })
-            self.send_message(self.response_message)
+        send_test_request(self.send_message, message.get(49), self.last_seq_num + 1)
 
     def handle_resend_request(self, message):
-        self.logger.info("Resend request received. Implement logic to resend messages.")
+        send_gapfill(self.send_message, message.get(49), self.last_seq_num + 1, self.last_seq_num + 10)
 
     def handle_logout(self, message):
         with self.lock:
@@ -123,31 +117,17 @@ class FixEngine:
     def handle_cancel_order(self, message):
         self.logger.info("Cancel order request received. Implement cancel order handling logic.")
 
-    def start_heartbeat(self):
-        while self.running:
-            with self.lock:
-                self.response_message.clear()
-                self.response_message.update({
-                    8: 'FIX.4.4',
-                    35: '0',  # Heartbeat
-                    49: 'SERVER',
-                    56: 'CLIENT',
-                    34: self.last_seq_num + 1,
-                    52: datetime.utcnow().strftime("%Y%m%d-%H:%M:%S.%f")[:-3]
-                })
-                self.send_message(self.response_message)
-            time.sleep(self.heartbeat_interval)
+    def start(self):
+        self.connect()
+        self.heartbeat.start()
+        threading.Thread(target=self.receive_message).start()
+
+    def stop(self):
+        self.heartbeat.stop()
+        self.disconnect()
 
     def generate_clordid(self):
         return str(uuid.uuid4())
-
-    def start(self):
-        self.connect()
-        threading.Thread(target=self.receive_message).start()
-        threading.Thread(target=self.start_heartbeat).start()
-
-    def stop(self):
-        self.disconnect()
 
 # Example usage
 if __name__ == '__main__':
