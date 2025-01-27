@@ -4,6 +4,7 @@ import logging
 from datetime import datetime
 from pyfixmsg.fixmessage import FixMessage
 from pyfixmsg.codecs.stringfix import Codec
+import uuid  # For generating unique ClOrdID
 
 class FixEngine:
     def __init__(self, host, port):
@@ -137,6 +138,9 @@ class FixEngine:
                 self.send_message(self.response_message)
             time.sleep(self.heartbeat_interval)
 
+    def generate_clordid(self):
+        return str(uuid.uuid4())
+
     def start(self):
         self.connect()
         threading.Thread(target=self.receive_message).start()
@@ -144,15 +148,6 @@ class FixEngine:
 
     def stop(self):
         self.disconnect()
-        
-    def generate_clordid(prefix="ORD"):
-        """
-        Generates a unique Client Order ID (ClOrdID).
-        :param prefix: A prefix for the ClOrdID (default is "ORD").
-        :return: A unique ClOrdID string.
-        """
-        timestamp = int(time.time() * 1000)  # Current time in milliseconds
-        return f"{prefix}{timestamp}"
 
 # Example usage
 if __name__ == '__main__':
@@ -168,7 +163,7 @@ if __name__ == '__main__':
         56: 'TARGET',
         34: 1,
         52: '20250127-19:43:40',
-        11: '12345',
+        11: engine.generate_clordid(),  # Generate unique ClOrdID
         54: '1',
         38: '100',
         40: '2'
