@@ -1,6 +1,7 @@
 import socket
 import threading
 import logging
+from datetime import datetime
 from pyfixmsg.fixmessage import FixMessage
 from pyfixmsg.codecs.stringfix import Codec
 
@@ -13,6 +14,8 @@ class FixEngine:
         self.running = False
         self.logger = logging.getLogger('FixEngine')
         self.logger.setLevel(logging.DEBUG)
+        self.heartbeat_interval = 30
+        self.last_seq_num = 0
 
     def connect(self):
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -41,12 +44,87 @@ class FixEngine:
                 self.handle_message(fix_message)
 
     def handle_message(self, message):
-        # Implement message handling logic
-        pass
+        msg_type = message.get(35)
+        if msg_type == 'A':  # Logon
+            self.handle_logon(message)
+        elif msg_type == '0':  # Heartbeat
+            self.handle_heartbeat(message)
+        elif msg_type == '1':  # Test Request
+            self.handle_test_request(message)
+        elif msg_type == '2':  # Resend Request
+            self.handle_resend_request(message)
+        elif msg_type == '5':  # Logout
+            self.handle_logout(message)
+        elif msg_type == 'D':  # New Order
+            self.handle_new_order(message)
+        elif msg_type == 'F':  # Cancel Request
+            self.handle_cancel_order(message)
+        else:
+            self.logger.warning(f"Unknown message type: {msg_type}")
+
+    def handle_logon(self, message):
+        response = {
+            8: 'FIX.4.2',
+            35: 'A',
+            49: 'SERVER',
+            56: message.get(49),
+            34: self.last_seq_num + 1,
+            52: datetime.utcnow().strftime("%Y%m%d-%H:%M:%S.%f")[:-3]
+        }
+        self.send_message(response)
+
+    def handle_heartbeat(self, message):
+        self.logger.info("Heartbeat received")
+
+    def handle_test_request(self, message):
+        response = {
+            8: 'FIX.4.2',
+            35: '0',  # Heartbeat
+            49: 'SERVER',
+            56: message.get(49),
+            34: self.last_seq_num + 1,
+            52: datetime.utcnow().strftime("%Y%m%d-%H:%M:%S.%f")[:-3]
+        }
+        self.send_message(response)
+
+    def handle_resend_request(self, message):
+        self.logger.info("Resend request received. Implement logic to resend messages.")
+
+    def handle_logout(self, message):
+        response = {
+            8: 'FIX.4.2',
+            35: '5',  # Logout
+            49: 'SERVER',
+            56: message.get(49),
+            34: self.last_seq_num + 1,
+            52: datetime.utcnow().strftime("%Y%m%d-%H:%M:%S.%f")[:-3]
+        }
+        self.send_message(response)
+        self.disconnect()
+
+    def handle_new_order(self, message):
+        self.logger.info("New order received. Implement order handling logic.")
+
+    def handle_cancel_order(self, message):
+        self.logger.info("Cancel order request received. Implement cancel order handling logic.")
+
+    def start_heartbeat(self):
+        while self.running:
+            heartbeat = {
+                8: 'FIX.4.2',
+                35: '0',  # Heartbeat
+                49: 'SERVER',
+                56: 'CLIENT',
+                34: self.last_seq_num + 1,
+                52: datetime.utcnow().strftime("%Y%m%d-%H:%M:%S.%f")[:-3]
+            }
+            self.send_message(heartbeat)
+            time.sleep(self.heartbeat_interval)
 
     def start(self):
         self.connect()
         threading.Thread(target=self.receive_message).start()
+        threading.Thread(target=self.start_heartbeat).start()
 
     def stop(self):
         self.disconnect()
