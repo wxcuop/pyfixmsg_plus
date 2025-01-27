@@ -144,6 +144,15 @@ class FixEngine:
 
     def stop(self):
         self.disconnect()
+        
+    def generate_clordid(prefix="ORD"):
+        """
+        Generates a unique Client Order ID (ClOrdID).
+        :param prefix: A prefix for the ClOrdID (default is "ORD").
+        :return: A unique ClOrdID string.
+        """
+        timestamp = int(time.time() * 1000)  # Current time in milliseconds
+        return f"{prefix}{timestamp}"
 
 # Example usage
 if __name__ == '__main__':
