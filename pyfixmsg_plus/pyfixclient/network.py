@@ -2,7 +2,7 @@
 '''Network manager class for FIX'''
 
 from socket import *
-from pyfixmsg.log import *
+from log import FIX_Log
 import threading, _thread
 from threading import Thread, Lock
 import time
