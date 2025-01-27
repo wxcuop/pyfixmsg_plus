@@ -64,7 +64,7 @@ class FixEngine:
 
     def handle_logon(self, message):
         response = {
-            8: 'FIX.4.2',
+            8: 'FIX.4.4',
             35: 'A',
             49: 'SERVER',
             56: message.get(49),
@@ -78,7 +78,7 @@ class FixEngine:
 
     def handle_test_request(self, message):
         response = {
-            8: 'FIX.4.2',
+            8: 'FIX.4.4',
             35: '0',  # Heartbeat
             49: 'SERVER',
             56: message.get(49),
@@ -92,7 +92,7 @@ class FixEngine:
 
     def handle_logout(self, message):
         response = {
-            8: 'FIX.4.2',
+            8: 'FIX.4.4',
             35: '5',  # Logout
             49: 'SERVER',
             56: message.get(49),
@@ -111,7 +111,7 @@ class FixEngine:
     def start_heartbeat(self):
         while self.running:
             heartbeat = {
-                8: 'FIX.4.2',
+                8: 'FIX.4.4',
                 35: '0',  # Heartbeat
                 49: 'SERVER',
                 56: 'CLIENT',
@@ -136,7 +136,7 @@ if __name__ == '__main__':
 
     # Example message
     message = {
-        8: 'FIX.4.2',
+        8: 'FIX.4.4',
         35: 'D',
         49: 'SENDER',
         56: 'TARGET',
