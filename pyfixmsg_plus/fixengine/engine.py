@@ -1,4 +1,3 @@
-import socket
 import threading
 import logging
 from datetime import datetime
@@ -10,13 +9,13 @@ from testrequest import send_test_request
 from gapfill import send_gapfill
 import time
 from sequence import SequenceManager
+from network import Acceptor, Initiator
 
 class FixEngine:
-    def __init__(self, host, port, seq_file='sequence.json'):
+    def __init__(self, host, port, seq_file='sequence.json', mode='initiator'):
         self.host = host
         self.port = port
         self.codec = Codec()
-        self.socket = None
         self.running = False
         self.logger = logging.getLogger('FixEngine')
         self.logger.setLevel(logging.DEBUG)
@@ -29,56 +28,44 @@ class FixEngine:
         self.last_heartbeat_time = None
         self.missed_heartbeats = 0
         self.session_id = f"{host}:{port}"
+        self.network = Acceptor(host, port) if mode == 'acceptor' else Initiator(host, port)
 
     def connect(self):
-        with self.lock:
-            self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            self.socket.connect((self.host, self.port))
-            self.running = True
-            self.logger.info(f"Connected to {self.host}:{self.port}")
+        self.network.connect()
 
     def disconnect(self):
-        with self.lock:
-            self.running = False
-            if self.socket:
-                self.socket.close()
-            self.logger.info("Disconnected")
+        self.network.disconnect()
 
     def send_message(self, message):
-        with self.lock:
-            fix_message = FixMessage.from_dict(message)
-            wire_message = fix_message.to_wire(codec=self.codec)
-            self.socket.sendall(wire_message)
-            self.logger.info(f"Sent: {fix_message}")
+        fix_message = FixMessage.from_dict(message)
+        wire_message = fix_message.to_wire(codec=self.codec)
+        self.network.send(wire_message)
 
     def receive_message(self):
-        while self.running:
-            data = self.socket.recv(4096)
-            if data:
-                with self.lock:
-                    self.received_message.clear()
-                    self.received_message.from_wire(data, codec=self.codec)
-                    self.logger.info(f"Received: {self.received_message}")
-                    self.handle_message(self.received_message)
+        self.network.receive(self.handle_message)
 
-    def handle_message(self, message):
-        msg_type = message.get(35)
-        if msg_type == 'A':  # Logon
-            self.handle_logon(message)
-        elif msg_type == '0':  # Heartbeat
-            self.handle_heartbeat(message)
-        elif msg_type == '1':  # Test Request
-            self.handle_test_request(message)
-        elif msg_type == '2':  # Resend Request
-            self.handle_resend_request(message)
-        elif msg_type == '5':  # Logout
-            self.handle_logout(message)
-        elif msg_type == 'D':  # New Order
-            self.handle_new_order(message)
-        elif msg_type == 'F':  # Cancel Request
-            self.handle_cancel_order(message)
-        else:
-            self.logger.warning(f"Unknown message type: {msg_type}")
+    def handle_message(self, data):
+        with self.lock:
+            self.received_message.clear()
+            self.received_message.from_wire(data, codec=self.codec)
+            self.logger.info(f"Received: {self.received_message}")
+            msg_type = self.received_message.get(35)
+            if msg_type == 'A':  # Logon
+                self.handle_logon(self.received_message)
+            elif msg_type == '0':  # Heartbeat
+                self.handle_heartbeat(self.received_message)
+            elif msg_type == '1':  # Test Request
+                self.handle_test_request(self.received_message)
+            elif msg_type == '2':  # Resend Request
+                self.handle_resend_request(self.received_message)
+            elif msg_type == '5':  # Logout
+                self.handle_logout(self.received_message)
+            elif msg_type == 'D':  # New Order
+                self.handle_new_order(self.received_message)
+            elif msg_type == 'F':  # Cancel Request
+                self.handle_cancel_order(self.received_message)
+            else:
+                self.logger.warning(f"Unknown message type: {msg_type}")
 
     def handle_logon(self, message):
         with self.lock:
