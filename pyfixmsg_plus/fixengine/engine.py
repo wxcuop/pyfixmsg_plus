@@ -23,6 +23,7 @@ class FixEngine:
         self.sender = self.config_manager.get('FIX', 'sender', 'SENDER')
         self.target = self.config_manager.get('FIX', 'target', 'TARGET')
         self.version = self.config_manager.get('FIX', 'version', 'FIX.4.4')
+        self.use_tls = self.config_manager.get('FIX', 'use_tls', 'false').lower() == 'true'
         seq_file = self.config_manager.get('FIX', 'state_file', 'sequence.json')
         
         self.codec = Codec()
@@ -38,7 +39,7 @@ class FixEngine:
         self.last_heartbeat_time = None
         self.missed_heartbeats = 0
         self.session_id = f"{self.host}:{self.port}"
-        self.network = Acceptor(self.host, self.port) if mode == 'acceptor' else Initiator(self.host, self.port)
+        self.network = Acceptor(self.host, self.port, self.use_tls) if mode == 'acceptor' else Initiator(self.host, self.port, self.use_tls)
     
     def connect(self):
         self.network.connect()
