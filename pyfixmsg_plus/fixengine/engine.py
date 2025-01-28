@@ -10,6 +10,7 @@ from gapfill import send_gapfill
 import time
 from sequence import SequenceManager
 from network import Acceptor, Initiator
+from fixmessage_builder import FixMessageBuilder
 
 class FixEngine:
     def __init__(self, host, port, seq_file='sequence.json', mode='initiator'):
@@ -72,15 +73,14 @@ class FixEngine:
 
     def handle_logon(self, message):
         with self.lock:
-            self.response_message.clear()
-            self.response_message.update({
-                8: 'FIX.4.4',
-                35: 'A',
-                49: 'SERVER',
-                56: message.get(49),
-                34: self.sequence_manager.get_next_sequence_number(),
-                52: datetime.utcnow().strftime("%Y%m%d-%H:%M:%S.%f")[:-3]
-            })
+            self.response_message = (FixMessageBuilder()
+                                     .set_version('FIX.4.4')
+                                     .set_msg_type('A')
+                                     .set_sender('SERVER')
+                                     .set_target(message.get(49))
+                                     .set_sequence_number(self.sequence_manager.get_next_sequence_number())
+                                     .set_sending_time()
+                                     .build())
             self.send_message(self.response_message)
 
     def handle_heartbeat(self, message):
@@ -96,15 +96,14 @@ class FixEngine:
 
     def handle_logout(self, message):
         with self.lock:
-            self.response_message.clear()
-            self.response_message.update({
-                8: 'FIX.4.4',
-                35: '5',  # Logout
-                49: 'SERVER',
-                56: message.get(49),
-                34: self.sequence_manager.get_next_sequence_number(),
-                52: datetime.utcnow().strftime("%Y%m%d-%H:%M:%S.%f")[:-3]
-            })
+            self.response_message = (FixMessageBuilder()
+                                     .set_version('FIX.4.4')
+                                     .set_msg_type('5')  # Logout
+                                     .set_sender('SERVER')
+                                     .set_target(message.get(49))
+                                     .set_sequence_number(self.sequence_manager.get_next_sequence_number())
+                                     .set_sending_time()
+                                     .build())
             self.send_message(self.response_message)
             self.disconnect()
 
@@ -127,10 +126,6 @@ class FixEngine:
         return str(uuid.uuid4())
 
     def check_heartbeat(self):
-        """
-        Checks if a heartbeat was received within the expected interval.
-        If not, sends a Test Request.
-        """
         current_time = time.time()
         if self.last_heartbeat_time and current_time - self.last_heartbeat_time > self.heartbeat_interval:
             self.missed_heartbeats += 1
@@ -146,19 +141,18 @@ if __name__ == '__main__':
     engine.start()
 
     # Example message
-    message = FixMessage()
-    message.update({
-        8: 'FIX.4.4',
-        35: 'D',
-        49: 'SENDER',
-        56: 'TARGET',
-        34: 1,
-        52: '20250127-19:43:40',
-        11: engine.generate_clordid(),  # Generate unique ClOrdID
-        54: '1',
-        38: '100',
-        40: '2'
-    })
+    message = (FixMessageBuilder()
+               .set_version('FIX.4.4')
+               .set_msg_type('D')
+               .set_sender('SENDER')
+               .set_target('TARGET')
+               .set_sequence_number(1)
+               .set_sending_time()
+               .set_custom_field(11, engine.generate_clordid())  # Generate unique ClOrdID
+               .set_custom_field(54, '1')
+               .set_custom_field(38, '100')
+               .set_custom_field(40, '2')
+               .build())
 
     engine.send_message(message)
     engine.stop()
