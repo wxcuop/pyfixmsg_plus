@@ -4,8 +4,9 @@ from datetime import datetime
 from pyfixmsg.fixmessage import FixMessage
 
 class Heartbeat:
-    def __init__(self, send_message, interval=30):
+    def __init__(self, send_message, config_manager, interval=30):
         self.send_message = send_message
+        self.config_manager = config_manager
         self.interval = interval
         self.running = False
         self.thread = None
@@ -24,10 +25,10 @@ class Heartbeat:
         while self.running:
             message = FixMessage()
             message.update({
-                8: 'FIX.4.4',
+                8: self.config_manager.get('FIX', 'version', 'FIX.4.4'),
                 35: '0',  # Heartbeat
-                49: 'SERVER',
-                56: 'CLIENT',
+                49: self.config_manager.get('FIX', 'sender', 'SERVER'),
+                56: self.config_manager.get('FIX', 'target', 'CLIENT'),
                 34: 1,  # This should be dynamically set
                 52: datetime.utcnow().strftime("%Y%m%d-%H:%M:%S.%f")[:-3]
             })
