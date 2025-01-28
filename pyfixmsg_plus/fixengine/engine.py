@@ -9,9 +9,10 @@ from heartbeat import Heartbeat
 from testrequest import send_test_request
 from gapfill import send_gapfill
 import time
+from sequence import SequenceManager
 
 class FixEngine:
-    def __init__(self, host, port):
+    def __init__(self, host, port, seq_file='sequence.json'):
         self.host = host
         self.port = port
         self.codec = Codec()
@@ -20,7 +21,7 @@ class FixEngine:
         self.logger = logging.getLogger('FixEngine')
         self.logger.setLevel(logging.DEBUG)
         self.heartbeat_interval = 30
-        self.last_seq_num = 0
+        self.sequence_manager = SequenceManager(seq_file)
         self.response_message = FixMessage()  # Reusable FixMessage object
         self.received_message = FixMessage()  # Reusable FixMessage object for received messages
         self.lock = threading.Lock()  # Lock for thread safety
@@ -87,7 +88,7 @@ class FixEngine:
                 35: 'A',
                 49: 'SERVER',
                 56: message.get(49),
-                34: self.last_seq_num + 1,
+                34: self.sequence_manager.get_next_sequence_number(),
                 52: datetime.utcnow().strftime("%Y%m%d-%H:%M:%S.%f")[:-3]
             })
             self.send_message(self.response_message)
@@ -98,10 +99,10 @@ class FixEngine:
         self.check_heartbeat()
 
     def handle_test_request(self, message):
-        send_test_request(self.send_message, message.get(49), self.last_seq_num + 1)
+        send_test_request(self.send_message, message.get(49), self.sequence_manager.get_next_sequence_number())
 
     def handle_resend_request(self, message):
-        send_gapfill(self.send_message, message.get(49), self.last_seq_num + 1, self.last_seq_num + 10)
+        send_gapfill(self.send_message, message.get(49), self.sequence_manager.get_next_sequence_number(), self.sequence_manager.get_next_sequence_number() + 10)
 
     def handle_logout(self, message):
         with self.lock:
@@ -111,7 +112,7 @@ class FixEngine:
                 35: '5',  # Logout
                 49: 'SERVER',
                 56: message.get(49),
-                34: self.last_seq_num + 1,
+                34: self.sequence_manager.get_next_sequence_number(),
                 52: datetime.utcnow().strftime("%Y%m%d-%H:%M:%S.%f")[:-3]
             })
             self.send_message(self.response_message)
