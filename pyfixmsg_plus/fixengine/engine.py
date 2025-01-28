@@ -10,7 +10,7 @@ from gapfill import send_gapfill
 import time
 from sequence import SequenceManager
 from network import Acceptor, Initiator
-from fixmessage_builder import FixMessageBuilder
+from pyfixmsg_plus.fixengine.FixMessageBuilder import FixMessageBuilder
 
 class FixEngine:
     def __init__(self, host, port, seq_file='sequence.json', mode='initiator'):
