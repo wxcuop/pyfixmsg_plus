@@ -20,6 +20,9 @@ class FixEngine:
 
         self.host = self.config_manager.get('FIX', 'host', '127.0.0.1')
         self.port = int(self.config_manager.get('FIX', 'port', '5000'))
+        self.sender = self.config_manager.get('FIX', 'sender', 'SENDER')
+        self.target = self.config_manager.get('FIX', 'target', 'TARGET')
+        self.version = self.config_manager.get('FIX', 'version', 'FIX.4.4')
         seq_file = self.config_manager.get('FIX', 'state_file', 'sequence.json')
         
         self.codec = Codec()
@@ -85,9 +88,9 @@ class FixEngine:
     def handle_logon(self, message):
         with self.lock:
             self.response_message = (FixMessageBuilder()
-                                     .set_version('FIX.4.4')
+                                     .set_version(self.version)
                                      .set_msg_type('A')
-                                     .set_sender('SERVER')
+                                     .set_sender(self.sender)
                                      .set_target(message.get(49))
                                      .set_sequence_number(self.sequence_manager.get_next_sequence_number())
                                      .set_sending_time()
@@ -108,9 +111,9 @@ class FixEngine:
     def handle_logout(self, message):
         with self.lock:
             self.response_message = (FixMessageBuilder()
-                                     .set_version('FIX.4.4')
+                                     .set_version(self.version)
                                      .set_msg_type('5')  # Logout
-                                     .set_sender('SERVER')
+                                     .set_sender(self.sender)
                                      .set_target(message.get(49))
                                      .set_sequence_number(self.sequence_manager.get_next_sequence_number())
                                      .set_sending_time()
@@ -153,10 +156,10 @@ if __name__ == '__main__':
     
     # Example message
     message = (FixMessageBuilder()
-               .set_version('FIX.4.4')
+               .set_version(engine.version)
                .set_msg_type('D')
-               .set_sender('SENDER')
-               .set_target('TARGET')
+               .set_sender(engine.sender)
+               .set_target(engine.target)
                .set_sequence_number(1)
                .set_sending_time()
                .set_custom_field(11, engine.generate_clordid())  # Generate unique ClOrdID
