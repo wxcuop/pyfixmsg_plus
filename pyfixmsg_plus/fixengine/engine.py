@@ -39,7 +39,7 @@ class FixEngine:
     def send_message(self, message):
         fix_message = FixMessage.from_dict(message)
         # Populate tag 52 with the current sending time if not already present
-        if 52 not in fix_message:
+        if not fix_message.anywhere(52):
             fix_message[52] = datetime.utcnow().strftime("%Y%m%d-%H:%M:%S.%f")[:-3]
         wire_message = fix_message.to_wire(codec=self.codec)
         self.network.send(wire_message)
