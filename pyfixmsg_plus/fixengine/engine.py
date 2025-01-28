@@ -35,7 +35,7 @@ class FixEngine:
         self.response_message = FixMessage()  # Reusable FixMessage object
         self.received_message = FixMessage()  # Reusable FixMessage object for received messages
         self.lock = threading.Lock()  # Lock for thread safety
-        self.heartbeat = Heartbeat(self.send_message, self.heartbeat_interval)
+        self.heartbeat = Heartbeat(self.send_message, self.config_manager, self.heartbeat_interval)
         self.last_heartbeat_time = None
         self.missed_heartbeats = 0
         self.session_id = f"{self.host}:{self.port}"
