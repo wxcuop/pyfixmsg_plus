@@ -30,13 +30,13 @@ class FixEngine:
         self.missed_heartbeats = 0
         self.session_id = f"{host}:{port}"
         self.network = Acceptor(host, port) if mode == 'acceptor' else Initiator(host, port)
-
+    
     def connect(self):
         self.network.connect()
-
+    
     def disconnect(self):
         self.network.disconnect()
-
+    
     def send_message(self, message):
         fix_message = FixMessage.from_dict(message)
         # Populate tag 52 with the current sending time if not already present
@@ -44,33 +44,38 @@ class FixEngine:
             fix_message[52] = datetime.utcnow().strftime("%Y%m%d-%H:%M:%S.%f")[:-3]
         wire_message = fix_message.to_wire(codec=self.codec)
         self.network.send(wire_message)
-
+    
     def receive_message(self):
         self.network.receive(self.handle_message)
-
+    
     def handle_message(self, data):
         with self.lock:
             self.received_message.clear()
             self.received_message.from_wire(data, codec=self.codec)
             self.logger.info(f"Received: {self.received_message}")
+            
+            # Calculate the checksum of the received message
+            if self.received_message.checksum() != self.received_message[10]:
+                self.logger.error("Checksum validation failed for received message.")
+                return
+            
             msg_type = self.received_message.get(35)
-            if msg_type == 'A':  # Logon
-                self.handle_logon(self.received_message)
-            elif msg_type == '0':  # Heartbeat
-                self.handle_heartbeat(self.received_message)
-            elif msg_type == '1':  # Test Request
-                self.handle_test_request(self.received_message)
-            elif msg_type == '2':  # Resend Request
-                self.handle_resend_request(self.received_message)
-            elif msg_type == '5':  # Logout
-                self.handle_logout(self.received_message)
-            elif msg_type == 'D':  # New Order
-                self.handle_new_order(self.received_message)
-            elif msg_type == 'F':  # Cancel Request
-                self.handle_cancel_order(self.received_message)
-            else:
-                self.logger.warning(f"Unknown message type: {msg_type}")
-
+            
+            handler = {
+                'A': self.handle_logon,
+                '0': self.handle_heartbeat,
+                '1': self.handle_test_request,
+                '2': self.handle_resend_request,
+                '5': self.handle_logout,
+                'D': self.handle_new_order,
+                'F': self.handle_cancel_order
+            }.get(msg_type, self.handle_unknown_message)
+            
+            handler(self.received_message)
+    
+    def handle_unknown_message(self, message):
+        self.logger.warning(f"Unknown message type: {message.get(35)}")
+    
     def handle_logon(self, message):
         with self.lock:
             self.response_message = (FixMessageBuilder()
@@ -82,18 +87,18 @@ class FixEngine:
                                      .set_sending_time()
                                      .build())
             self.send_message(self.response_message)
-
+    
     def handle_heartbeat(self, message):
         self.logger.info("Heartbeat received")
         self.last_heartbeat_time = time.time()
         self.check_heartbeat()
-
+    
     def handle_test_request(self, message):
         send_test_request(self.send_message, message.get(49), self.sequence_manager.get_next_sequence_number())
-
+    
     def handle_resend_request(self, message):
         send_gapfill(self.send_message, message.get(49), self.sequence_manager.get_next_sequence_number(), self.sequence_manager.get_next_sequence_number() + 10)
-
+    
     def handle_logout(self, message):
         with self.lock:
             self.response_message = (FixMessageBuilder()
@@ -106,25 +111,25 @@ class FixEngine:
                                      .build())
             self.send_message(self.response_message)
             self.disconnect()
-
+    
     def handle_new_order(self, message):
         self.logger.info("New order received. Implement order handling logic.")
-
+    
     def handle_cancel_order(self, message):
         self.logger.info("Cancel order request received. Implement cancel order handling logic.")
-
+    
     def start(self):
         self.connect()
         self.heartbeat.start()
         threading.Thread(target=self.receive_message).start()
-
+    
     def stop(self):
         self.heartbeat.stop()
         self.disconnect()
-
+    
     def generate_clordid(self):
         return str(uuid.uuid4())
-
+    
     def check_heartbeat(self):
         current_time = time.time()
         if self.last_heartbeat_time and current_time - self.last_heartbeat_time > self.heartbeat_interval:
@@ -139,7 +144,7 @@ class FixEngine:
 if __name__ == '__main__':
     engine = FixEngine('127.0.0.1', 9121)
     engine.start()
-
+    
     # Example message
     message = (FixMessageBuilder()
                .set_version('FIX.4.4')
@@ -153,6 +158,6 @@ if __name__ == '__main__':
                .set_custom_field(38, '100')
                .set_custom_field(40, '2')
                .build())
-
+    
     engine.send_message(message)
     engine.stop()
