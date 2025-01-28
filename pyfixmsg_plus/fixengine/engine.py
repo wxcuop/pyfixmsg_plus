@@ -11,16 +11,22 @@ import time
 from sequence import SequenceManager
 from network import Acceptor, Initiator
 from fixmessage_builder import FixMessageBuilder
+from configmanager import ConfigManager  # Import the new ConfigManager
 
 class FixEngine:
-    def __init__(self, host, port, seq_file='sequence.json', mode='initiator'):
-        self.host = host
-        self.port = port
+    def __init__(self, config_path='config.ini', mode='initiator'):
+        self.config_manager = ConfigManager(config_path)
+        self.config_manager.load_config()
+
+        self.host = self.config_manager.get('FIX', 'host', '127.0.0.1')
+        self.port = int(self.config_manager.get('FIX', 'port', '5000'))
+        seq_file = self.config_manager.get('FIX', 'state_file', 'sequence.json')
+        
         self.codec = Codec()
         self.running = False
         self.logger = logging.getLogger('FixEngine')
         self.logger.setLevel(logging.DEBUG)
-        self.heartbeat_interval = 30
+        self.heartbeat_interval = int(self.config_manager.get('FIX', 'heartbeat_interval', '30'))
         self.sequence_manager = SequenceManager(seq_file)
         self.response_message = FixMessage()  # Reusable FixMessage object
         self.received_message = FixMessage()  # Reusable FixMessage object for received messages
@@ -28,8 +34,8 @@ class FixEngine:
         self.heartbeat = Heartbeat(self.send_message, self.heartbeat_interval)
         self.last_heartbeat_time = None
         self.missed_heartbeats = 0
-        self.session_id = f"{host}:{port}"
-        self.network = Acceptor(host, port) if mode == 'acceptor' else Initiator(host, port)
+        self.session_id = f"{self.host}:{self.port}"
+        self.network = Acceptor(self.host, self.port) if mode == 'acceptor' else Initiator(self.host, self.port)
     
     def connect(self):
         self.network.connect()
@@ -142,7 +148,7 @@ class FixEngine:
 
 # Example usage
 if __name__ == '__main__':
-    engine = FixEngine('127.0.0.1', 9121)
+    engine = FixEngine('config.ini')
     engine.start()
     
     # Example message
