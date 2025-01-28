@@ -108,7 +108,7 @@ class FixEngine:
     
     def handle_resend_request(self, message):
         send_gapfill(self.send_message, self.config_manager, message.get(49), self.sequence_manager.get_next_sequence_number(), self.sequence_manager.get_next_sequence_number() + 10)
-    
+
     def handle_logout(self, message):
         with self.lock:
             self.response_message = (FixMessageBuilder()
