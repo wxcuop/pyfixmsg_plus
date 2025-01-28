@@ -8,6 +8,7 @@ import uuid  # For generating unique ClOrdID
 from heartbeat import Heartbeat
 from testrequest import send_test_request
 from gapfill import send_gapfill
+import time
 
 class FixEngine:
     def __init__(self, host, port):
@@ -24,6 +25,9 @@ class FixEngine:
         self.received_message = FixMessage()  # Reusable FixMessage object for received messages
         self.lock = threading.Lock()  # Lock for thread safety
         self.heartbeat = Heartbeat(self.send_message, self.heartbeat_interval)
+        self.last_heartbeat_time = None
+        self.missed_heartbeats = 0
+        self.session_id = f"{host}:{port}"
 
     def connect(self):
         with self.lock:
@@ -90,6 +94,8 @@ class FixEngine:
 
     def handle_heartbeat(self, message):
         self.logger.info("Heartbeat received")
+        self.last_heartbeat_time = time.time()
+        self.check_heartbeat()
 
     def handle_test_request(self, message):
         send_test_request(self.send_message, message.get(49), self.last_seq_num + 1)
@@ -128,6 +134,20 @@ class FixEngine:
 
     def generate_clordid(self):
         return str(uuid.uuid4())
+
+    def check_heartbeat(self):
+        """
+        Checks if a heartbeat was received within the expected interval.
+        If not, sends a Test Request.
+        """
+        current_time = time.time()
+        if self.last_heartbeat_time and current_time - self.last_heartbeat_time > self.heartbeat_interval:
+            self.missed_heartbeats += 1
+            self.logger.warning(f"Missed heartbeat {self.missed_heartbeats} times for {self.session_id}")
+            
+            if self.missed_heartbeats >= 1:  # Adjust threshold as needed
+                test_req_id = f"TEST{int(current_time)}"
+                self.send_test_request(test_req_id)
 
 # Example usage
 if __name__ == '__main__':
