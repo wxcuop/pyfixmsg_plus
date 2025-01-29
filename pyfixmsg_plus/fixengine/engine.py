@@ -78,7 +78,11 @@ class FixEngine:
                 '2': self.handle_resend_request,
                 '5': self.handle_logout,
                 'D': self.handle_new_order,
-                'F': self.handle_cancel_order
+                'F': self.handle_cancel_order,
+                '8': self.handle_execution_report,  # New handler for 35=8
+                'G': self.handle_order_cancel_replace,  # New handler for 35=G
+                'AB': self.handle_new_order_multileg,  # New handler for 35=AB
+                'AC': self.handle_multileg_order_cancel_replace  # New handler for 35=AC
             }.get(msg_type, self.handle_unknown_message)
             
             handler(self.received_message)
@@ -127,6 +131,18 @@ class FixEngine:
     
     def handle_cancel_order(self, message):
         self.logger.info("Cancel order request received. Implement cancel order handling logic.")
+    
+    def handle_execution_report(self, message):
+        self.logger.info("Execution report received. Implement execution report handling logic.")
+    
+    def handle_order_cancel_replace(self, message):
+        self.logger.info("Order cancel/replace request received. Implement order cancel/replace handling logic.")
+    
+    def handle_new_order_multileg(self, message):
+        self.logger.info("New order - Multileg received. Implement new order - multileg handling logic.")
+    
+    def handle_multileg_order_cancel_replace(self, message):
+        self.logger.info("Multileg order cancel/replace request received. Implement multileg order cancel/replace handling logic.")
     
     def start(self):
         self.connect()
