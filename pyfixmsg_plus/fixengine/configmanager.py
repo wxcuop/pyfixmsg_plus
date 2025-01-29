@@ -1,9 +1,20 @@
 import configparser
 
+#Ensure there's only one instance of ConfigManager (Singleton).
 class ConfigManager:
+    _instance = None
+
+    def __new__(cls, *args, **kwargs):
+        if not cls._instance:
+            cls._instance = super(ConfigManager, cls).__new__(cls, *args, **kwargs)
+        return cls._instance
+
     def __init__(self, config_path='config.ini'):
-        self.config = configparser.ConfigParser()
-        self.config_path = config_path
+        if not hasattr(self, 'initialized'):
+            self.config = configparser.ConfigParser()
+            self.config_path = config_path
+            self.load_config()
+            self.initialized = True
 
     def load_config(self):
         self.config.read(self.config_path)
@@ -32,12 +43,16 @@ class ConfigManager:
 
 # Example usage
 if __name__ == "__main__":
-    cm = ConfigManager()
-    cm.load_config()
-    print(cm.get('FIX', 'sender_comp_id', 'SENDER'))
-    cm.set('FIX', 'new_option', 'new_value')
-    cm.save_config()
-    cm.delete('FIX', 'new_option')
-    cm.save_config()
-    cm.reset()
-    cm.save_config()
+    cm1 = ConfigManager()
+    cm2 = ConfigManager()
+    cm1.load_config()
+    print(cm1.get('FIX', 'sender_comp_id', 'SENDER'))
+    cm1.set('FIX', 'new_option', 'new_value')
+    cm1.save_config()
+    cm2.delete('FIX', 'new_option')
+    cm2.save_config()
+    cm1.reset()
+    cm1.save_config()
+
+    # Check if both instances are the same
+    print(cm1 is cm2)  # Should print: True
