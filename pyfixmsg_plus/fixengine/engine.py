@@ -12,10 +12,11 @@ from sequence import SequenceManager
 from network import Acceptor, Initiator
 from fixmessage_builder import FixMessageBuilder
 from configmanager import ConfigManager  # Import the new ConfigManager
+from events import EventNotifier  # Import EventNotifier
 
 class FixEngine:
-    def __init__(self, config_path='config.ini', mode='initiator'):
-        self.config_manager = ConfigManager(config_path)
+    def __init__(self, config_manager, mode='initiator'):
+        self.config_manager = config_manager
         self.config_manager.load_config()
 
         self.host = self.config_manager.get('FIX', 'host', '127.0.0.1')
@@ -40,6 +41,8 @@ class FixEngine:
         self.missed_heartbeats = 0
         self.session_id = f"{self.host}:{self.port}"
         self.network = Acceptor(self.host, self.port, self.use_tls) if mode == 'acceptor' else Initiator(self.host, self.port, self.use_tls)
+        
+        self.event_notifier = EventNotifier()  # Initialize EventNotifier
     
     def connect(self):
         self.network.connect()
@@ -64,7 +67,6 @@ class FixEngine:
             self.received_message.from_wire(data, codec=self.codec)
             self.logger.info(f"Received: {self.received_message}")
             
-            # Calculate the checksum of the received message
             if self.received_message.checksum() != self.received_message[10]:
                 self.logger.error("Checksum validation failed for received message.")
                 return
@@ -79,13 +81,14 @@ class FixEngine:
                 '5': self.handle_logout,
                 'D': self.handle_new_order,
                 'F': self.handle_cancel_order,
-                '8': self.handle_execution_report,  # New handler for 35=8
-                'G': self.handle_order_cancel_replace,  # New handler for 35=G
-                'AB': self.handle_new_order_multileg,  # New handler for 35=AB
-                'AC': self.handle_multileg_order_cancel_replace  # New handler for 35=AC
+                '8': self.handle_execution_report,
+                'G': self.handle_order_cancel_replace,
+                'AB': self.handle_new_order_multileg,
+                'AC': self.handle_multileg_order_cancel_replace
             }.get(msg_type, self.handle_unknown_message)
             
             handler(self.received_message)
+            self.event_notifier.notify(msg_type, self.received_message)  # Notify subscribers
     
     def handle_unknown_message(self, message):
         self.logger.warning(f"Unknown message type: {message.get(35)}")
@@ -168,7 +171,19 @@ class FixEngine:
 
 # Example usage
 if __name__ == '__main__':
-    engine = FixEngine('config.ini')
+    config_manager = ConfigManager('config.ini')
+    engine = FixEngine(config_manager)
+    
+    # Subscribe to events
+    def logon_handler(message):
+        print(f"Logon message received: {message}")
+
+    def execution_report_handler(message):
+        print(f"Execution report received: {message}")
+
+    engine.event_notifier.subscribe('A', logon_handler)
+    engine.event_notifier.subscribe('8', execution_report_handler)
+    
     engine.start()
     
     # Example message
