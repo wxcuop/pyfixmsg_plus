@@ -1,5 +1,4 @@
-import threading
-import time
+import asyncio
 from datetime import datetime
 from pyfixmsg.fixmessage import FixMessage
 
@@ -9,19 +8,18 @@ class Heartbeat:
         self.config_manager = config_manager
         self.interval = interval
         self.running = False
-        self.thread = None
+        self.task = None
 
-    def start(self):
+    async def start(self):
         self.running = True
-        self.thread = threading.Thread(target=self._send_heartbeat)
-        self.thread.start()
+        self.task = asyncio.create_task(self._send_heartbeat())
 
-    def stop(self):
+    async def stop(self):
         self.running = False
-        if self.thread:
-            self.thread.join()
+        if self.task:
+            await self.task
 
-    def _send_heartbeat(self):
+    async def _send_heartbeat(self):
         while self.running:
             message = FixMessage()
             message.update({
@@ -32,5 +30,5 @@ class Heartbeat:
                 34: 1,  # This should be dynamically set
                 52: datetime.utcnow().strftime("%Y%m%d-%H:%M:%S.%f")[:-3]
             })
-            self.send_message(message)
-            time.sleep(self.interval)
+            await self.send_message(message)
+            await asyncio.sleep(self.interval)
