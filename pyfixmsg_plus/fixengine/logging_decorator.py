@@ -1,3 +1,6 @@
+# The LoggingDecorator class allows for dynamically adding logging functionality to any MessageHandler without modifying the original handler's code. 
+# This is a powerful feature of the Decorator pattern, enabling flexible and reusable enhancements to existing objects.
+
 class MessageHandler:
     def handle(self, message):
         raise NotImplementedError
