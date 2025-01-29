@@ -1,6 +1,5 @@
-import socket
+import asyncio
 import ssl
-import threading
 import logging
 
 class Network:
@@ -8,60 +7,69 @@ class Network:
         self.host = host
         self.port = port
         self.use_tls = use_tls
-        self.socket = None
+        self.reader = None
+        self.writer = None
         self.running = False
-        self.lock = threading.Lock()
+        self.lock = asyncio.Lock()
         self.logger = logging.getLogger('Network')
         self.logger.setLevel(logging.DEBUG)
 
-    def connect(self):
-        with self.lock:
-            self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    async def connect(self):
+        async with self.lock:
             if self.use_tls:
-                context = ssl.create_default_context()
-                self.socket = context.wrap_socket(self.socket, server_hostname=self.host)
-            self.socket.connect((self.host, self.port))
+                self.reader, self.writer = await asyncio.open_connection(self.host, self.port, ssl=ssl.create_default_context())
+            else:
+                self.reader, self.writer = await asyncio.open_connection(self.host, self.port)
             self.running = True
             self.logger.info(f"Connected to {self.host}:{self.port} with TLS={self.use_tls}")
 
-    def disconnect(self):
-        with self.lock:
+    async def disconnect(self):
+        async with self.lock:
             self.running = False
-            if self.socket:
-                self.socket.close()
+            if self.writer:
+                self.writer.close()
+                await self.writer.wait_closed()
             self.logger.info("Disconnected")
 
-    def send(self, message):
-        with self.lock:
-            self.socket.sendall(message)
+    async def send(self, message):
+        async with self.lock:
+            self.writer.write(message)
+            await self.writer.drain()
             self.logger.info(f"Sent: {message}")
 
-    def receive(self, handler):
+    async def receive(self, handler):
         while self.running:
-            data = self.socket.recv(4096)
+            data = await self.reader.read(4096)
             if data:
-                handler(data)
+                await handler(data)
 
 class Acceptor(Network):
     def __init__(self, host, port, use_tls=False):
         super().__init__(host, port, use_tls)
+        self.server = None
 
-    def accept(self):
-        with self.lock:
-            self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            self.socket.bind((self.host, self.port))
-            self.socket.listen(1)
-            self.client_socket, self.client_address = self.socket.accept()
-            if self.use_tls:
-                context = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH)
-                self.client_socket = context.wrap_socket(self.client_socket, server_side=True)
-            self.logger.info(f"Accepted connection from {self.client_address}")
+    async def accept(self):
+        async with self.lock:
+            self.server = await asyncio.start_server(self.handle_client, self.host, self.port, ssl=ssl.create_default_context() if self.use_tls else None)
+            self.logger.info(f"Listening on {self.host}:{self.port}")
 
-    def disconnect(self):
-        with self.lock:
-            if self.client_socket:
-                self.client_socket.close()
-            super().disconnect()
+    async def handle_client(self, reader, writer):
+        self.reader = reader
+        self.writer = writer
+        self.client_address = writer.get_extra_info('peername')
+        self.logger.info(f"Accepted connection from {self.client_address}")
+        await self.receive(self.handle_message)
+
+    async def handle_message(self, data):
+        """Override this method to handle messages"""
+        pass
+
+    async def disconnect(self):
+        async with self.lock:
+            if self.server:
+                self.server.close()
+                await self.server.wait_closed()
+            await super().disconnect()
 
 class Initiator(Network):
     def __init__(self, host, port, use_tls=False):
