@@ -12,7 +12,17 @@ from network import Acceptor, Initiator
 from fixmessage_factory import FixMessageFactory
 from configmanager import ConfigManager  # Singleton ConfigManager
 from event_notifier import EventNotifier  # Observer EventNotifier
-from message_handler import MessageProcessor, LogonHandler, ExecutionReportHandler
+from message_handler import (
+    MessageProcessor, 
+    LogonHandler, 
+    ExecutionReportHandler, 
+    NewOrderHandler, 
+    CancelOrderHandler,
+    OrderCancelReplaceHandler,
+    OrderCancelRejectHandler,
+    NewOrderMultilegHandler,
+    MultilegOrderCancelReplaceHandler
+)
 
 class FixEngine:
     def __init__(self, config_manager, mode='initiator'):
@@ -46,6 +56,12 @@ class FixEngine:
         # Register message handlers
         self.message_processor.register_handler('A', LogonHandler())
         self.message_processor.register_handler('8', ExecutionReportHandler())
+        self.message_processor.register_handler('D', NewOrderHandler())
+        self.message_processor.register_handler('F', CancelOrderHandler())
+        self.message_processor.register_handler('G', OrderCancelReplaceHandler())
+        self.message_processor.register_handler('9', OrderCancelRejectHandler())
+        self.message_processor.register_handler('AB', NewOrderMultilegHandler())
+        self.message_processor.register_handler('AC', MultilegOrderCancelReplaceHandler())
     
     async def connect(self):
         await self.network.connect()
