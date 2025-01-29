@@ -1,13 +1,17 @@
 class EventNotifier:
     def __init__(self):
-        self._subscribers = {}
+        self.subscribers = {}
 
     def subscribe(self, event_type, handler):
-        if event_type not in self._subscribers:
-            self._subscribers[event_type] = []
-        self._subscribers[event_type].append(handler)
+        if event_type not in self.subscribers:
+            self.subscribers[event_type] = []
+        self.subscribers[event_type].append(handler)
 
-    def notify(self, event_type, *args, **kwargs):
-        if event_type in self._subscribers:
-            for handler in self._subscribers[event_type]:
-                handler(*args, **kwargs)
+    def unsubscribe(self, event_type, handler):
+        if event_type in self.subscribers:
+            self.subscribers[event_type].remove(handler)
+
+    def notify(self, event_type, event_data):
+        if event_type in self.subscribers:
+            for handler in self.subscribers[event_type]:
+                handler(event_data)
