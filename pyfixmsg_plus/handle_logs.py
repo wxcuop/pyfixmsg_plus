@@ -1,6 +1,24 @@
 import os
+import logging
+from logging.handlers import TimedRotatingFileHandler
 from datetime import datetime, timedelta
 from errors import ErrorLevel
+
+# Configure the logging
+logger = logging.getLogger('handle_logs')
+logger.setLevel(logging.INFO)
+
+# Create a file handler that logs messages to a file with daily rotation
+handler = TimedRotatingFileHandler('application.log', when='midnight', interval=1)
+handler.suffix = '%Y%m%d'  # Add date suffix to the rotated log files
+handler.setLevel(logging.INFO)
+
+# Create a formatter that includes timestamps
+formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
+handler.setFormatter(formatter)
+
+# Add the handler to the logger
+logger.addHandler(handler)
 
 class HandleLogFilesEvents:
     def HLF_NotifyMsg(self, s, level):
@@ -16,18 +34,13 @@ class HandleLogFilesEventsNotifier:
 class HandleLogFiles:
     def __init__(self, log_file_name, include_timestamp=True, rotate_file=True, event_notifier=None):
         self.log_file_name_orig = log_file_name
-        self.log_file_name = log_file_name
         self.include_timestamp = include_timestamp
         self.rotate_file = rotate_file
         self.event_notifier = event_notifier
         self.use_stdout = False
         self.header = ""
         self.offset_date = 0
-        self.stream_out = None
-        self.prev_date = None
-        self.formatter_timestamp = "%Y%m%d %H:%M:%S.%f"
-        self.formatter_file_date = "%Y%m%d"
-        
+
         if event_notifier:
             self.event_notifier.HLF_NotifyMsg("HandleLogFiles Version 2.8", ErrorLevel.INFO)
 
@@ -35,63 +48,16 @@ class HandleLogFiles:
         self.header = header
 
     def write_text(self, text, append_newline=True):
-        self._write(text, append_newline)
-
-    def _write(self, text, append_newline):
-        current_date = datetime.now().strftime("%Y%m%d")
-        day_now = datetime.strptime(current_date, "%Y%m%d") + timedelta(days=self.offset_date)
-
-        if not self.prev_date:
-            self.prev_date = day_now - timedelta(days=1)
-
-        new_file = False
-
-        if self.rotate_file and day_now > self.prev_date:
-            self.prev_date = day_now
-            if self.stream_out:
-                self.stream_out.close()
-                self.stream_out = None
-            if ',' in self.log_file_name_orig:
-                self.log_file_name = f"{self.log_file_name_orig.rsplit('.', 1)[0]}_{day_now.strftime(self.formatter_file_date)}.{self.log_file_name_orig.rsplit('.', 1)[1]}"
-            else:
-                self.log_file_name += f"_{day_now.strftime(self.formatter_file_date)}"
-            self.log_file = self.log_file_name
-
-        if not os.path.exists(self.log_file_name):
-            try:
-                open(self.log_file_name, 'a').close()
-                new_file = True
-            except IOError as e:
-                raise IOError(f"ERROR: Cannot create file, {str(e)}")
-
-        if not self.stream_out:
-            try:
-                self.stream_out = open(self.log_file_name, 'a')
-            except FileNotFoundError as e:
-                self.event_notifier.HLF_NotifyMsg(f"File not found {str(e)}", ErrorLevel.ERROR)
-
-        if self.stream_out:
-            if new_file and self.header:
-                text = self.header + os.linesep + text
-
-            if self.include_timestamp:
-                text = datetime.now().strftime(self.formatter_timestamp) + " ; " + text
-
-            if append_newline:
-                text += os.linesep
-
-            self.stream_out.write(text)
-            self.stream_out.flush()
-        else:
-            raise IOError("Streamout null for some reason")
+        if self.include_timestamp:
+            text = datetime.now().strftime("%Y%m%d %H:%M:%S.%f") + " ; " + text
+        if append_newline:
+            text += os.linesep
+        logger.info(text)
 
     def stop(self):
-        if self.stream_out:
-            try:
-                self.stream_out.close()
-            except IOError:
-                self.event_notifier.HLF_NotifyMsg("Could not close the stream", ErrorLevel.WARNING)
-        self.log_file = None
+        for handler in logger.handlers:
+            handler.close()
+            logger.removeHandler(handler)
 
     def delete_file(self, file_name):
         try:
@@ -101,10 +67,12 @@ class HandleLogFiles:
             return False
 
     def log_message(self, message, level):
-        try:
-            self.write_text(f"{level} {message}")
-        except IOError:
-            pass
+        if level == ErrorLevel.INFO:
+            logger.info(message)
+        elif level == ErrorLevel.WARNING:
+            logger.warning(message)
+        elif level == ErrorLevel.ERROR:
+            logger.error(message)
         if self.use_stdout:
             print(f"{level} {message}")
 
@@ -112,7 +80,8 @@ class HandleLogFiles:
         self.use_stdout = value
 
     def set_formatter(self, formatter):
-        self.formatter_file_date = formatter
+        for handler in logger.handlers:
+            handler.setFormatter(logging.Formatter(formatter))
 
     def set_offset_date(self, days):
         self.offset_date = days
