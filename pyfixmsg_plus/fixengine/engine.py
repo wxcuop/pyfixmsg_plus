@@ -21,7 +21,11 @@ from message_handler import (
     OrderCancelReplaceHandler,
     OrderCancelRejectHandler,
     NewOrderMultilegHandler,
-    MultilegOrderCancelReplaceHandler
+    MultilegOrderCancelReplaceHandler,
+    ResendRequestHandler,
+    SequenceResetHandler,
+    RejectHandler,
+    LogoutHandler
 )
 
 class FixEngine:
@@ -63,6 +67,10 @@ class FixEngine:
         self.message_processor.register_handler('9', OrderCancelRejectHandler())
         self.message_processor.register_handler('AB', NewOrderMultilegHandler())
         self.message_processor.register_handler('AC', MultilegOrderCancelReplaceHandler())
+        self.message_processor.register_handler('2', ResendRequestHandler())
+        self.message_processor.register_handler('4', SequenceResetHandler())
+        self.message_processor.register_handler('3', RejectHandler())
+        self.message_processor.register_handler('5', LogoutHandler())
     
     async def connect(self):
         await self.network.connect()
@@ -93,12 +101,8 @@ class FixEngine:
             
             await self.message_processor.process_message(self.received_message)
             msg_type = self.received_message.get(35)
-            if msg_type == '2':  # Resend Request
-                await self.handle_resend_request(self.received_message)
-            elif msg_type == '4':  # Sequence Reset
-                await self.handle_sequence_reset(self.received_message)
-            elif msg_type == '3':  # Reject
-                await self.handle_reject(self.received_message)
+            if msg_type == '1':  # Test Request
+                await self.handle_test_request(self.received_message)
             self.event_notifier.notify(msg_type, self.received_message)  # Notify subscribers
     
     async def send_reject_message(self, received_message):
@@ -115,28 +119,18 @@ class FixEngine:
         
         await self.send_message(reject_message)
     
-    async def handle_resend_request(self, message):
-        start_seq_num = int(message.get(7))  # Get the start sequence number from the resend request
-        end_seq_num = int(message.get(16))  # Get the end sequence number from the resend request
-        for seq_num in range(start_seq_num, end_seq_num + 1):
-            msg = self.sequence_manager.get_message(seq_num)
-            if msg:
-                await self.send_message(msg)
-            else:
-                await self.send_gap_fill(seq_num)
-    
-    async def handle_sequence_reset(self, message):
-        new_seq_num = int(message.get(36))  # Get the new sequence number from the sequence reset
-        self.sequence_manager.reset_sequence(new_seq_num)
-        self.logger.info(f"Sequence reset to {new_seq_num}")
-    
-    async def handle_reject(self, message):
-        self.logger.warning(f"Message rejected: {message}")
-        # Further handling logic can be added here
-    
-    async def send_gap_fill(self, seq_num):
-        gap_fill_message = FixMessageFactory.create_gap_fill(seq_num)
-        await self.send_message(gap_fill_message)
+    async def handle_test_request(self, message):
+        test_req_id = message.get(112)
+        self.logger.info(f"Responding to Test Request with Test Request ID: {test_req_id}")
+        heartbeat_message = FixMessage()
+        heartbeat_message[8] = self.version
+        heartbeat_message[35] = '0'
+        heartbeat_message[49] = self.sender
+        heartbeat_message[56] = self.target
+        heartbeat_message[34] = self.sequence_manager.get_next_seq_num()
+        heartbeat_message[52] = datetime.utcnow().strftime("%Y%m%d-%H:%M:%S.%f")[:-3]
+        heartbeat_message[112] = test_req_id
+        await self.send_message(heartbeat_message)
     
     async def start(self):
         await self.connect()
