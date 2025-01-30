@@ -120,10 +120,8 @@ if __name__ == "__main__":
     processor.register_handler('5', LogoutHandler())
 
     # Example message processing
-    logon_message = FixMessage()
-    logon_message.set_field(35, 'A')  # Message type 'A'
-    execution_report_message = FixMessage()
-    execution_report_message.set_field(35, '8')  # Message type '8'
+    logon_message = FixMessageFactory.create_message('A')  # Create logon message using factory
+    execution_report_message = FixMessageFactory.create_message('8')  # Create execution report message using factory
 
     # Note: In real usage, these would be handled within an async context
     import asyncio
