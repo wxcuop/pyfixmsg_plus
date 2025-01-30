@@ -25,7 +25,7 @@ from message_handler import (
 )
 
 class FixEngine:
-    def __init__(self, config_manager, mode='initiator'):
+    def __init__(self, config_manager):
         self.config_manager = config_manager
         self.host = self.config_manager.get('FIX', 'host', '127.0.0.1')
         self.port = int(self.config_manager.get('FIX', 'port', '5000'))
@@ -33,6 +33,7 @@ class FixEngine:
         self.target = self.config_manager.get('FIX', 'target', 'TARGET')
         self.version = self.config_manager.get('FIX', 'version', 'FIX.4.4')
         self.use_tls = self.config_manager.get('FIX', 'use_tls', 'false').lower() == 'true'
+        self.mode = self.config_manager.get('FIX', 'mode', 'initiator').lower()
         seq_file = self.config_manager.get('FIX', 'state_file', 'sequence.json')
         
         self.codec = Codec()
@@ -48,7 +49,7 @@ class FixEngine:
         self.last_heartbeat_time = None
         self.missed_heartbeats = 0
         self.session_id = f"{self.host}:{self.port}"
-        self.network = Acceptor(self.host, self.port, self.use_tls) if mode == 'acceptor' else Initiator(self.host, self.port, self.use_tls)
+        self.network = Acceptor(self.host, self.port, self.use_tls) if self.mode == 'acceptor' else Initiator(self.host, self.port, self.use_tls)
         
         self.event_notifier = EventNotifier()  # Initialize EventNotifier
         self.message_processor = MessageProcessor()  # Initialize MessageProcessor
