@@ -88,6 +88,7 @@ class FixEngine:
             
             if self.received_message.checksum() != self.received_message[10]:
                 self.logger.error("Checksum validation failed for received message.")
+                await self.send_reject_message(self.received_message)
                 return
             
             await self.message_processor.process_message(self.received_message)
@@ -96,7 +97,23 @@ class FixEngine:
                 await self.handle_resend_request(self.received_message)
             elif msg_type == '4':  # Sequence Reset
                 await self.handle_sequence_reset(self.received_message)
+            elif msg_type == '3':  # Reject
+                await self.handle_reject(self.received_message)
             self.event_notifier.notify(msg_type, self.received_message)  # Notify subscribers
+    
+    async def send_reject_message(self, received_message):
+        reject_message = FixMessage()
+        reject_message[8] = self.version
+        reject_message[35] = '3'
+        reject_message[49] = self.sender
+        reject_message[56] = self.target
+        reject_message[34] = self.sequence_manager.get_next_seq_num()
+        reject_message[52] = datetime.utcnow().strftime("%Y%m%d-%H:%M:%S.%f")[:-3]
+        reject_message[45] = received_message[34]  # Reference sequence number
+        reject_message[373] = '10'  # Session Reject Reason (10 = Checksum Error)
+        reject_message[58] = "Checksum validation failed"
+        
+        await self.send_message(reject_message)
     
     async def handle_resend_request(self, message):
         start_seq_num = int(message.get(7))  # Get the start sequence number from the resend request
@@ -112,6 +129,10 @@ class FixEngine:
         new_seq_num = int(message.get(36))  # Get the new sequence number from the sequence reset
         self.sequence_manager.reset_sequence(new_seq_num)
         self.logger.info(f"Sequence reset to {new_seq_num}")
+    
+    async def handle_reject(self, message):
+        self.logger.warning(f"Message rejected: {message}")
+        # Further handling logic can be added here
     
     async def send_gap_fill(self, seq_num):
         gap_fill_message = FixMessageFactory.create_gap_fill(seq_num)
