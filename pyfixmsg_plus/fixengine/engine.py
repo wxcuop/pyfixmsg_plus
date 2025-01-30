@@ -92,7 +92,30 @@ class FixEngine:
             
             await self.message_processor.process_message(self.received_message)
             msg_type = self.received_message.get(35)
+            if msg_type == '2':  # Resend Request
+                await self.handle_resend_request(self.received_message)
+            elif msg_type == '4':  # Sequence Reset
+                await self.handle_sequence_reset(self.received_message)
             self.event_notifier.notify(msg_type, self.received_message)  # Notify subscribers
+    
+    async def handle_resend_request(self, message):
+        start_seq_num = int(message.get(7))  # Get the start sequence number from the resend request
+        end_seq_num = int(message.get(16))  # Get the end sequence number from the resend request
+        for seq_num in range(start_seq_num, end_seq_num + 1):
+            msg = self.sequence_manager.get_message(seq_num)
+            if msg:
+                await self.send_message(msg)
+            else:
+                await self.send_gap_fill(seq_num)
+    
+    async def handle_sequence_reset(self, message):
+        new_seq_num = int(message.get(36))  # Get the new sequence number from the sequence reset
+        self.sequence_manager.reset_sequence(new_seq_num)
+        self.logger.info(f"Sequence reset to {new_seq_num}")
+    
+    async def send_gap_fill(self, seq_num):
+        gap_fill_message = FixMessageFactory.create_gap_fill(seq_num)
+        await self.send_message(gap_fill_message)
     
     async def start(self):
         await self.connect()
