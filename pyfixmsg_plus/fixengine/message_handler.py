@@ -57,6 +57,36 @@ class MultilegOrderCancelReplaceHandler(MessageHandler):
     def handle(self, message):
         print(f"Handling multileg order cancel/replace: {message}")
 
+class ResendRequestHandler(MessageHandler):
+    @logging_decorator
+    async def handle(self, message):
+        start_seq_num = int(message.get(7))  # Get the start sequence number from the resend request
+        end_seq_num = int(message.get(16))  # Get the end sequence number from the resend request
+        for seq_num in range(start_seq_num, end_seq_num + 1):
+            msg = self.sequence_manager.get_message(seq_num)
+            if msg:
+                await self.send_message(msg)
+            else:
+                await self.send_gap_fill(seq_num)
+
+class SequenceResetHandler(MessageHandler):
+    @logging_decorator
+    async def handle(self, message):
+        new_seq_num = int(message.get(36))  # Get the new sequence number from the sequence reset
+        self.sequence_manager.reset_sequence(new_seq_num)
+        self.logger.info(f"Sequence reset to {new_seq_num}")
+
+class RejectHandler(MessageHandler):
+    @logging_decorator
+    async def handle(self, message):
+        self.logger.warning(f"Message rejected: {message}")
+
+class LogoutHandler(MessageHandler):
+    @logging_decorator
+    async def handle(self, message):
+        self.logger.info(f"Logout message received: {message}")
+        await self.disconnect()
+
 # MessageProcessor to register and process different message handlers
 class MessageProcessor:
     def __init__(self):
@@ -84,6 +114,10 @@ if __name__ == "__main__":
     processor.register_handler('9', OrderCancelRejectHandler())
     processor.register_handler('AB', NewOrderMultilegHandler())
     processor.register_handler('AC', MultilegOrderCancelReplaceHandler())
+    processor.register_handler('2', ResendRequestHandler())
+    processor.register_handler('4', SequenceResetHandler())
+    processor.register_handler('3', RejectHandler())
+    processor.register_handler('5', LogoutHandler())
 
     # Example message processing
     logon_message = FixMessage()
