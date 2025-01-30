@@ -6,7 +6,7 @@ class Heartbeat:
     def __init__(self, send_message, config_manager, interval=30):
         self.send_message = send_message
         self.config_manager = config_manager
-        self.interval = interval
+        self.interval = self.config_manager.get('FIX', 'interval', 30),
         self.running = False
         self.task = None
 
