@@ -101,10 +101,35 @@ class FixEngine:
             
             await self.message_processor.process_message(self.received_message)
             msg_type = self.received_message.get(35)
+
+            if msg_type == 'A':  # Logon
+                await self.handle_logon()
+
             if msg_type == '1':  # Test Request
                 await self.handle_test_request(self.received_message)
+
             self.event_notifier.notify(msg_type, self.received_message)  # Notify subscribers
-    
+
+    async def handle_logon(self):
+        # Wait for a short period to allow for resend request processing
+        await asyncio.sleep(5)  # Wait for 5 seconds, adjust as necessary
+        self.logger.info("Logon message processed, waiting period completed.")
+
+    async def handle_test_request(self, message):
+        test_req_id = message.get(112)
+        self.logger.info(f"Responding to Test Request with Test Request ID: {test_req_id}")
+        heartbeat_message = FixMessage()
+        heartbeat_message[8] = self.version
+        heartbeat_message[35] = '0'
+        heartbeat_message[49] = self.sender
+        heartbeat_message[56] = self.target
+        heartbeat_message[34] = self.sequence_manager.get_next_seq_num()
+        heartbeat_message[52] = datetime.utcnow().strftime("%Y%m%d-%H:%M:%S.%f")[:-3]
+        heartbeat_message[112] = test_req_id
+        await self.send_message(heartbeat_message)
+        # Wait for a short period after sending TestRequest
+        await asyncio.sleep(5)  # Wait for 5 seconds, adjust as necessary
+
     async def send_reject_message(self, received_message):
         reject_message = FixMessage()
         reject_message[8] = self.version
@@ -118,19 +143,6 @@ class FixEngine:
         reject_message[58] = "Checksum validation failed"
         
         await self.send_message(reject_message)
-    
-    async def handle_test_request(self, message):
-        test_req_id = message.get(112)
-        self.logger.info(f"Responding to Test Request with Test Request ID: {test_req_id}")
-        heartbeat_message = FixMessage()
-        heartbeat_message[8] = self.version
-        heartbeat_message[35] = '0'
-        heartbeat_message[49] = self.sender
-        heartbeat_message[56] = self.target
-        heartbeat_message[34] = self.sequence_manager.get_next_seq_num()
-        heartbeat_message[52] = datetime.utcnow().strftime("%Y%m%d-%H:%M:%S.%f")[:-3]
-        heartbeat_message[112] = test_req_id
-        await self.send_message(heartbeat_message)
     
     async def start(self):
         await self.connect()
