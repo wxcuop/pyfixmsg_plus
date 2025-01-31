@@ -46,7 +46,6 @@ class FixEngine:
         self.heartbeat_interval = int(self.config_manager.get('FIX', 'heartbeat_interval', '30'))
         self.sequence_manager = SequenceManager(db_path)
         self.message_store = MessageStoreFactory.get_message_store('database', db_path)
-        self.response_message = FixMessageFactory.create_message('0')
         self.received_message = FixMessageFactory.create_message('0')
         self.lock = asyncio.Lock()
         self.heartbeat = Heartbeat(self.send_message, self.config_manager, self.heartbeat_interval)
