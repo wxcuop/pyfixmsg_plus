@@ -31,6 +31,7 @@ from database_message_store import DatabaseMessageStore
 class FixEngine:
     def __init__(self, config_manager):
         self.config_manager = config_manager
+        self.is_connected = False
         self.host = self.config_manager.get('FIX', 'host', '127.0.0.1')
         self.port = int(self.config_manager.get('FIX', 'port', '5000'))
         self.sender = self.config_manager.get('FIX', 'sender', 'SENDER')
@@ -76,12 +77,18 @@ class FixEngine:
 
     async def connect(self):
         await self.network.connect()
+        self.is_connected = True  # Update connection status
+
 
     async def disconnect(self):
         await self.network.disconnect()
+        self.is_connected = False  # Update connection status
         await self.heartbeat.stop()  # Stop the heartbeat when disconnecting
         
     async def logon(self):
+        if not self.is_connected:
+            self.logger.error("Cannot logon: not connected.")
+            return
         logon_message = FixMessageFactory.create_message('A')
         logon_message[49] = self.sender  # SenderCompID
         logon_message[56] = self.target  # TargetCompID
