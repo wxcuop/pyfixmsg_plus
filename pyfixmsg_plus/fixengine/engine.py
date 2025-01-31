@@ -136,27 +136,38 @@ class FixEngine:
             self.is_connected = False
             await self.disconnect()
 
-    async def send_reject_message(self, message):
+    async def send_reject_message(self, ref_seq_num, ref_tag_id, session_reject_reason, text):
         reject_message = FixMessageFactory.create_message('3')
         reject_message[49] = self.sender
         reject_message[56] = self.target
         reject_message[34] = self.message_store.get_next_outgoing_sequence_number()
-        reject_message[45] = message.get(34)
-        reject_message[58] = "Invalid checksum"
+        reject_message[45] = ref_seq_num
+        reject_message[371] = ref_tag_id
+        reject_message[373] = session_reject_reason
+        reject_message[58] = text
         await self.send_message(reject_message)
+        self.message_store.set_incoming_sequence_number(ref_seq_num + 1)
+        self.logger.info(f"Sent Reject message for sequence number {ref_seq_num} with reason {session_reject_reason}")
 
     async def handle_message(self, data):
         async with self.lock:
             self.received_message.clear()
-            self.received_message.from_wire(data, codec=self.codec)
-            self.logger.info(f"Received: {self.received_message}")
+            try:
+                self.received_message.from_wire(data, codec=self.codec)
+            except Exception as e:
+                self.logger.error(f"Failed to parse message: {e}")
+                await self.send_reject_message(self.message_store.get_next_incoming_sequence_number(), 0, 99, "Failed to parse message")
+                return
 
-            self.message_store.store_message(self.version, self.sender, self.target, self.received_message[34], data)
+            self.logger.info(f"Received: {self.received_message}")
 
             if self.received_message.checksum() != self.received_message[10]:
                 self.logger.error("Checksum validation failed for received message.")
-                await self.send_reject_message(self.received_message)
+                await self.send_reject_message(self.received_message[34], 10, 5, "Invalid checksum")
                 return
+            
+            self.message_store.store_message(self.version, self.sender, self.target, self.received_message[34], data)
+            self.message_store.set_incoming_sequence_number(self.received_message[34] + 1)
 
             await self.message_processor.process_message(self.received_message)
             msg_type = self.received_message.get(35)
