@@ -1,137 +1,117 @@
-from functools import wraps
-from .database_message_store import DatabaseMessageStore
+import asyncio
+import logging
+from datetime import datetime
+from pyfixmsg.codecs.stringfix import Codec
+from heartbeat import Heartbeat
+from testrequest import send_test_request
+from gapfill import send_gapfill
+from sequence import SequenceManager
+from network import Acceptor, Initiator
+from fixmessage_factory import FixMessageFactory
+from configmanager import ConfigManager  # Singleton ConfigManager
+from event_notifier import EventNotifier  # Observer EventNotifier
+from message_handler import (
+    MessageProcessor, 
+    LogonHandler, 
+    ExecutionReportHandler, 
+    NewOrderHandler, 
+    CancelOrderHandler,
+    OrderCancelReplaceHandler,
+    OrderCancelRejectHandler,
+    NewOrderMultilegHandler,
+    MultilegOrderCancelReplaceHandler,
+    ResendRequestHandler,
+    SequenceResetHandler,
+    RejectHandler,
+    LogoutHandler
+)
+from database_message_store import DatabaseMessageStore
 
-# Define the logging and storing decorator
-def logging_and_storing_decorator(handler_func):
-    @wraps(handler_func)
-    def wrapper(self, message):
-        print(f"Logging message before handling: {message}")
-        self.message_store.store_message(message[34], message.to_wire())
-        result = handler_func(self, message)
-        print(f"Logging message after handling: {message}")
-        return result
-    return wrapper
+class FixEngine:
+    def __init__(self, config_manager):
+        self.config_manager = config_manager
+        self.host = self.config_manager.get('FIX', 'host', '127.0.0.1')
+        self.port = int(self.config_manager.get('FIX', 'port', '5000'))
+        self.sender = self.config_manager.get('FIX', 'sender', 'SENDER')
+        self.target = self.config_manager.get('FIX', 'target', 'TARGET')
+        self.version = self.config_manager.get('FIX', 'version', 'FIX.4.4')
+        self.use_tls = self.config_manager.get('FIX', 'use_tls', 'false').lower() == 'true'
+        self.mode = self.config_manager.get('FIX', 'mode', 'initiator').lower()
+        db_path = self.config_manager.get('FIX', 'state_file', 'fix_state.db')
+        
+        self.codec = Codec()
+        self.running = False
+        self.logger = logging.getLogger('FixEngine')
+        self.logger.setLevel(logging.DEBUG)
+        self.heartbeat_interval = int(self.config_manager.get('FIX', 'heartbeat_interval', '30'))
+        self.sequence_manager = SequenceManager(db_path)
+        self.message_store = DatabaseMessageStore(db_path)  # Initialize message store
+        self.response_message = FixMessageFactory.create_message('0')  # Reusable FixMessage object
+        self.received_message = FixMessageFactory.create_message('0')  # Reusable FixMessage object for received messages
+        self.lock = asyncio.Lock()  # Lock for thread safety
+        self.heartbeat = Heartbeat(self.send_message, self.config_manager, self.heartbeat_interval)
+        self.last_heartbeat_time = None
+        self.missed_heartbeats = 0
+        self.session_id = f"{self.host}:{self.port}"
+        self.network = Acceptor(self.host, self.port, self.use_tls) if self.mode == 'acceptor' else Initiator(self.host, self.port, self.use_tls)
+        
+        self.event_notifier = EventNotifier()  # Initialize EventNotifier
+        self.message_processor = MessageProcessor(self.message_store)  # Initialize MessageProcessor with message store
 
-# Base class for message handlers
-class MessageHandler:
-    def __init__(self, message_store):
-        self.message_store = message_store
+        # Register message handlers
+        self.message_processor.register_handler('A', LogonHandler(self.message_store))
+        self.message_processor.register_handler('8', ExecutionReportHandler(self.message_store))
+        self.message_processor.register_handler('D', NewOrderHandler(self.message_store))
+        self.message_processor.register_handler('F', CancelOrderHandler(self.message_store))
+        self.message_processor.register_handler('G', OrderCancelReplaceHandler(self.message_store))
+        self.message_processor.register_handler('9', OrderCancelRejectHandler(self.message_store))
+        self.message_processor.register_handler('AB', NewOrderMultilegHandler(self.message_store))
+        self.message_processor.register_handler('AC', MultilegOrderCancelReplaceHandler(self.message_store))
+        self.message_processor.register_handler('2', ResendRequestHandler(self.message_store))
+        self.message_processor.register_handler('4', SequenceResetHandler(self.message_store))
+        self.message_processor.register_handler('3', RejectHandler(self.message_store))
+        self.message_processor.register_handler('5', LogoutHandler(self.message_store))
 
-    def handle(self, message):
-        raise NotImplementedError
+    async def connect(self):
+        await self.network.connect()
 
-# Concrete implementations of message handlers with logging and storing decorator
-class LogonHandler(MessageHandler):
-    @logging_and_storing_decorator
-    def handle(self, message):
-        print(f"Handling logon message: {message}")
+    async def disconnect(self):
+        await self.network.disconnect()
+        await self.heartbeat.stop()  # Stop the heartbeat when disconnecting
 
-class ExecutionReportHandler(MessageHandler):
-    @logging_and_storing_decorator
-    def handle(self, message):
-        print(f"Handling execution report: {message}")
+    async def send_message(self, message):
+        fix_message = FixMessageFactory.create_message_from_dict(message)
+        if not fix_message.anywhere(52):
+            fix_message[52] = datetime.utcnow().strftime("%Y%m%d-%H:%M:%S.%f")[:-3]
+        fix_message[34] = self.sequence_manager.get_next_sequence_number()  # Set sequence number
+        wire_message = fix_message.to_wire(codec=self.codec)
+        await self.network.send(wire_message)
+        self.message_store.store_message(fix_message[34], wire_message)  # Store the sent message
+        FixMessageFactory.return_message(fix_message)
 
-class NewOrderHandler(MessageHandler):
-    @logging_and_storing_decorator
-    def handle(self, message):
-        print(f"Handling new order: {message}")
+    async def receive_message(self):
+        await self.network.receive(self.handle_message)
 
-class CancelOrderHandler(MessageHandler):
-    @logging_and_storing_decorator
-    def handle(self, message):
-        print(f"Handling cancel order: {message}")
+    async def handle_message(self, data):
+        async with self.lock:
+            self.received_message.clear()
+            self.received_message.from_wire(data, codec=self.codec)
+            self.logger.info(f"Received: {self.received_message}")
+            
+            if self.received_message.checksum() != self.received_message[10]:
+                self.logger.error("Checksum validation failed for received message.")
+                await self.send_reject_message(self.received_message)
+                return
+            
+            self.message_store.store_message(self.received_message[34], data)  # Store the received message
+            await self.message_processor.process_message(self.received_message)
+            msg_type = self.received_message.get(35)
 
-class OrderCancelReplaceHandler(MessageHandler):
-    @logging_and_storing_decorator
-    def handle(self, message):
-        print(f"Handling order cancel/replace: {message}")
+            if msg_type == 'A':  # Logon
+                await self.handle_logon()
+                await self.heartbeat.start()  # Start the heartbeat after logon
 
-class OrderCancelRejectHandler(MessageHandler):
-    @logging_and_storing_decorator
-    def handle(self, message):
-        print(f"Handling order cancel reject: {message}")
+            if msg_type == '1':  # Test Request
+                await self.handle_test_request(self.received_message)
 
-class NewOrderMultilegHandler(MessageHandler):
-    @logging_and_storing_decorator
-    def handle(self, message):
-        print(f"Handling new order - multileg: {message}")
-
-class MultilegOrderCancelReplaceHandler(MessageHandler):
-    @logging_and_storing_decorator
-    def handle(self, message):
-        print(f"Handling multileg order cancel/replace: {message}")
-
-class ResendRequestHandler(MessageHandler):
-    @logging_and_storing_decorator
-    async def handle(self, message):
-        start_seq_num = int(message.get(7))  # Get the start sequence number from the resend request
-        end_seq_num = int(message.get(16))  # Get the end sequence number from the resend request
-        for seq_num in range(start_seq_num, end_seq_num + 1):
-            msg = self.message_store.get_message(seq_num)
-            if msg:
-                await self.send_message(msg)
-            else:
-                await self.send_gap_fill(seq_num)
-
-class SequenceResetHandler(MessageHandler):
-    @logging_and_storing_decorator
-    async def handle(self, message):
-        new_seq_num = int(message.get(36))  # Get the new sequence number from the sequence reset
-        self.sequence_manager.reset_sequence(new_seq_num)
-        self.logger.info(f"Sequence reset to {new_seq_num}")
-
-class RejectHandler(MessageHandler):
-    @logging_and_storing_decorator
-    async def handle(self, message):
-        self.logger.warning(f"Message rejected: {message}")
-
-class LogoutHandler(MessageHandler):
-    @logging_and_storing_decorator
-    async def handle(self, message):
-        self.logger.info(f"Logout message received: {message}")
-        await self.disconnect()
-
-# MessageProcessor to register and process different message handlers
-class MessageProcessor:
-    def __init__(self, message_store):
-        self.handlers = {}
-        self.message_store = message_store
-
-    def register_handler(self, message_type, handler):
-        self.handlers[message_type] = handler
-
-    async def process_message(self, message):
-        message_type = message.get(35)  # Assuming tag 35 is the message type
-        handler = self.handlers.get(message_type)
-        if handler:
-            await handler.handle(message)
-        else:
-            print(f"No handler for message type: {message_type}")
-
-# Example usage for registering handlers
-if __name__ == "__main__":
-    db_path = 'fix_messages.db'
-    message_store = DatabaseMessageStore(db_path)
-    processor = MessageProcessor(message_store)
-    
-    processor.register_handler('A', LogonHandler(message_store))
-    processor.register_handler('8', ExecutionReportHandler(message_store))
-    processor.register_handler('D', NewOrderHandler(message_store))
-    processor.register_handler('F', CancelOrderHandler(message_store))
-    processor.register_handler('G', OrderCancelReplaceHandler(message_store))
-    processor.register_handler('9', OrderCancelRejectHandler(message_store))
-    processor.register_handler('AB', NewOrderMultilegHandler(message_store))
-    processor.register_handler('AC', MultilegOrderCancelReplaceHandler(message_store))
-    processor.register_handler('2', ResendRequestHandler(message_store))
-    processor.register_handler('4', SequenceResetHandler(message_store))
-    processor.register_handler('3', RejectHandler(message_store))
-    processor.register_handler('5', LogoutHandler(message_store))
-
-    # Example message processing
-    logon_message = FixMessageFactory.create_message('A')  # Create logon message using factory
-    execution_report_message = FixMessageFactory.create_message('8')  # Create execution report message using factory
-
-    # Note: In real usage, these would be handled within an async context
-    import asyncio
-    asyncio.run(processor.process_message(logon_message))
-    asyncio.run(processor.process_message(execution_report_message))
+            self.event_notifier.notify(msg_type, self.received_message)  # Notify subscribers
