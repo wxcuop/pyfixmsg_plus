@@ -163,10 +163,10 @@ class FixEngine:
 
             if msg_type == '0':  # Heartbeat
                 self.heartbeat.last_received_time = asyncio.get_event_loop().time()
+                if '112' in self.received_message:
+                    self.heartbeat.test_request_id = None
             elif msg_type == '1':  # Test Request
                 await self.heartbeat.receive_test_request(self.received_message)
-            elif msg_type == '2':  # Resend Request
-                await self.handle_resend_request(self.received_message)
             else:
                 self.event_notifier.notify(msg_type, self.received_message)
 
