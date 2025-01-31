@@ -75,22 +75,32 @@ class FixEngine:
         self.message_processor.register_handler('5', LogoutHandler(self.message_store))
 
     async def connect(self):
-        if self.mode == 'acceptor':
-            self.logger.info("Starting in acceptor mode, waiting for incoming connections...")
-            await self.network.start_accepting(self.handle_incoming_connection)
-        else:
-            await self.network.connect()
-            self.is_connected = True
-            self.logger.info("Connected to FIX server.")
-            await self.logon()
+        try:
+            if self.mode == 'acceptor':
+                self.logger.info("Starting in acceptor mode, waiting for incoming connections...")
+                await self.network.start_accepting(self.handle_incoming_connection)
+            else:
+                await self.network.connect()
+                self.is_connected = True
+                self.logger.info("Connected to FIX server.")
+                await self.logon()
+        except Exception as e:
+            self.logger.error(f"Failed to connect: {e}")
 
     async def handle_incoming_connection(self, reader, writer):
-        self.is_connected = True
-        self.logger.info("Accepted incoming connection.")
-        self.network.set_transport(reader, writer)
-        await self.logon()
-        await self.receive_message()
+        try:
+            self.is_connected = True
+            self.logger.info("Accepted incoming connection.")
+            self.network.set_transport(reader, writer)
+            await self.logon()
+            await self.receive_message()
+        except Exception as e:
+            self.logger.error(f"Error handling incoming connection: {e}")
+            self.is_connected = False
+            writer.close()
+            await writer.wait_closed()
 
+    
     async def disconnect(self):
         await self.network.disconnect()
         self.is_connected = False
@@ -101,12 +111,15 @@ class FixEngine:
         if not self.is_connected:
             self.logger.error("Cannot logon: not connected.")
             return
-        logon_message = FixMessageFactory.create_message('A')
-        logon_message[49] = self.sender
-        logon_message[56] = self.target
-        logon_message[34] = self.message_store.get_next_outgoing_sequence_number()
-        await self.send_message(logon_message)
-        await self.heartbeat.start()
+        try:
+            logon_message = FixMessageFactory.create_message('A')
+            logon_message[49] = self.sender
+            logon_message[56] = self.target
+            logon_message[34] = self.message_store.get_next_outgoing_sequence_number()
+            await self.send_message(logon_message)
+            await self.heartbeat.start()
+        except Exception as e:
+            self.logger.error(f"Failed to logon: {e}")
 
     async def send_message(self, message):
         fix_message = FixMessageFactory.create_message_from_dict(message)
@@ -119,7 +132,12 @@ class FixEngine:
         FixMessageFactory.return_message(fix_message)
 
     async def receive_message(self):
-        await self.network.receive(self.handle_message)
+        try:
+            await self.network.receive(self.handle_message)
+        except Exception as e:
+            self.logger.error(f"Error receiving message: {e}")
+            self.is_connected = False
+            await self.disconnect(
         
     async def send_reject_message(self, message):
         reject_message = FixMessageFactory.create_message('3')
