@@ -1,9 +1,7 @@
 import asyncio
 import logging
 from datetime import datetime
-from pyfixmsg.fixmessage import FixMessage
 from pyfixmsg.codecs.stringfix import Codec
-import uuid  # For generating unique ClOrdID
 from heartbeat import Heartbeat
 from testrequest import send_test_request
 from gapfill import send_gapfill
@@ -46,8 +44,8 @@ class FixEngine:
         self.logger.setLevel(logging.DEBUG)
         self.heartbeat_interval = int(self.config_manager.get('FIX', 'heartbeat_interval', '30'))
         self.sequence_manager = SequenceManager(seq_file)
-        self.response_message = FixMessage()  # Reusable FixMessage object
-        self.received_message = FixMessage()  # Reusable FixMessage object for received messages
+        self.response_message = FixMessageFactory.create_message('0')  # Reusable FixMessage object
+        self.received_message = FixMessageFactory.create_message('0')  # Reusable FixMessage object for received messages
         self.lock = asyncio.Lock()  # Lock for thread safety
         self.heartbeat = Heartbeat(self.send_message, self.config_manager, self.heartbeat_interval)
         self.last_heartbeat_time = None
@@ -71,23 +69,24 @@ class FixEngine:
         self.message_processor.register_handler('4', SequenceResetHandler())
         self.message_processor.register_handler('3', RejectHandler())
         self.message_processor.register_handler('5', LogoutHandler())
-    
+
     async def connect(self):
         await self.network.connect()
-    
+
     async def disconnect(self):
         await self.network.disconnect()
-    
+
     async def send_message(self, message):
-        fix_message = FixMessage.from_dict(message)
+        fix_message = FixMessageFactory.create_message_from_dict(message)
         if not fix_message.anywhere(52):
             fix_message[52] = datetime.utcnow().strftime("%Y%m%d-%H:%M:%S.%f")[:-3]
         wire_message = fix_message.to_wire(codec=self.codec)
         await self.network.send(wire_message)
-    
+        FixMessageFactory.return_message(fix_message)
+
     async def receive_message(self):
         await self.network.receive(self.handle_message)
-    
+
     async def handle_message(self, data):
         async with self.lock:
             self.received_message.clear()
@@ -109,96 +108,3 @@ class FixEngine:
                 await self.handle_test_request(self.received_message)
 
             self.event_notifier.notify(msg_type, self.received_message)  # Notify subscribers
-
-    async def handle_logon(self):
-        # Wait for a short period to allow for resend request processing
-        await asyncio.sleep(5)  # Wait for 5 seconds, adjust as necessary
-        self.logger.info("Logon message processed, waiting period completed.")
-
-    async def handle_test_request(self, message):
-        test_req_id = message.get(112)
-        self.logger.info(f"Responding to Test Request with Test Request ID: {test_req_id}")
-        heartbeat_message = FixMessage()
-        heartbeat_message[8] = self.version
-        heartbeat_message[35] = '0'
-        heartbeat_message[49] = self.sender
-        heartbeat_message[56] = self.target
-        heartbeat_message[34] = self.sequence_manager.get_next_seq_num()
-        heartbeat_message[52] = datetime.utcnow().strftime("%Y%m%d-%H:%M:%S.%f")[:-3]
-        heartbeat_message[112] = test_req_id
-        await self.send_message(heartbeat_message)
-        # Wait for a short period after sending TestRequest
-        await asyncio.sleep(5)  # Wait for 5 seconds, adjust as necessary
-
-    async def send_reject_message(self, received_message):
-        reject_message = FixMessage()
-        reject_message[8] = self.version
-        reject_message[35] = '3'
-        reject_message[49] = self.sender
-        reject_message[56] = self.target
-        reject_message[34] = self.sequence_manager.get_next_seq_num()
-        reject_message[52] = datetime.utcnow().strftime("%Y%m%d-%H:%M:%S.%f")[:-3]
-        reject_message[45] = received_message[34]  # Reference sequence number
-        reject_message[373] = '10'  # Session Reject Reason (10 = Checksum Error)
-        reject_message[58] = "Checksum validation failed"
-        
-        await self.send_message(reject_message)
-    
-    async def start(self):
-        await self.connect()
-        await self.heartbeat.start()
-        asyncio.create_task(self.receive_message())
-    
-    async def stop(self):
-        await self.heartbeat.stop()
-        await self.disconnect()
-    
-    def generate_clordid(self):
-        return str(uuid.uuid4())
-    
-    async def check_heartbeat(self):
-        current_time = time.time()
-        if self.last_heartbeat_time and current_time - self.last_heartbeat_time > self.heartbeat_interval:
-            self.missed_heartbeats += 1
-            self.logger.warning(f"Missed heartbeat {self.missed_heartbeats} times for {self.session_id}")
-            if self.missed_heartbeats >= 1:
-                test_req_id = f"TEST{int(current_time)}"
-                await self.send_test_request(test_req_id)
-
-# Example usage
-async def main():
-    config_manager = ConfigManager('config.ini')
-    engine = FixEngine(config_manager)
-    
-    # Subscribe to events
-    def logon_handler(message):
-        print(f"Logon message received: {message}")
-
-    def execution_report_handler(message):
-        print(f"Execution report received: {message}")
-
-    engine.event_notifier.subscribe('A', logon_handler)
-    engine.event_notifier.subscribe('8', execution_report_handler)
-    
-    await engine.start()
-    
-    # Example message
-    message = FixMessageFactory.create_message(
-        'D',
-        sender=engine.sender,
-        target=engine.target,
-        clordid=engine.generate_clordid(),
-        version=engine.version,
-        sequence_number=1,
-        sending_time=datetime.utcnow().strftime("%Y%m%d-%H:%M:%S.%f")[:-3],
-        side='1',
-        order_qty='100',
-        order_type='2'
-    )
-    
-    await engine.send_message(message)
-    await asyncio.sleep(60)  # Run for 60 seconds
-    await engine.stop()
-
-if __name__ == '__main__':
-    asyncio.run(main())
