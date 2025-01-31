@@ -3,7 +3,6 @@ import logging
 from datetime import datetime
 from pyfixmsg.codecs.stringfix import Codec
 from heartbeat import Heartbeat
-from sequence import SequenceManager
 from network import Acceptor, Initiator
 from fixmessage_factory import FixMessageFactory
 from configmanager import ConfigManager
@@ -44,8 +43,11 @@ class FixEngine:
         self.logger = logging.getLogger('FixEngine')
         self.logger.setLevel(logging.DEBUG)
         self.heartbeat_interval = int(self.config_manager.get('FIX', 'heartbeat_interval', '30'))
-        self.sequence_manager = SequenceManager(db_path)
         self.message_store = MessageStoreFactory.get_message_store('database', db_path)
+        self.message_store.beginstring = self.version
+        self.message_store.sendercompid = self.sender
+        self.message_store.targetcompid = self.target
+        self.response_message = FixMessageFactory.create_message('0')
         self.received_message = FixMessageFactory.create_message('0')
         self.lock = asyncio.Lock()
         self.heartbeat = Heartbeat(self.send_message, self.config_manager, self.heartbeat_interval)
@@ -102,7 +104,7 @@ class FixEngine:
         logon_message = FixMessageFactory.create_message('A')
         logon_message[49] = self.sender
         logon_message[56] = self.target
-        logon_message[34] = self.sequence_manager.get_next_outgoing_sequence_number()
+        logon_message[34] = self.message_store.get_next_outgoing_sequence_number()
         await self.send_message(logon_message)
         await self.heartbeat.start()
 
@@ -110,7 +112,7 @@ class FixEngine:
         fix_message = FixMessageFactory.create_message_from_dict(message)
         if not fix_message.anywhere(52):
             fix_message[52] = datetime.utcnow().strftime("%Y%m%d-%H:%M:%S.%f")[:-3]
-        fix_message[34] = self.sequence_manager.get_next_outgoing_sequence_number()
+        fix_message[34] = self.message_store.get_next_outgoing_sequence_number()
         wire_message = fix_message.to_wire(codec=self.codec)
         await self.network.send(wire_message)
         self.message_store.store_message(self.version, self.sender, self.target, fix_message[34], wire_message)
@@ -123,7 +125,7 @@ class FixEngine:
         reject_message = FixMessageFactory.create_message('3')
         reject_message[49] = self.sender
         reject_message[56] = self.target
-        reject_message[34] = self.sequence_manager.get_next_outgoing_sequence_number()
+        reject_message[34] = self.message_store.get_next_outgoing_sequence_number()
         reject_message[45] = message.get(34)
         reject_message[58] = "Invalid checksum"
         await self.send_message(reject_message)
@@ -147,7 +149,7 @@ class FixEngine:
             self.event_notifier.notify(msg_type, self.received_message)
 
     async def reset_sequence_numbers(self):
-        self.sequence_manager.reset_sequence_numbers()
+        self.message_store.reset_sequence_numbers()
         self.logger.info("Sequence numbers reset to 1 for both inbound and outbound.")
 
 # Example usage
