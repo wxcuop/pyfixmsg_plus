@@ -48,10 +48,11 @@ class Acceptor(Network):
         super().__init__(host, port, use_tls)
         self.server = None
 
-    async def accept(self):
+    async def start_accepting(self, incoming_connection_handler):
         async with self.lock:
-            self.server = await asyncio.start_server(self.handle_client, self.host, self.port, ssl=ssl.create_default_context() if self.use_tls else None)
+            self.server = await asyncio.start_server(incoming_connection_handler, self.host, self.port, ssl=ssl.create_default_context() if self.use_tls else None)
             self.logger.info(f"Listening on {self.host}:{self.port}")
+            await self.server.serve_forever()
 
     async def handle_client(self, reader, writer):
         self.reader = reader
