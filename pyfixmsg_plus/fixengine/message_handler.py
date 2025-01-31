@@ -1,5 +1,6 @@
 #Handle different message types with appropriate strategies (Strategy).
 from functools import wraps
+from database_message_store import DatabaseMessageStore
 
 # Define the logging decorator
 def logging_decorator(handler_func):
@@ -13,6 +14,9 @@ def logging_decorator(handler_func):
 
 # Base class for message handlers
 class MessageHandler:
+    def __init__(self, message_store):
+        self.message_store = message_store
+
     def handle(self, message):
         raise NotImplementedError
 
@@ -21,41 +25,49 @@ class LogonHandler(MessageHandler):
     @logging_decorator
     def handle(self, message):
         print(f"Handling logon message: {message}")
+        self.message_store.store_message(message[34], message.to_wire())
 
 class ExecutionReportHandler(MessageHandler):
     @logging_decorator
     def handle(self, message):
         print(f"Handling execution report: {message}")
+        self.message_store.store_message(message[34], message.to_wire())
 
 class NewOrderHandler(MessageHandler):
     @logging_decorator
     def handle(self, message):
         print(f"Handling new order: {message}")
+        self.message_store.store_message(message[34], message.to_wire())
 
 class CancelOrderHandler(MessageHandler):
     @logging_decorator
     def handle(self, message):
         print(f"Handling cancel order: {message}")
+        self.message_store.store_message(message[34], message.to_wire())
 
 class OrderCancelReplaceHandler(MessageHandler):
     @logging_decorator
     def handle(self, message):
         print(f"Handling order cancel/replace: {message}")
+        self.message_store.store_message(message[34], message.to_wire())
 
 class OrderCancelRejectHandler(MessageHandler):
     @logging_decorator
     def handle(self, message):
         print(f"Handling order cancel reject: {message}")
+        self.message_store.store_message(message[34], message.to_wire())
 
 class NewOrderMultilegHandler(MessageHandler):
     @logging_decorator
     def handle(self, message):
         print(f"Handling new order - multileg: {message}")
+        self.message_store.store_message(message[34], message.to_wire())
 
 class MultilegOrderCancelReplaceHandler(MessageHandler):
     @logging_decorator
     def handle(self, message):
         print(f"Handling multileg order cancel/replace: {message}")
+        self.message_store.store_message(message[34], message.to_wire())
 
 class ResendRequestHandler(MessageHandler):
     @logging_decorator
@@ -63,7 +75,7 @@ class ResendRequestHandler(MessageHandler):
         start_seq_num = int(message.get(7))  # Get the start sequence number from the resend request
         end_seq_num = int(message.get(16))  # Get the end sequence number from the resend request
         for seq_num in range(start_seq_num, end_seq_num + 1):
-            msg = self.sequence_manager.get_message(seq_num)
+            msg = self.message_store.get_message(seq_num)
             if msg:
                 await self.send_message(msg)
             else:
@@ -89,8 +101,9 @@ class LogoutHandler(MessageHandler):
 
 # MessageProcessor to register and process different message handlers
 class MessageProcessor:
-    def __init__(self):
+    def __init__(self, message_store):
         self.handlers = {}
+        self.message_store = message_store
 
     def register_handler(self, message_type, handler):
         self.handlers[message_type] = handler
@@ -105,19 +118,22 @@ class MessageProcessor:
 
 # Example usage for registering handlers
 if __name__ == "__main__":
-    processor = MessageProcessor()
-    processor.register_handler('A', LogonHandler())
-    processor.register_handler('8', ExecutionReportHandler())
-    processor.register_handler('D', NewOrderHandler())
-    processor.register_handler('F', CancelOrderHandler())
-    processor.register_handler('G', OrderCancelReplaceHandler())
-    processor.register_handler('9', OrderCancelRejectHandler())
-    processor.register_handler('AB', NewOrderMultilegHandler())
-    processor.register_handler('AC', MultilegOrderCancelReplaceHandler())
-    processor.register_handler('2', ResendRequestHandler())
-    processor.register_handler('4', SequenceResetHandler())
-    processor.register_handler('3', RejectHandler())
-    processor.register_handler('5', LogoutHandler())
+    db_path = 'fix_messages.db'
+    message_store = DatabaseMessageStore(db_path)
+    processor = MessageProcessor(message_store)
+    
+    processor.register_handler('A', LogonHandler(message_store))
+    processor.register_handler('8', ExecutionReportHandler(message_store))
+    processor.register_handler('D', NewOrderHandler(message_store))
+    processor.register_handler('F', CancelOrderHandler(message_store))
+    processor.register_handler('G', OrderCancelReplaceHandler(message_store))
+    processor.register_handler('9', OrderCancelRejectHandler(message_store))
+    processor.register_handler('AB', NewOrderMultilegHandler(message_store))
+    processor.register_handler('AC', MultilegOrderCancelReplaceHandler(message_store))
+    processor.register_handler('2', ResendRequestHandler(message_store))
+    processor.register_handler('4', SequenceResetHandler(message_store))
+    processor.register_handler('3', RejectHandler(message_store))
+    processor.register_handler('5', LogoutHandler(message_store))
 
     # Example message processing
     logon_message = FixMessageFactory.create_message('A')  # Create logon message using factory
