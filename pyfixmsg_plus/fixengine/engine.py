@@ -175,11 +175,11 @@ class FixEngine:
         self.logger.info("Sequence numbers reset to 1 for both inbound and outbound.")
     
     async def set_inbound_sequence_number(self, seq_num):
-        self.message_store.set_next_incoming_sequence_number(seq_num)
+        self.message_store.set_incoming_sequence_number(seq_num)
         self.logger.info(f"Inbound sequence number set to {seq_num}")
 
     async def set_outbound_sequence_number(self, seq_num):
-        self.message_store.set_next_outgoing_sequence_number(seq_num)
+        self.message_store.set_outgoing_sequence_number(seq_num)
         self.logger.info(f"Outbound sequence number set to {seq_num}")
 
 # Example usage
