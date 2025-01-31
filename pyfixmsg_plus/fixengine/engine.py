@@ -7,7 +7,7 @@ from testrequest import TestRequest
 from network import Acceptor, Initiator
 from fixmessage_factory import FixMessageFactory
 from configmanager import ConfigManager
-from events import EventNotifier
+from event_notifier import EventNotifier
 from message_handler import (
     MessageProcessor, 
     LogonHandler, 
@@ -167,8 +167,31 @@ class FixEngine:
                     self.heartbeat.test_request_id = None
             elif msg_type == '1':  # Test Request
                 await self.heartbeat.receive_test_request(self.received_message)
+            elif msg_type == '2':  # Resend Request
+                await self.handle_resend_request(self.received_message)
             else:
                 self.event_notifier.notify(msg_type, self.received_message)
+
+    async def handle_resend_request(self, message):
+        begin_seq_no = int(message.get('7'))
+        end_seq_no = int(message.get('16'))
+        self.logger.info(f"Received Resend Request: BeginSeqNo={begin_seq_no}, EndSeqNo={end_seq_no}")
+        
+        if end_seq_no == 0:
+            end_seq_no = self.message_store.get_next_outgoing_sequence_number() - 1
+        
+        for seq_num in range(begin_seq_no, end_seq_no + 1):
+            stored_message = self.message_store.get_message(self.version, self.sender, self.target, seq_num)
+            if stored_message:
+                await self.send_message(stored_message)
+            else:
+                # Send Sequence Reset - GapFill if message is not found
+                gap_fill_message = FixMessageFactory.create_message('4')
+                gap_fill_message[49] = self.sender
+                gap_fill_message[56] = self.target
+                gap_fill_message[36] = seq_num
+                gap_fill_message[123] = 'Y'  # GapFillFlag
+                await self.send_message(gap_fill_message)
 
     async def reset_sequence_numbers(self):
         self.message_store.reset_sequence_numbers()
