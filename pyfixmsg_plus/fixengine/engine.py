@@ -3,17 +3,15 @@ import logging
 from datetime import datetime
 from pyfixmsg.codecs.stringfix import Codec
 from heartbeat import Heartbeat
-from testrequest import send_test_request
-from gapfill import send_gapfill
 from sequence import SequenceManager
 from network import Acceptor, Initiator
 from fixmessage_factory import FixMessageFactory
-from configmanager import ConfigManager  # Singleton ConfigManager
-from event_notifier import EventNotifier  # Observer EventNotifier
+from configmanager import ConfigManager
+from event_notifier import EventNotifier
 from message_handler import (
     MessageProcessor, 
     LogonHandler, 
-    TestRequestHandler,  # Added test request handler
+    TestRequestHandler,  
     ExecutionReportHandler, 
     NewOrderHandler, 
     CancelOrderHandler,
@@ -47,22 +45,22 @@ class FixEngine:
         self.logger.setLevel(logging.DEBUG)
         self.heartbeat_interval = int(self.config_manager.get('FIX', 'heartbeat_interval', '30'))
         self.sequence_manager = SequenceManager(db_path)
-        self.message_store = DatabaseMessageStore(db_path)  # Initialize message store
-        self.response_message = FixMessageFactory.create_message('0')  # Reusable FixMessage object
-        self.received_message = FixMessageFactory.create_message('0')  # Reusable FixMessage object for received messages
-        self.lock = asyncio.Lock()  # Lock for thread safety
+        self.message_store = DatabaseMessageStore(db_path)
+        self.response_message = FixMessageFactory.create_message('0')
+        self.received_message = FixMessageFactory.create_message('0')
+        self.lock = asyncio.Lock()
         self.heartbeat = Heartbeat(self.send_message, self.config_manager, self.heartbeat_interval)
         self.last_heartbeat_time = None
         self.missed_heartbeats = 0
         self.session_id = f"{self.host}:{self.port}"
         self.network = Acceptor(self.host, self.port, self.use_tls) if self.mode == 'acceptor' else Initiator(self.host, self.port, self.use_tls)
         
-        self.event_notifier = EventNotifier()  # Initialize EventNotifier
-        self.message_processor = MessageProcessor(self.message_store)  # Initialize MessageProcessor with message store
-
+        self.event_notifier = EventNotifier()
+        self.message_processor = MessageProcessor(self.message_store)
+        
         # Register message handlers
         self.message_processor.register_handler('A', LogonHandler(self.message_store))
-        self.message_processor.register_handler('1', TestRequestHandler(self.message_store))  # Register test request handler
+        self.message_processor.register_handler('1', TestRequestHandler(self.message_store))
         self.message_processor.register_handler('8', ExecutionReportHandler(self.message_store))
         self.message_processor.register_handler('D', NewOrderHandler(self.message_store))
         self.message_processor.register_handler('F', CancelOrderHandler(self.message_store))
@@ -76,46 +74,59 @@ class FixEngine:
         self.message_processor.register_handler('5', LogoutHandler(self.message_store))
 
     async def connect(self):
-        await self.network.connect()
-        self.is_connected = True  # Update connection status
+        if self.mode == 'acceptor':
+            self.logger.info("Starting in acceptor mode, waiting for incoming connections...")
+            await self.network.start_accepting(self.handle_incoming_connection)
+        else:
+            await self.network.connect()
+            self.is_connected = True
+            self.logger.info("Connected to FIX server.")
+            await self.logon()
 
+    async def handle_incoming_connection(self, reader, writer):
+        self.is_connected = True
+        self.logger.info("Accepted incoming connection.")
+        self.network.set_transport(reader, writer)
+        await self.logon()
+        await self.receive_message()
 
     async def disconnect(self):
         await self.network.disconnect()
-        self.is_connected = False  # Update connection status
-        await self.heartbeat.stop()  # Stop the heartbeat when disconnecting
+        self.is_connected = False
+        await self.heartbeat.stop()
+        self.logger.info("Disconnected from FIX server.")
         
     async def logon(self):
         if not self.is_connected:
             self.logger.error("Cannot logon: not connected.")
             return
         logon_message = FixMessageFactory.create_message('A')
-        logon_message[49] = self.sender  # SenderCompID
-        logon_message[56] = self.target  # TargetCompID
-        logon_message[34] = self.sequence_manager.get_next_sequence_number()  # Sequence number
+        logon_message[49] = self.sender
+        logon_message[56] = self.target
+        logon_message[34] = self.sequence_manager.get_next_sequence_number()
         await self.send_message(logon_message)
-        await self.heartbeat.start()  # Start the heartbeat after logon
+        await self.heartbeat.start()
 
     async def send_message(self, message):
         fix_message = FixMessageFactory.create_message_from_dict(message)
         if not fix_message.anywhere(52):
             fix_message[52] = datetime.utcnow().strftime("%Y%m%d-%H:%M:%S.%f")[:-3]
-        fix_message[34] = self.sequence_manager.get_next_sequence_number()  # Set sequence number
+        fix_message[34] = self.sequence_manager.get_next_sequence_number()
         wire_message = fix_message.to_wire(codec=self.codec)
         await self.network.send(wire_message)
-        self.message_store.store_message(fix_message[34], 'outbound', wire_message)  # Store the sent message
+        self.message_store.store_message(fix_message[34], 'outbound', wire_message)
         FixMessageFactory.return_message(fix_message)
 
     async def receive_message(self):
         await self.network.receive(self.handle_message)
         
     async def send_reject_message(self, message):
-        reject_message = FixMessageFactory.create_message('3')  # 3 is the Reject message type
-        reject_message[49] = self.sender  # SenderCompID
-        reject_message[56] = self.target  # TargetCompID
-        reject_message[34] = self.sequence_manager.get_next_sequence_number()  # Sequence number
-        reject_message[45] = message.get(34)  # RefSeqNum
-        reject_message[58] = "Invalid checksum"  # Text
+        reject_message = FixMessageFactory.create_message('3')
+        reject_message[49] = self.sender
+        reject_message[56] = self.target
+        reject_message[34] = self.sequence_manager.get_next_sequence_number()
+        reject_message[45] = message.get(34)
+        reject_message[58] = "Invalid checksum"
         await self.send_message(reject_message)
         
     async def handle_message(self, data):
@@ -124,7 +135,7 @@ class FixEngine:
             self.received_message.from_wire(data, codec=self.codec)
             self.logger.info(f"Received: {self.received_message}")
     
-            self.message_store.store_message(self.received_message[34], 'inbound', data)  # Store the received message
+            self.message_store.store_message(self.received_message[34], 'inbound', data)
     
             if self.received_message.checksum() != self.received_message[10]:
                 self.logger.error("Checksum validation failed for received message.")
@@ -134,4 +145,10 @@ class FixEngine:
             await self.message_processor.process_message(self.received_message)
             msg_type = self.received_message.get(35)
     
-            self.event_notifier.notify(msg_type, self.received_message)  # Notify subscribers
+            self.event_notifier.notify(msg_type, self.received_message)
+
+# Example usage
+if __name__ == "__main__":
+    config_manager = ConfigManager()
+    engine = FixEngine(config_manager)
+    asyncio.run(engine.connect())
