@@ -2,8 +2,8 @@ from datetime import datetime
 from pyfixmsg.fixmessage import FixMessage
 
 class FixMessageBuilder:
-    def __init__(self):
-        self.message = FixMessage()
+    def __init__(self, message=None):
+        self.message = message or FixMessage()
 
     def set_version(self, version):
         self.message[8] = version
