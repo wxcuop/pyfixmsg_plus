@@ -114,7 +114,7 @@ class FixEngine:
         fix_message[34] = self.sequence_manager.get_next_outgoing_sequence_number()
         wire_message = fix_message.to_wire(codec=self.codec)
         await self.network.send(wire_message)
-        self.message_store.store_message(self.sender, '', '', '', self.target, '', '', '', fix_message[34], wire_message)
+        self.message_store.store_message(self.version, self.sender, self.target, fix_message[34], wire_message)
         FixMessageFactory.return_message(fix_message)
 
     async def receive_message(self):
@@ -135,7 +135,7 @@ class FixEngine:
             self.received_message.from_wire(data, codec=self.codec)
             self.logger.info(f"Received: {self.received_message}")
     
-            self.message_store.store_message(self.sender, '', '', '', self.target, '', '', '', self.received_message[34], data)
+            self.message_store.store_message(self.version, self.sender, self.target, self.received_message[34], data)
     
             if self.received_message.checksum() != self.received_message[10]:
                 self.logger.error("Checksum validation failed for received message.")
