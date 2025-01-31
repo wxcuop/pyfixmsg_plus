@@ -1,14 +1,26 @@
-from datetime import datetime
-from fixmessage_factory import FixMessageFactory
+import logging
 
-def send_gapfill(send_message, config_manager, new_seq_num):
-    message = FixMessageFactory.create_message(
-        '4',
-        version=config_manager.get('FIX', 'version', 'FIX.4.4'),
-        sender=config_manager.get('FIX', 'sender', 'SERVER'),
-        target=config_manager.get('FIX', 'target', 'CLIENT'),
-        new_seq_num=new_seq_num,
-        gap_fill_flag='Y'
-    )
-    FixMessageFactory.return_message(message)
-    send_message(message)
+class GapFill:
+    def __init__(self, message_store):
+        self.message_store = message_store
+        self.logger = logging.getLogger('GapFill')
+
+    async def handle_gap_fill(self, message):
+        new_seq_no = int(message.get('36'))  # NewSeqNo
+        gap_fill_message = {
+            '35': '4',  # Sequence Reset
+            '123': 'Y',  # GapFillFlag
+            '36': new_seq_no  # NewSeqNo
+        }
+        await self.message_store.store_message(gap_fill_message)
+        self.logger.info(f"Handled Gap Fill to NewSeqNo {new_seq_no}")
+
+# Example usage
+if __name__ == "__main__":
+    class DummyMessageStore:
+        async def store_message(self, message):
+            print(f"Storing message: {message}")
+
+    message_store = DummyMessageStore()
+    gap_fill = GapFill(message_store)
+    asyncio.run(gap_fill.handle_gap_fill({'36': '100'}))  # Example gap fill message with NewSeqNo of 100
