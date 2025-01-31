@@ -1,31 +1,3 @@
-import asyncio
-import logging
-from datetime import datetime
-from pyfixmsg.codecs.stringfix import Codec
-from heartbeat import Heartbeat
-from testrequest import send_test_request
-from gapfill import send_gapfill
-from sequence import SequenceManager
-from network import Acceptor, Initiator
-from fixmessage_factory import FixMessageFactory
-from configmanager import ConfigManager  # Singleton ConfigManager
-from event_notifier import EventNotifier  # Observer EventNotifier
-from message_handler import (
-    MessageProcessor, 
-    LogonHandler, 
-    ExecutionReportHandler, 
-    NewOrderHandler, 
-    CancelOrderHandler,
-    OrderCancelReplaceHandler,
-    OrderCancelRejectHandler,
-    NewOrderMultilegHandler,
-    MultilegOrderCancelReplaceHandler,
-    ResendRequestHandler,
-    SequenceResetHandler,
-    RejectHandler,
-    LogoutHandler
-)
-
 class FixEngine:
     def __init__(self, config_manager):
         self.config_manager = config_manager
@@ -75,6 +47,7 @@ class FixEngine:
 
     async def disconnect(self):
         await self.network.disconnect()
+        await self.heartbeat.stop()  # Stop the heartbeat when disconnecting
 
     async def send_message(self, message):
         fix_message = FixMessageFactory.create_message_from_dict(message)
@@ -103,6 +76,7 @@ class FixEngine:
 
             if msg_type == 'A':  # Logon
                 await self.handle_logon()
+                await self.heartbeat.start()  # Start the heartbeat after logon
 
             if msg_type == '1':  # Test Request
                 await self.handle_test_request(self.received_message)
