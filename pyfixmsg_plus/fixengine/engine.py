@@ -13,6 +13,7 @@ from event_notifier import EventNotifier  # Observer EventNotifier
 from message_handler import (
     MessageProcessor, 
     LogonHandler, 
+    TestRequestHandler,  # Added test request handler
     ExecutionReportHandler, 
     NewOrderHandler, 
     CancelOrderHandler,
@@ -60,6 +61,7 @@ class FixEngine:
 
         # Register message handlers
         self.message_processor.register_handler('A', LogonHandler(self.message_store))
+        self.message_processor.register_handler('1', TestRequestHandler(self.message_store))  # Register test request handler
         self.message_processor.register_handler('8', ExecutionReportHandler(self.message_store))
         self.message_processor.register_handler('D', NewOrderHandler(self.message_store))
         self.message_processor.register_handler('F', CancelOrderHandler(self.message_store))
@@ -98,21 +100,13 @@ class FixEngine:
             self.received_message.from_wire(data, codec=self.codec)
             self.logger.info(f"Received: {self.received_message}")
             
-         
-            self.message_store.store_message(self.received_message[34], 'inbound', data)  # Store the received message
-            await self.message_processor.process_message(self.received_message)
-            msg_type = self.received_message.get(35)
-
             if self.received_message.checksum() != self.received_message[10]:
                 self.logger.error("Checksum validation failed for received message.")
                 await self.send_reject_message(self.received_message)
                 return
-
-            if msg_type == 'A':  # Logon
-                await self.handle_logon()
-                await self.heartbeat.start()  # Start the heartbeat after logon
-
-            if msg_type == '1':  # Test Request
-                await self.handle_test_request(self.received_message)
+            
+            self.message_store.store_message(self.received_message[34], 'inbound', data)  # Store the received message
+            await self.message_processor.process_message(self.received_message)
+            msg_type = self.received_message.get(35)
 
             self.event_notifier.notify(msg_type, self.received_message)  # Notify subscribers
