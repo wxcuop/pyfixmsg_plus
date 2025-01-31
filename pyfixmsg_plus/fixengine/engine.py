@@ -1,3 +1,31 @@
+import asyncio
+import logging
+from datetime import datetime
+from pyfixmsg.codecs.stringfix import Codec
+from heartbeat import Heartbeat
+from testrequest import send_test_request
+from gapfill import send_gapfill
+from sequence import SequenceManager
+from network import Acceptor, Initiator
+from fixmessage_factory import FixMessageFactory
+from configmanager import ConfigManager  # Singleton ConfigManager
+from event_notifier import EventNotifier  # Observer EventNotifier
+from message_handler import (
+    MessageProcessor, 
+    LogonHandler, 
+    ExecutionReportHandler, 
+    NewOrderHandler, 
+    CancelOrderHandler,
+    OrderCancelReplaceHandler,
+    OrderCancelRejectHandler,
+    NewOrderMultilegHandler,
+    MultilegOrderCancelReplaceHandler,
+    ResendRequestHandler,
+    SequenceResetHandler,
+    RejectHandler,
+    LogoutHandler
+)
+
 class FixEngine:
     def __init__(self, config_manager):
         self.config_manager = config_manager
@@ -53,6 +81,7 @@ class FixEngine:
         fix_message = FixMessageFactory.create_message_from_dict(message)
         if not fix_message.anywhere(52):
             fix_message[52] = datetime.utcnow().strftime("%Y%m%d-%H:%M:%S.%f")[:-3]
+        fix_message[34] = self.sequence_manager.get_next_sequence_number()  # Set sequence number
         wire_message = fix_message.to_wire(codec=self.codec)
         await self.network.send(wire_message)
         FixMessageFactory.return_message(fix_message)
