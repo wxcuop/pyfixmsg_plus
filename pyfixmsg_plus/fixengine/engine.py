@@ -99,14 +99,15 @@ class FixEngine:
             self.received_message.clear()
             self.received_message.from_wire(data, codec=self.codec)
             self.logger.info(f"Received: {self.received_message}")
-            
+    
+            self.message_store.store_message(self.received_message[34], 'inbound', data)  # Store the received message
+    
             if self.received_message.checksum() != self.received_message[10]:
                 self.logger.error("Checksum validation failed for received message.")
                 await self.send_reject_message(self.received_message)
                 return
-            
-            self.message_store.store_message(self.received_message[34], 'inbound', data)  # Store the received message
+    
             await self.message_processor.process_message(self.received_message)
             msg_type = self.received_message.get(35)
-
+    
             self.event_notifier.notify(msg_type, self.received_message)  # Notify subscribers
