@@ -6,7 +6,7 @@ class Heartbeat:
     def __init__(self, send_message, config_manager, interval=30):
         self.send_message = send_message
         self.config_manager = config_manager
-        self.interval = self.config_manager.get('FIX', 'interval', 30),
+        self.interval = self.config_manager.get('FIX', 'interval', 30)
         self.running = False
         self.task = None
 
@@ -25,8 +25,7 @@ class Heartbeat:
                 '0',
                 version=self.config_manager.get('FIX', 'version', 'FIX.4.4'),
                 sender=self.config_manager.get('FIX', 'sender', 'SERVER'),
-                target=self.config_manager.get('FIX', 'target', 'CLIENT'),
-                seq_num=1  # This should be dynamically set
+                target=self.config_manager.get('FIX', 'target', 'CLIENT')
             )
             await self.send_message(message)
             FixMessageFactory.return_message(message)
