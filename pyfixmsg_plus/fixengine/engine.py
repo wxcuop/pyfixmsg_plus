@@ -173,9 +173,20 @@ class FixEngine:
     async def reset_sequence_numbers(self):
         self.message_store.reset_sequence_numbers()
         self.logger.info("Sequence numbers reset to 1 for both inbound and outbound.")
+    
+    async def set_inbound_sequence_number(self, seq_num):
+        self.message_store.set_next_incoming_sequence_number(seq_num)
+        self.logger.info(f"Inbound sequence number set to {seq_num}")
+
+    async def set_outbound_sequence_number(self, seq_num):
+        self.message_store.set_next_outgoing_sequence_number(seq_num)
+        self.logger.info(f"Outbound sequence number set to {seq_num}")
 
 # Example usage
 if __name__ == "__main__":
     config_manager = ConfigManager()
     engine = FixEngine(config_manager)
     asyncio.run(engine.connect())
+    # Example of setting sequence numbers
+    asyncio.run(engine.set_inbound_sequence_number(100))
+    asyncio.run(engine.set_outbound_sequence_number(200))
