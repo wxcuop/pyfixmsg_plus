@@ -86,7 +86,7 @@ class FixEngine:
         fix_message[34] = self.sequence_manager.get_next_sequence_number()  # Set sequence number
         wire_message = fix_message.to_wire(codec=self.codec)
         await self.network.send(wire_message)
-        self.message_store.store_message(fix_message[34], wire_message)  # Store the sent message
+        self.message_store.store_message(fix_message[34], 'outbound', wire_message)  # Store the sent message
         FixMessageFactory.return_message(fix_message)
 
     async def receive_message(self):
@@ -103,7 +103,7 @@ class FixEngine:
                 await self.send_reject_message(self.received_message)
                 return
             
-            self.message_store.store_message(self.received_message[34], data)  # Store the received message
+            self.message_store.store_message(self.received_message[34], 'inbound', data)  # Store the received message
             await self.message_processor.process_message(self.received_message)
             msg_type = self.received_message.get(35)
 
