@@ -9,26 +9,35 @@ class DatabaseMessageStore:
         cursor = self.conn.cursor()
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS messages (
-                seq_num INTEGER,
-                direction TEXT,
-                message TEXT,
-                PRIMARY KEY (seq_num, direction)
+                beginstring TEXT NOT NULL,
+                sendercompid TEXT NOT NULL,
+                targetcompid TEXT NOT NULL,
+                msgseqnum INTEGER NOT NULL,
+                message TEXT NOT NULL,
+                PRIMARY KEY (beginstring, sendercompid, targetcompid, msgseqnum)
             )
         ''')
         self.conn.commit()
 
-    def store_message(self, seq_num, direction, message):
+    def store_message(self, beginstring, sendercompid, targetcompid, msgseqnum, message):
         cursor = self.conn.cursor()
         cursor.execute('''
-            INSERT OR REPLACE INTO messages (seq_num, direction, message)
-            VALUES (?, ?, ?)
-        ''', (seq_num, direction, message))
+            INSERT OR REPLACE INTO messages (beginstring, sendercompid, targetcompid, msgseqnum, message)
+            VALUES (?, ?, ?, ?, ?)
+        ''', (beginstring, sendercompid, targetcompid, msgseqnum, message))
         self.conn.commit()
 
-    def get_message(self, seq_num, direction):
+    def get_message(self, beginstring, sendercompid, targetcompid, msgseqnum):
         cursor = self.conn.cursor()
         cursor.execute('''
-            SELECT message FROM messages WHERE seq_num = ? AND direction = ?
-        ''', (seq_num, direction))
+            SELECT message FROM messages WHERE beginstring = ? AND sendercompid = ? AND targetcompid = ? AND msgseqnum = ?
+        ''', (beginstring, sendercompid, targetcompid, msgseqnum))
         result = cursor.fetchone()
         return result[0] if result else None
+
+# Example usage
+if __name__ == "__main__":
+    db_path = 'fix_messages.db'
+    store = DatabaseMessageStore(db_path)
+    store.store_message('FIX.4.4', 'SENDER', 'TARGET', 1, 'Test message')
+    print(store.get_message('FIX.4.4', 'SENDER', 'TARGET', 1))
