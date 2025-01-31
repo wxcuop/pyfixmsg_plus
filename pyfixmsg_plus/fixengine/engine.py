@@ -36,14 +36,14 @@ class FixEngine:
         self.version = self.config_manager.get('FIX', 'version', 'FIX.4.4')
         self.use_tls = self.config_manager.get('FIX', 'use_tls', 'false').lower() == 'true'
         self.mode = self.config_manager.get('FIX', 'mode', 'initiator').lower()
-        seq_file = self.config_manager.get('FIX', 'state_file', 'sequence.json')
+        db_path = self.config_manager.get('FIX', 'state_file', 'fix_state.db')
         
         self.codec = Codec()
         self.running = False
         self.logger = logging.getLogger('FixEngine')
         self.logger.setLevel(logging.DEBUG)
         self.heartbeat_interval = int(self.config_manager.get('FIX', 'heartbeat_interval', '30'))
-        self.sequence_manager = SequenceManager(seq_file)
+        self.sequence_manager = SequenceManager(db_path)
         self.response_message = FixMessageFactory.create_message('0')  # Reusable FixMessage object
         self.received_message = FixMessageFactory.create_message('0')  # Reusable FixMessage object for received messages
         self.lock = asyncio.Lock()  # Lock for thread safety
