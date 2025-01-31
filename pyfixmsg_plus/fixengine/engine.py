@@ -100,13 +100,6 @@ class FixEngine:
             writer.close()
             await writer.wait_closed()
 
-    
-    async def disconnect(self):
-        await self.network.disconnect()
-        self.is_connected = False
-        await self.heartbeat.stop()
-        self.logger.info("Disconnected from FIX server.")
-        
     async def logon(self):
         if not self.is_connected:
             self.logger.error("Cannot logon: not connected.")
@@ -133,12 +126,14 @@ class FixEngine:
 
     async def receive_message(self):
         try:
-            await self.network.receive(self.handle_message)
+            while self.is_connected:
+                data = await self.network.receive()
+                await self.handle_message(data)
         except Exception as e:
             self.logger.error(f"Error receiving message: {e}")
             self.is_connected = False
-            await self.disconnect(
-        
+            await self.disconnect()
+
     async def send_reject_message(self, message):
         reject_message = FixMessageFactory.create_message('3')
         reject_message[49] = self.sender
@@ -147,23 +142,23 @@ class FixEngine:
         reject_message[45] = message.get(34)
         reject_message[58] = "Invalid checksum"
         await self.send_message(reject_message)
-        
+
     async def handle_message(self, data):
         async with self.lock:
             self.received_message.clear()
             self.received_message.from_wire(data, codec=self.codec)
             self.logger.info(f"Received: {self.received_message}")
-    
+
             self.message_store.store_message(self.version, self.sender, self.target, self.received_message[34], data)
-    
+
             if self.received_message.checksum() != self.received_message[10]:
                 self.logger.error("Checksum validation failed for received message.")
                 await self.send_reject_message(self.received_message)
                 return
-    
+
             await self.message_processor.process_message(self.received_message)
             msg_type = self.received_message.get(35)
-    
+
             self.event_notifier.notify(msg_type, self.received_message)
 
     async def reset_sequence_numbers(self):
