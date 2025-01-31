@@ -7,7 +7,7 @@ from testrequest import TestRequest
 from network import Acceptor, Initiator
 from fixmessage_factory import FixMessageFactory
 from configmanager import ConfigManager
-from event_notifier import EventNotifier
+from events import EventNotifier
 from message_handler import (
     MessageProcessor, 
     LogonHandler, 
