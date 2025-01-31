@@ -3,6 +3,7 @@ import logging
 from datetime import datetime
 from pyfixmsg.codecs.stringfix import Codec
 from heartbeat import Heartbeat
+from testrequest import TestRequest
 from network import Acceptor, Initiator
 from fixmessage_factory import FixMessageFactory
 from configmanager import ConfigManager
@@ -51,6 +52,7 @@ class FixEngine:
         self.received_message = FixMessageFactory.create_message('0')
         self.lock = asyncio.Lock()
         self.heartbeat = Heartbeat(self.send_message, self.config_manager, self.heartbeat_interval)
+        self.test_request = TestRequest(self.send_message, self.config_manager)
         self.last_heartbeat_time = None
         self.missed_heartbeats = 0
         self.session_id = f"{self.host}:{self.port}"
@@ -159,7 +161,14 @@ class FixEngine:
             await self.message_processor.process_message(self.received_message)
             msg_type = self.received_message.get(35)
 
-            self.event_notifier.notify(msg_type, self.received_message)
+            if msg_type == '0':  # Heartbeat
+                self.heartbeat.last_received_time = asyncio.get_event_loop().time()
+            elif msg_type == '1':  # Test Request
+                await self.heartbeat.receive_test_request(self.received_message)
+            elif msg_type == '2':  # Resend Request
+                await self.handle_resend_request(self.received_message)
+            else:
+                self.event_notifier.notify(msg_type, self.received_message)
 
     async def reset_sequence_numbers(self):
         self.message_store.reset_sequence_numbers()
