@@ -1,12 +1,12 @@
-#Handle different message types with appropriate strategies (Strategy).
 from functools import wraps
-from database_message_store import DatabaseMessageStore
+from .database_message_store import DatabaseMessageStore
 
-# Define the logging decorator
-def logging_decorator(handler_func):
+# Define the logging and storing decorator
+def logging_and_storing_decorator(handler_func):
     @wraps(handler_func)
     def wrapper(self, message):
         print(f"Logging message before handling: {message}")
+        self.message_store.store_message(message[34], message.to_wire())
         result = handler_func(self, message)
         print(f"Logging message after handling: {message}")
         return result
@@ -20,57 +20,49 @@ class MessageHandler:
     def handle(self, message):
         raise NotImplementedError
 
-# Concrete implementations of message handlers with logging decorator
+# Concrete implementations of message handlers with logging and storing decorator
 class LogonHandler(MessageHandler):
-    @logging_decorator
+    @logging_and_storing_decorator
     def handle(self, message):
         print(f"Handling logon message: {message}")
-        self.message_store.store_message(message[34], message.to_wire())
 
 class ExecutionReportHandler(MessageHandler):
-    @logging_decorator
+    @logging_and_storing_decorator
     def handle(self, message):
         print(f"Handling execution report: {message}")
-        self.message_store.store_message(message[34], message.to_wire())
 
 class NewOrderHandler(MessageHandler):
-    @logging_decorator
+    @logging_and_storing_decorator
     def handle(self, message):
         print(f"Handling new order: {message}")
-        self.message_store.store_message(message[34], message.to_wire())
 
 class CancelOrderHandler(MessageHandler):
-    @logging_decorator
+    @logging_and_storing_decorator
     def handle(self, message):
         print(f"Handling cancel order: {message}")
-        self.message_store.store_message(message[34], message.to_wire())
 
 class OrderCancelReplaceHandler(MessageHandler):
-    @logging_decorator
+    @logging_and_storing_decorator
     def handle(self, message):
         print(f"Handling order cancel/replace: {message}")
-        self.message_store.store_message(message[34], message.to_wire())
 
 class OrderCancelRejectHandler(MessageHandler):
-    @logging_decorator
+    @logging_and_storing_decorator
     def handle(self, message):
         print(f"Handling order cancel reject: {message}")
-        self.message_store.store_message(message[34], message.to_wire())
 
 class NewOrderMultilegHandler(MessageHandler):
-    @logging_decorator
+    @logging_and_storing_decorator
     def handle(self, message):
         print(f"Handling new order - multileg: {message}")
-        self.message_store.store_message(message[34], message.to_wire())
 
 class MultilegOrderCancelReplaceHandler(MessageHandler):
-    @logging_decorator
+    @logging_and_storing_decorator
     def handle(self, message):
         print(f"Handling multileg order cancel/replace: {message}")
-        self.message_store.store_message(message[34], message.to_wire())
 
 class ResendRequestHandler(MessageHandler):
-    @logging_decorator
+    @logging_and_storing_decorator
     async def handle(self, message):
         start_seq_num = int(message.get(7))  # Get the start sequence number from the resend request
         end_seq_num = int(message.get(16))  # Get the end sequence number from the resend request
@@ -82,19 +74,19 @@ class ResendRequestHandler(MessageHandler):
                 await self.send_gap_fill(seq_num)
 
 class SequenceResetHandler(MessageHandler):
-    @logging_decorator
+    @logging_and_storing_decorator
     async def handle(self, message):
         new_seq_num = int(message.get(36))  # Get the new sequence number from the sequence reset
         self.sequence_manager.reset_sequence(new_seq_num)
         self.logger.info(f"Sequence reset to {new_seq_num}")
 
 class RejectHandler(MessageHandler):
-    @logging_decorator
+    @logging_and_storing_decorator
     async def handle(self, message):
         self.logger.warning(f"Message rejected: {message}")
 
 class LogoutHandler(MessageHandler):
-    @logging_decorator
+    @logging_and_storing_decorator
     async def handle(self, message):
         self.logger.info(f"Logout message received: {message}")
         await self.disconnect()
