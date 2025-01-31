@@ -73,7 +73,8 @@ class ResendRequestHandler(MessageHandler):
         start_seq_num = int(message.get(7))  # Get the start sequence number from the resend request
         end_seq_num = int(message.get(16))  # Get the end sequence number from the resend request
         for seq_num in range(start_seq_num, end_seq_num + 1):
-            msg = self.message_store.get_message(seq_num)
+            direction = 'outbound'  # Specify the direction
+            msg = self.message_store.get_message(seq_num, direction)
             if msg:
                 await self.send_message(msg)
             else:
