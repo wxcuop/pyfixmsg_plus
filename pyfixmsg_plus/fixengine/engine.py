@@ -80,6 +80,14 @@ class FixEngine:
     async def disconnect(self):
         await self.network.disconnect()
         await self.heartbeat.stop()  # Stop the heartbeat when disconnecting
+        
+    async def logon(self):
+        logon_message = FixMessageFactory.create_message('A')
+        logon_message[49] = self.sender  # SenderCompID
+        logon_message[56] = self.target  # TargetCompID
+        logon_message[34] = self.sequence_manager.get_next_sequence_number()  # Sequence number
+        await self.send_message(logon_message)
+        await self.heartbeat.start()  # Start the heartbeat after logon
 
     async def send_message(self, message):
         fix_message = FixMessageFactory.create_message_from_dict(message)
