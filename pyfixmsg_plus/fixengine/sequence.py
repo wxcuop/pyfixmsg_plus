@@ -9,14 +9,24 @@ class SequenceManager:
     def create_table(self):
         cursor = self.conn.cursor()
         cursor.execute('''
-            CREATE TABLE IF NOT EXISTS sequence (
-                id INTEGER PRIMARY KEY, 
-                sequence_number INTEGER
-            )
+            DROP TABLE IF EXISTS sessions
         ''')
         cursor.execute('''
-            INSERT OR IGNORE INTO sequence (id, sequence_number) 
-            VALUES (1, 0)
+            CREATE TABLE sessions (
+                beginstring TEXT NOT NULL,
+                sendercompid TEXT NOT NULL,
+                sendersubid TEXT NOT NULL,
+                senderlocid TEXT NOT NULL,
+                targetcompid TEXT NOT NULL,
+                targetsubid TEXT NOT NULL,
+                targetlocid TEXT NOT NULL,
+                session_qualifier TEXT NOT NULL,
+                creation_time TEXT NOT NULL,
+                incoming_seqnum INTEGER NOT NULL,
+                outgoing_seqnum INTEGER NOT NULL,
+                PRIMARY KEY (beginstring, sendercompid, sendersubid, senderlocid,
+                             targetcompid, targetsubid, targetlocid, session_qualifier)
+            )
         ''')
         self.conn.commit()
 
@@ -39,3 +49,10 @@ class SequenceManager:
         self.sequence_number += 1
         self.save_sequence_number(self.sequence_number)
         return self.sequence_number
+
+# Example usage
+if __name__ == "__main__":
+    db_path = 'fix_state.db'
+    sequence_manager = SequenceManager(db_path)
+    print(sequence_manager.get_next_sequence_number())
+    print(sequence_manager.get_next_sequence_number())
