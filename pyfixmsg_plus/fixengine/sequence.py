@@ -5,7 +5,7 @@ class SequenceManager:
     def __init__(self, db_path):
         self.conn = sqlite3.connect(db_path)
         self.create_table()
-        self.sequence_number = self.load_sequence_number()
+        self.incoming_seqnum, self.outgoing_seqnum = self.load_sequence_numbers()
 
     def create_table(self):
         cursor = self.conn.cursor()
@@ -28,18 +28,21 @@ class SequenceManager:
         ''')
         self.conn.commit()
 
-    def load_sequence_number(self):
+    def load_sequence_numbers(self):
         cursor = self.conn.cursor()
         cursor.execute('''
-            SELECT outgoing_seqnum FROM sessions WHERE
+            SELECT incoming_seqnum, outgoing_seqnum FROM sessions WHERE
             beginstring = ? AND sendercompid = ? AND sendersubid = ? AND senderlocid = ? AND
             targetcompid = ? AND targetsubid = ? AND targetlocid = ? AND session_qualifier = ?
         ''', (self.beginstring, self.sendercompid, self.sendersubid, self.senderlocid, 
               self.targetcompid, self.targetsubid, self.targetlocid, self.session_qualifier))
         result = cursor.fetchone()
-        return result[0] if result else 0
+        if result:
+            return result
+        else:
+            return 0, 0
 
-    def save_sequence_number(self, number):
+    def save_sequence_numbers(self, incoming_seqnum, outgoing_seqnum):
         cursor = self.conn.cursor()
         cursor.execute('''
             INSERT INTO sessions (beginstring, sendercompid, sendersubid, senderlocid, 
@@ -48,16 +51,35 @@ class SequenceManager:
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(beginstring, sendercompid, sendersubid, senderlocid, targetcompid, 
                         targetsubid, targetlocid, session_qualifier)
-            DO UPDATE SET outgoing_seqnum = ?
+            DO UPDATE SET incoming_seqnum = ?, outgoing_seqnum = ?
         ''', (self.beginstring, self.sendercompid, self.sendersubid, self.senderlocid, 
               self.targetcompid, self.targetsubid, self.targetlocid, self.session_qualifier, 
-              datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S"), 0, number, number))
+              datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S"), incoming_seqnum, outgoing_seqnum,
+              incoming_seqnum, outgoing_seqnum))
         self.conn.commit()
 
-    def get_next_sequence_number(self):
-        self.sequence_number += 1
-        self.save_sequence_number(self.sequence_number)
-        return self.sequence_number
+    def get_next_incoming_sequence_number(self):
+        self.incoming_seqnum += 1
+        self.save_sequence_numbers(self.incoming_seqnum, self.outgoing_seqnum)
+        return self.incoming_seqnum
+
+    def get_next_outgoing_sequence_number(self):
+        self.outgoing_seqnum += 1
+        self.save_sequence_numbers(self.incoming_seqnum, self.outgoing_seqnum)
+        return self.outgoing_seqnum
+
+    def set_incoming_sequence_number(self, number):
+        self.incoming_seqnum = number
+        self.save_sequence_numbers(self.incoming_seqnum, self.outgoing_seqnum)
+
+    def set_outgoing_sequence_number(self, number):
+        self.outgoing_seqnum = number
+        self.save_sequence_numbers(self.incoming_seqnum, self.outgoing_seqnum)
+
+    def reset_sequence_numbers(self):
+        self.incoming_seqnum = 1
+        self.outgoing_seqnum = 1
+        self.save_sequence_numbers(self.incoming_seqnum, self.outgoing_seqnum)
 
 # Example usage
 if __name__ == "__main__":
@@ -71,5 +93,10 @@ if __name__ == "__main__":
     sequence_manager.targetsubid = ''
     sequence_manager.targetlocid = ''
     sequence_manager.session_qualifier = ''
-    print(sequence_manager.get_next_sequence_number())
-    print(sequence_manager.get_next_sequence_number())
+
+    print(sequence_manager.get_next_outgoing_sequence_number())
+    print(sequence_manager.get_next_incoming_sequence_number())
+    print("Reset sequence numbers to 1")
+    sequence_manager.reset_sequence_numbers()
+    print(sequence_manager.get_next_outgoing_sequence_number())
+    print(sequence_manager.get_next_incoming_sequence_number())
