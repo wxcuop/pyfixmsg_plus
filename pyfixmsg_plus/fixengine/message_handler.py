@@ -1,5 +1,5 @@
 from functools import wraps
-from .database_message_store import DatabaseMessageStore
+from database_message_store import DatabaseMessageStore
 
 # Define the logging and storing decorator
 def logging_and_storing_decorator(handler_func):
