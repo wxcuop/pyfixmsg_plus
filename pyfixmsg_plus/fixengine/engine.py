@@ -108,7 +108,16 @@ class FixEngine:
 
     async def receive_message(self):
         await self.network.receive(self.handle_message)
-
+        
+    async def send_reject_message(self, message):
+        reject_message = FixMessageFactory.create_message('3')  # 3 is the Reject message type
+        reject_message[49] = self.sender  # SenderCompID
+        reject_message[56] = self.target  # TargetCompID
+        reject_message[34] = self.sequence_manager.get_next_sequence_number()  # Sequence number
+        reject_message[45] = message.get(34)  # RefSeqNum
+        reject_message[58] = "Invalid checksum"  # Text
+        await self.send_message(reject_message)
+        
     async def handle_message(self, data):
         async with self.lock:
             self.received_message.clear()
