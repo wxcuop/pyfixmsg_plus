@@ -180,6 +180,8 @@ class FixEngine:
                 await self.heartbeat.receive_test_request(self.received_message)
             elif msg_type == '2':  # Resend Request
                 await self.handle_resend_request(self.received_message)
+            elif msg_type == '4':  # Sequence Reset
+                await self.handle_sequence_reset(self.received_message)
             else:
                 self.event_notifier.notify(msg_type, self.received_message)
 
@@ -197,12 +199,32 @@ class FixEngine:
                 await self.send_message(stored_message)
             else:
                 # Send Sequence Reset - GapFill if message is not found
-                gap_fill_message = FixMessageFactory.create_message('4')
-                gap_fill_message[49] = self.sender
-                gap_fill_message[56] = self.target
-                gap_fill_message[36] = seq_num
-                gap_fill_message[123] = 'Y'  # GapFillFlag
-                await self.send_message(gap_fill_message)
+                await self.send_gap_fill_message(seq_num)
+
+    async def handle_sequence_reset(self, message):
+        gap_fill_flag = message.get('123', 'N')
+        new_seq_no = int(message.get('36'))
+
+        if new_seq_no <= self.message_store.get_next_incoming_sequence_number():
+            self.logger.error("Received Sequence Reset attempting to decrease sequence number.")
+            await self.send_reject_message(message.get('34'), 36, 99, "Sequence Reset attempted to decrease sequence number")
+            return
+
+        if gap_fill_flag == 'Y':
+            self.logger.info(f"Processing Sequence Reset - GapFill to {new_seq_no}")
+            self.message_store.set_incoming_sequence_number(new_seq_no)
+        else:
+            self.logger.info(f"Processing Sequence Reset - Reset to {new_seq_no}")
+            self.message_store.set_incoming_sequence_number(new_seq_no)
+
+    async def send_gap_fill_message(self, new_seq_no):
+        gap_fill_message = FixMessageFactory.create_message('4')
+        gap_fill_message[49] = self.sender
+        gap_fill_message[56] = self.target
+        gap_fill_message[36] = new_seq_no
+        gap_fill_message[123] = 'Y'  # GapFillFlag
+        await self.send_message(gap_fill_message)
+        self.logger.info(f"Sent Sequence Reset - GapFill to {new_seq_no}")
 
     async def reset_sequence_numbers(self):
         self.message_store.reset_sequence_numbers()
