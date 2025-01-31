@@ -1,6 +1,6 @@
 import asyncio
 from datetime import datetime
-from pyfixmsg.fixmessage import FixMessage
+from fixmessage_factory import FixMessageFactory
 
 class Heartbeat:
     def __init__(self, send_message, config_manager, interval=30):
@@ -21,14 +21,13 @@ class Heartbeat:
 
     async def _send_heartbeat(self):
         while self.running:
-            message = FixMessage()
-            message.update({
-                8: self.config_manager.get('FIX', 'version', 'FIX.4.4'),
-                35: '0',  # Heartbeat
-                49: self.config_manager.get('FIX', 'sender', 'SERVER'),
-                56: self.config_manager.get('FIX', 'target', 'CLIENT'),
-                34: 1,  # This should be dynamically set
-                52: datetime.utcnow().strftime("%Y%m%d-%H:%M:%S.%f")[:-3]
-            })
+            message = FixMessageFactory.create_message(
+                '0',
+                version=self.config_manager.get('FIX', 'version', 'FIX.4.4'),
+                sender=self.config_manager.get('FIX', 'sender', 'SERVER'),
+                target=self.config_manager.get('FIX', 'target', 'CLIENT'),
+                seq_num=1  # This should be dynamically set
+            )
             await self.send_message(message)
+            FixMessageFactory.return_message(message)
             await asyncio.sleep(self.interval)
