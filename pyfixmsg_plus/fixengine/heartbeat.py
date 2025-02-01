@@ -68,3 +68,12 @@ class Heartbeat:
         self.running = False
         self.logger.error("Connection lost. Corrective action initiated.")
         # Implement corrective action such as reconnecting or alerting the user
+
+# Example usage
+if __name__ == "__main__":
+    async def send_message(message):
+        print(f"Sending message: {message}")
+
+    config_manager = None  # Replace with actual config manager
+    heartbeat = Heartbeat(send_message, config_manager, 30)
+    asyncio.run(heartbeat.start())
