@@ -30,8 +30,9 @@ from state_machine import StateMachine, Disconnected, LogonInProgress, LogoutInP
 from scheduler import Scheduler
 
 class FixEngine:
-    def __init__(self, config_manager):
+    def __init__(self, config_manager, application):
         self.config_manager = config_manager
+        self.application = application  # Add this line
         self.state_machine = StateMachine(Disconnected())
         self.state_machine.subscribe(self.on_state_change)
         self.host = self.config_manager.get('FIX', 'host', '127.0.0.1')
@@ -69,23 +70,23 @@ class FixEngine:
         self.network = Acceptor(self.host, self.port, self.use_tls) if self.mode == 'acceptor' else Initiator(self.host, self.port, self.use_tls)
         
         self.event_notifier = EventNotifier()
-        self.message_processor = MessageProcessor(self.message_store)
+        self.message_processor = MessageProcessor(self.message_store, self.application)  # Modify this line
         
         # Register message handlers
-        self.message_processor.register_handler('A', LogonHandler(self.message_store, self.state_machine))
-        self.message_processor.register_handler('1', TestRequestHandler(self.message_store, self.state_machine))
-        self.message_processor.register_handler('8', ExecutionReportHandler(self.message_store, self.state_machine))
-        self.message_processor.register_handler('D', NewOrderHandler(self.message_store, self.state_machine))
-        self.message_processor.register_handler('F', CancelOrderHandler(self.message_store, self.state_machine))
-        self.message_processor.register_handler('G', OrderCancelReplaceHandler(self.message_store, self.state_machine))
-        self.message_processor.register_handler('9', OrderCancelRejectHandler(self.message_store, self.state_machine))
-        self.message_processor.register_handler('AB', NewOrderMultilegHandler(self.message_store, self.state_machine))
-        self.message_processor.register_handler('AC', MultilegOrderCancelReplaceHandler(self.message_store, self.state_machine))
-        self.message_processor.register_handler('2', ResendRequestHandler(self.message_store, self.state_machine))
-        self.message_processor.register_handler('4', SequenceResetHandler(self.message_store, self.state_machine))
-        self.message_processor.register_handler('3', RejectHandler(self.message_store, self.state_machine))
-        self.message_processor.register_handler('5', LogoutHandler(self.message_store, self.state_machine))
-        self.message_processor.register_handler('0', HeartbeatHandler(self.message_store, self.state_machine))
+        self.message_processor.register_handler('A', LogonHandler(self.message_store, self.state_machine, self.application))
+        self.message_processor.register_handler('1', TestRequestHandler(self.message_store, self.state_machine, self.application))
+        self.message_processor.register_handler('8', ExecutionReportHandler(self.message_store, self.state_machine, self.application))
+        self.message_processor.register_handler('D', NewOrderHandler(self.message_store, self.state_machine, self.application))
+        self.message_processor.register_handler('F', CancelOrderHandler(self.message_store, self.state_machine, self.application))
+        self.message_processor.register_handler('G', OrderCancelReplaceHandler(self.message_store, self.state_machine, self.application))
+        self.message_processor.register_handler('9', OrderCancelRejectHandler(self.message_store, self.state_machine, self.application))
+        self.message_processor.register_handler('AB', NewOrderMultilegHandler(self.message_store, self.state_machine, self.application))
+        self.message_processor.register_handler('AC', MultilegOrderCancelReplaceHandler(self.message_store, self.state_machine, self.application))
+        self.message_processor.register_handler('2', ResendRequestHandler(self.message_store, self.state_machine, self.application))
+        self.message_processor.register_handler('4', SequenceResetHandler(self.message_store, self.state_machine, self.application))
+        self.message_processor.register_handler('3', RejectHandler(self.message_store, self.state_machine, self.application))
+        self.message_processor.register_handler('5', LogoutHandler(self.message_store, self.state_machine, self.application))
+        self.message_processor.register_handler('0', HeartbeatHandler(self.message_store, self.state_machine, self.application))
 
         # Initialize scheduler
         self.scheduler = Scheduler(self.config_manager, self)
@@ -253,7 +254,8 @@ class FixEngine:
 # Example usage
 if __name__ == "__main__":
     config_manager = ConfigManager()
-    engine = FixEngine(config_manager)
+    application = MyApplication()  # Replace MyApplication with your concrete implementation
+    engine = FixEngine(config_manager, application)
     asyncio.run(engine.connect())
     # Example of setting sequence numbers
     asyncio.run(engine.set_inbound_sequence_number(100))
