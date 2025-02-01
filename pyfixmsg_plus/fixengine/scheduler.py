@@ -4,8 +4,8 @@ from datetime import datetime, timedelta
 from configmanager import ConfigManager
 
 class Scheduler:
-    def __init__(self, config_file=None):
-        self.config_manager = ConfigManager(config_file) if config_file else ConfigManager()
+    def __init__(self, config_manager):
+        self.config_manager = config_manager
         self.schedules = []
         self.connection_settings = {}
         self.load_configuration()
