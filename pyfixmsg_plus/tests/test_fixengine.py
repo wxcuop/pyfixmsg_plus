@@ -2,9 +2,9 @@
 import sys
 import os
 
-# Insert the repository root directory to sys.path
+# Ensure the repository root is in PYTHONPATH so that 'pyfixmsg_plus' modules can be found.
 current_dir = os.path.dirname(__file__)
-repo_root = os.path.abspath(os.path.join(current_dir, '../../'))
+repo_root = os.path.abspath(os.path.join(current_dir, "../../"))
 sys.path.insert(0, repo_root)
 
 
