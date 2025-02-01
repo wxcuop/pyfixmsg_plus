@@ -55,7 +55,7 @@ class FixEngine:
         self.response_message = FixMessageFactory.create_message('0')
         self.received_message = FixMessageFactory.create_message('0')
         self.lock = asyncio.Lock()
-        self.heartbeat = Heartbeat(self.send_message, self.config_manager, self.heartbeat_interval)
+        self.heartbeat = Heartbeat(self.send_message, self.config_manager, self.heartbeat_interval, self.state_machine)
         self.test_request = TestRequest(self.send_message, self.config_manager)
         self.last_heartbeat_time = None
         self.missed_heartbeats = 0
