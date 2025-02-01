@@ -6,6 +6,7 @@ import os
 current_dir = os.path.dirname(__file__)
 repo_root = os.path.abspath(os.path.join(current_dir, "../../"))
 sys.path.insert(0, repo_root)
+sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'pyfixmsg_plus', 'fixengine'))
 
 
 import asyncio
