@@ -33,7 +33,6 @@ class FixEngine:
         self.config_manager = config_manager
         self.state_machine = StateMachine(Disconnected())
         self.state_machine.subscribe(self.on_state_change)
-        self.is_connected = False
         self.host = self.config_manager.get('FIX', 'host', '127.0.0.1')
         self.port = int(self.config_manager.get('FIX', 'port', '5000'))
         self.sender = self.config_manager.get('FIX', 'sender', 'SENDER')
@@ -92,7 +91,6 @@ class FixEngine:
                 await self.network.start_accepting(self.handle_incoming_connection)
             else:
                 await self.network.connect()
-                self.is_connected = True
                 self.state_machine.on_event('logon')
                 self.logger.info("Connected to FIX server.")
                 await self.logon()
@@ -101,7 +99,6 @@ class FixEngine:
 
     async def handle_incoming_connection(self, reader, writer):
         try:
-            self.is_connected = True
             self.state_machine.on_event('logon')
             self.logger.info("Accepted incoming connection.")
             self.network.set_transport(reader, writer)
@@ -109,13 +106,12 @@ class FixEngine:
             await self.receive_message()
         except Exception as e:
             self.logger.error(f"Error handling incoming connection: {e}")
-            self.is_connected = False
             self.state_machine.on_event('disconnect')
             writer.close()
             await writer.wait_closed()
 
     async def logon(self):
-        if not self.is_connected:
+        if self.state_machine.state.name != 'Active' and self.state_machine.state.name != 'Connecting':
             self.logger.error("Cannot logon: not connected.")
             return
         try:
@@ -140,12 +136,11 @@ class FixEngine:
 
     async def receive_message(self):
         try:
-            while self.is_connected:
+            while self.state_machine.state.name == 'Active':
                 data = await self.network.receive()
                 await self.handle_message(data)
         except Exception as e:
             self.logger.error(f"Error receiving message: {e}")
-            self.is_connected = False
             await self.disconnect()
 
     async def send_reject_message(self, ref_seq_num, ref_tag_id, session_reject_reason, text):
@@ -198,7 +193,7 @@ class FixEngine:
     async def handle_logout(self, message):
         self.logger.info("Received Logout message.")
         await self.send_logout_message()
-        self.is_connected = False
+        self.state_machine.on_event('disconnect')
         await self.network.disconnect()
 
     async def send_logout_message(self):
