@@ -1,8 +1,19 @@
 # test_fixengine.py
+import sys
+import os
+
+# Insert the repository root directory to sys.path
+current_dir = os.path.dirname(__file__)
+repo_root = os.path.abspath(os.path.join(current_dir, '../../'))
+sys.path.insert(0, repo_root)
+
 
 import asyncio
 import pytest
 from pyfixmsg_plus.fixengine.engine import FixEngine
+
+
+
 
 # Dummy implementation of the Application abstract class
 class DummyApplication:
