@@ -160,17 +160,17 @@ class FixEngine:
                 self.logger.error(f"Failed to parse message: {e}")
                 await self.send_reject_message(self.message_store.get_next_incoming_sequence_number(), 0, 99, "Failed to parse message")
                 return
-
+    
             self.logger.info(f"Received: {self.received_message}")
-
+    
             if self.received_message.checksum() != self.received_message[10]:
                 self.logger.error("Checksum validation failed for received message.")
                 await self.send_reject_message(self.received_message[34], 10, 5, "Invalid checksum")
                 return
-            
+    
             self.message_store.store_message(self.version, self.sender, self.target, self.received_message[34], data)
             self.message_store.set_incoming_sequence_number(self.received_message[34] + 1)
-
+    
             await self.message_processor.process_message(self.received_message)
 
     async def reset_sequence_numbers(self):
