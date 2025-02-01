@@ -148,6 +148,7 @@ class FixEngine:
 
     async def retry_logon(self):
         if self.retry_attempts < self.max_retries:
+            self.state_machine.on_event('reconnect')
             self.retry_attempts += 1
             backoff_time = self.retry_interval * (2 ** (self.retry_attempts - 1))
             self.logger.info(f"Retrying logon in {backoff_time} seconds (Attempt {self.retry_attempts}/{self.max_retries})...")
