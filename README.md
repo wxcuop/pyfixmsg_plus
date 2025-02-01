@@ -32,12 +32,11 @@ Core classes
  * `Codec` defines how to parse a buffer into a FixMessage, and how to serialise it back
  * `Spec` defines the ``FIX`` specification to follow. Only required for support of repeating group. Defined from 
  Quickfix's spec XML files.
- * `FixSession` defines the base ``FIX`` session logic for TCP and SSL connectivity.
  
 
 How to run the tests
 --------------------
- * `` pytest --spec=/var/tmp/FIX50.xml `` will launch the tests against the spec file in /var/tmp. You will need to load
+ * `` pytest --spec=/var/tmp/FIX44.xml `` will launch the tests against the spec file in /var/tmp. You will need to load
  the [spec files from quickfix](https://github.com/quickfix/quickfix/tree/master/spec) to get the tests to work. 
  The spec files are not included in this distribution.
 
