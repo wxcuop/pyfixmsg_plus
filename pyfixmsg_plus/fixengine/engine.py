@@ -26,7 +26,7 @@ from message_handler import (
     HeartbeatHandler
 )
 from message_store_factory import MessageStoreFactory
-from state_machine import StateMachine, Disconnected, Connecting, Active, Reconnecting, LogoutInProgress
+from state_machine import StateMachine, Disconnected, LogonInProgress, LogoutInProgress, Active, Reconnecting
 
 class FixEngine:
     def __init__(self, config_manager):
@@ -65,20 +65,20 @@ class FixEngine:
         self.message_processor = MessageProcessor(self.message_store)
         
         # Register message handlers
-        self.message_processor.register_handler('A', LogonHandler(self.message_store))
-        self.message_processor.register_handler('1', TestRequestHandler(self.message_store))
-        self.message_processor.register_handler('8', ExecutionReportHandler(self.message_store))
-        self.message_processor.register_handler('D', NewOrderHandler(self.message_store))
-        self.message_processor.register_handler('F', CancelOrderHandler(self.message_store))
-        self.message_processor.register_handler('G', OrderCancelReplaceHandler(self.message_store))
-        self.message_processor.register_handler('9', OrderCancelRejectHandler(self.message_store))
-        self.message_processor.register_handler('AB', NewOrderMultilegHandler(self.message_store))
-        self.message_processor.register_handler('AC', MultilegOrderCancelReplaceHandler(self.message_store))
-        self.message_processor.register_handler('2', ResendRequestHandler(self.message_store))
-        self.message_processor.register_handler('4', SequenceResetHandler(self.message_store))
-        self.message_processor.register_handler('3', RejectHandler(self.message_store))
-        self.message_processor.register_handler('5', LogoutHandler(self.message_store))
-        self.message_processor.register_handler('0', HeartbeatHandler(self.message_store))
+        self.message_processor.register_handler('A', LogonHandler(self.message_store, self.state_machine))
+        self.message_processor.register_handler('1', TestRequestHandler(self.message_store, self.state_machine))
+        self.message_processor.register_handler('8', ExecutionReportHandler(self.message_store, self.state_machine))
+        self.message_processor.register_handler('D', NewOrderHandler(self.message_store, self.state_machine))
+        self.message_processor.register_handler('F', CancelOrderHandler(self.message_store, self.state_machine))
+        self.message_processor.register_handler('G', OrderCancelReplaceHandler(self.message_store, self.state_machine))
+        self.message_processor.register_handler('9', OrderCancelRejectHandler(self.message_store, self.state_machine))
+        self.message_processor.register_handler('AB', NewOrderMultilegHandler(self.message_store, self.state_machine))
+        self.message_processor.register_handler('AC', MultilegOrderCancelReplaceHandler(self.message_store, self.state_machine))
+        self.message_processor.register_handler('2', ResendRequestHandler(self.message_store, self.state_machine))
+        self.message_processor.register_handler('4', SequenceResetHandler(self.message_store, self.state_machine))
+        self.message_processor.register_handler('3', RejectHandler(self.message_store, self.state_machine))
+        self.message_processor.register_handler('5', LogoutHandler(self.message_store, self.state_machine))
+        self.message_processor.register_handler('0', HeartbeatHandler(self.message_store, self.state_machine))
 
     def on_state_change(self, state_name):
         self.logger.info(f"State changed to: {state_name}")
@@ -111,7 +111,7 @@ class FixEngine:
             await writer.wait_closed()
 
     async def logon(self):
-        if self.state_machine.state.name != 'Active' and self.state_machine.state.name != 'Connecting':
+        if self.state_machine.state.name != 'ACTIVE' and self.state_machine.state.name != 'LOGON_IN_PROGRESS':
             self.logger.error("Cannot logon: not connected.")
             return
         try:
@@ -136,7 +136,7 @@ class FixEngine:
 
     async def receive_message(self):
         try:
-            while self.state_machine.state.name == 'Active':
+            while self.state_machine.state.name == 'ACTIVE':
                 data = await self.network.receive()
                 await self.handle_message(data)
         except Exception as e:
