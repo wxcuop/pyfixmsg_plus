@@ -26,10 +26,13 @@ from message_handler import (
     HeartbeatHandler
 )
 from message_store_factory import MessageStoreFactory
+from state_machine import StateMachine, Disconnected, Connecting, Active, Reconnecting, LogoutInProgress
 
 class FixEngine:
     def __init__(self, config_manager):
         self.config_manager = config_manager
+        self.state_machine = StateMachine(Disconnected())
+        self.state_machine.subscribe(self.on_state_change)
         self.is_connected = False
         self.host = self.config_manager.get('FIX', 'host', '127.0.0.1')
         self.port = int(self.config_manager.get('FIX', 'port', '5000'))
@@ -78,14 +81,19 @@ class FixEngine:
         self.message_processor.register_handler('5', LogoutHandler(self.message_store))
         self.message_processor.register_handler('0', HeartbeatHandler(self.message_store))
 
+    def on_state_change(self, state_name):
+        self.logger.info(f"State changed to: {state_name}")
+
     async def connect(self):
         try:
+            self.state_machine.on_event('connect')
             if self.mode == 'acceptor':
                 self.logger.info("Starting in acceptor mode, waiting for incoming connections...")
                 await self.network.start_accepting(self.handle_incoming_connection)
             else:
                 await self.network.connect()
                 self.is_connected = True
+                self.state_machine.on_event('logon')
                 self.logger.info("Connected to FIX server.")
                 await self.logon()
         except Exception as e:
@@ -94,6 +102,7 @@ class FixEngine:
     async def handle_incoming_connection(self, reader, writer):
         try:
             self.is_connected = True
+            self.state_machine.on_event('logon')
             self.logger.info("Accepted incoming connection.")
             self.network.set_transport(reader, writer)
             await self.logon()
@@ -101,6 +110,7 @@ class FixEngine:
         except Exception as e:
             self.logger.error(f"Error handling incoming connection: {e}")
             self.is_connected = False
+            self.state_machine.on_event('disconnect')
             writer.close()
             await writer.wait_closed()
 
@@ -160,23 +170,23 @@ class FixEngine:
                 self.logger.error(f"Failed to parse message: {e}")
                 await self.send_reject_message(self.message_store.get_next_incoming_sequence_number(), 0, 99, "Failed to parse message")
                 return
-    
+
             self.logger.info(f"Received: {self.received_message}")
-    
+
             if self.received_message.checksum() != self.received_message[10]:
                 self.logger.error("Checksum validation failed for received message.")
                 await self.send_reject_message(self.received_message[34], 10, 5, "Invalid checksum")
                 return
-    
+
             self.message_store.store_message(self.version, self.sender, self.target, self.received_message[34], data)
             self.message_store.set_incoming_sequence_number(self.received_message[34] + 1)
-    
+
             await self.message_processor.process_message(self.received_message)
 
     async def reset_sequence_numbers(self):
         self.message_store.reset_sequence_numbers()
         self.logger.info("Sequence numbers reset to 1 for both inbound and outbound.")
-    
+
     async def set_inbound_sequence_number(self, seq_num):
         self.message_store.set_incoming_sequence_number(seq_num)
         self.logger.info(f"Inbound sequence number set to {seq_num}")
