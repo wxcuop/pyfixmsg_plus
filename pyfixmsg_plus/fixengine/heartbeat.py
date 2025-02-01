@@ -2,10 +2,11 @@ import asyncio
 import logging
 
 class Heartbeat:
-    def __init__(self, send_message_callback, config_manager, heartbeat_interval, state_machine):
+    def __init__(self, send_message_callback, config_manager, heartbeat_interval, state_machine, fix_engine):
         self.send_message_callback = send_message_callback
         self.heartbeat_interval = heartbeat_interval
         self.state_machine = state_machine  # Add state machine
+        self.fix_engine = fix_engine  # Add fix_engine reference
         self.logger = logging.getLogger('Heartbeat')
         self.last_sent_time = None
         self.last_received_time = None
@@ -28,7 +29,7 @@ class Heartbeat:
         if current_time - self.last_sent_time >= self.heartbeat_interval:
             await self.send_heartbeat()
 
-        if current_time - self.last_received_time >= self.heartbeat_interval * 2:
+        if current_time - self last_received_time >= self.heartbeat_interval * 2:
             await self.send_test_request()
 
         if current_time - self.last_received_time >= self.heartbeat_interval * 3:
@@ -67,13 +68,4 @@ class Heartbeat:
     async def initiate_corrective_action(self):
         self.running = False
         self.logger.error("Connection lost. Corrective action initiated.")
-        # Implement corrective action such as reconnecting or alerting the user
-
-# Example usage
-if __name__ == "__main__":
-    async def send_message(message):
-        print(f"Sending message: {message}")
-
-    config_manager = None  # Replace with actual config manager
-    heartbeat = Heartbeat(send_message, config_manager, 30)
-    asyncio.run(heartbeat.start())
+        await self.fix_engine.retry_connect()
