@@ -1,4 +1,5 @@
 from functools import wraps
+import asyncio
 
 # Define the logging decorator
 def logging_decorator(handler_func):
@@ -98,6 +99,13 @@ class LogoutHandler(MessageHandler):
         self.logger.info(f"Logout message received: {message}")
         await self.disconnect()
 
+class HeartbeatHandler(MessageHandler):
+    @logging_decorator
+    async def handle(self, message):
+        self.heartbeat.last_received_time = asyncio.get_event_loop().time()
+        if '112' in message:
+            self.heartbeat.test_request_id = None
+
 # MessageProcessor to register and process different message handlers
 class MessageProcessor:
     def __init__(self, message_store):
@@ -134,6 +142,7 @@ if __name__ == "__main__":
     processor.register_handler('4', SequenceResetHandler(message_store))
     processor.register_handler('3', RejectHandler(message_store))
     processor.register_handler('5', LogoutHandler(message_store))
+    processor.register_handler('0', HeartbeatHandler(message_store))
 
     # Example message processing
     logon_message = FixMessageFactory.create_message('A')  # Create logon message using factory
