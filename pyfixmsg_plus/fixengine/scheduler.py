@@ -8,20 +8,13 @@ class Scheduler:
         self.config_manager = config_manager
         self.fix_engine = fix_engine
         self.schedules = []
-        self.connection_settings = {}
         self.load_configuration()
         self.scheduler_task = asyncio.create_task(self.run_scheduler())
 
     def load_configuration(self):
-        # Load the schedules and connection settings from the config manager
+        # Load the schedules from the config manager
         schedule_json = self.config_manager.get('Scheduler', 'schedules', fallback='[]')
         self.schedules = json.loads(schedule_json)
-        self.connection_settings = {
-            "host": self.config_manager.get('FIX', 'host', '127.0.0.1'),
-            "port": int(self.config_manager.get('FIX', 'port', '5000')),
-            "sender": self.config_manager.get('FIX', 'sender', 'SENDER'),
-            "target": self.config_manager.get('FIX', 'target', 'TARGET')
-        }
 
     async def start(self):
         await self.fix_engine.connect()
