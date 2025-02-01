@@ -1,6 +1,6 @@
 from functools import wraps
 import asyncio
-from state_machine import StateMachine, Disconnected, Connecting, Active, Reconnecting, LogoutInProgress
+from state_machine import StateMachine, Disconnected, LogonInProgress, LogoutInProgress, Active, Reconnecting
 
 # Define the logging decorator
 def logging_decorator(handler_func):
@@ -25,7 +25,7 @@ class MessageHandler:
 class LogonHandler(MessageHandler):
     @logging_decorator
     async def handle(self, message):
-        if self.state_machine.state.name not in ['Connecting', 'Active']:
+        if self.state_machine.state.name not in ['LOGON_IN_PROGRESS', 'ACTIVE']:
             self.logger.error("Cannot logon: not connected.")
             return
         try:
