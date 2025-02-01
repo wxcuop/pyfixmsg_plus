@@ -21,9 +21,9 @@ jobs:
 
     - name: Install dependencies
       run: |
-        curl https://raw.githubusercontent.com/quickfix/quickfix/master/spec/FIX50.xml -o FIX50.xml
+        curl https://raw.githubusercontent.com/quickfix/quickfix/master/spec/FIX44.xml -o FIX44.xml
         pip install -r requirements.txt -U
-        pip install pytest pytest-timeout  # Ensure that pytest is installed
+        pip install pytest pytest-timeout pytest-asyncio # Ensure that pytest is installed
 
     - name: Run tests
-      run: pytest -s --spec=FIX50.xml --timeout=90 -v # Use pytest instead of py.test
+      run: pytest -s --spec=FIX44.xml --timeout=90 -v # Use pytest instead of py.test
