@@ -182,6 +182,8 @@ class FixEngine:
                 await self.handle_resend_request(self.received_message)
             elif msg_type == '4':  # Sequence Reset
                 await self.handle_sequence_reset(self.received_message)
+            elif msg_type == '5':  # Logout
+                await self.handle_logout(self.received_message)
             else:
                 self.event_notifier.notify(msg_type, self.received_message)
 
@@ -237,6 +239,20 @@ class FixEngine:
     async def set_outbound_sequence_number(self, seq_num):
         self.message_store.set_outgoing_sequence_number(seq_num)
         self.logger.info(f"Outbound sequence number set to {seq_num}")
+
+    async def handle_logout(self, message):
+        self.logger.info("Received Logout message.")
+        await self.send_logout_message()
+        self.is_connected = False
+        await self.network.disconnect()
+
+    async def send_logout_message(self):
+        logout_message = FixMessageFactory.create_message('5')
+        logout_message[49] = self.sender
+        logout_message[56] = self.target
+        logout_message[34] = self.message_store.get_next_outgoing_sequence_number()
+        await self.send_message(logout_message)
+        self.logger.info("Sent Logout message.")
 
 # Example usage
 if __name__ == "__main__":
