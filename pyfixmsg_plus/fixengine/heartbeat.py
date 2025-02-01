@@ -1,12 +1,9 @@
-import asyncio
-import logging
-
 class Heartbeat:
     def __init__(self, send_message_callback, config_manager, heartbeat_interval, state_machine, fix_engine):
         self.send_message_callback = send_message_callback
         self.heartbeat_interval = heartbeat_interval
-        self.state_machine = state_machine  # Add state machine
-        self.fix_engine = fix_engine  # Add fix_engine reference
+        self.state_machine = state_machine
+        self.fix_engine = fix_engine
         self.logger = logging.getLogger('Heartbeat')
         self.last_sent_time = None
         self.last_received_time = None
@@ -15,7 +12,7 @@ class Heartbeat:
 
     async def start(self):
         self.running = True
-        self.state_machine.on_event('logon')  # Set state to ACTIVE
+        self.state_machine.on_event('logon')
         self.last_sent_time = self.last_received_time = asyncio.get_event_loop().time()
         while self.running:
             await asyncio.sleep(self.heartbeat_interval)
@@ -29,7 +26,7 @@ class Heartbeat:
         if current_time - self.last_sent_time >= self.heartbeat_interval:
             await self.send_heartbeat()
 
-        if current_time - self last_received_time >= self.heartbeat_interval * 2:
+        if current_time - self.last_received_time >= self.heartbeat_interval * 2:
             await self.send_test_request()
 
         if current_time - self.last_received_time >= self.heartbeat_interval * 3:
