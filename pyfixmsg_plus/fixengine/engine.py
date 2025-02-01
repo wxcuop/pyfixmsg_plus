@@ -2,7 +2,7 @@ import asyncio
 import logging
 from datetime import datetime
 from pyfixmsg.codecs.stringfix import Codec
-from heartbeat import Heartbeat
+from heartbeat import Heartbeat, HeartbeatBuilder
 from testrequest import TestRequest
 from network import Acceptor, Initiator
 from fixmessage_factory import FixMessageFactory
@@ -55,7 +55,13 @@ class FixEngine:
         self.response_message = FixMessageFactory.create_message('0')
         self.received_message = FixMessageFactory.create_message('0')
         self.lock = asyncio.Lock()
-        self.heartbeat = Heartbeat(self.send_message, self.config_manager, self.heartbeat_interval, self.state_machine, self)
+        self.heartbeat = (HeartbeatBuilder()
+                          .set_send_message_callback(self.send_message)
+                          .set_config_manager(self.config_manager)
+                          .set_heartbeat_interval(self.heartbeat_interval)
+                          .set_state_machine(self.state_machine)
+                          .set_fix_engine(self)
+                          .build())
         self.test_request = TestRequest(self.send_message, self.config_manager)
         self.last_heartbeat_time = None
         self.missed_heartbeats = 0
