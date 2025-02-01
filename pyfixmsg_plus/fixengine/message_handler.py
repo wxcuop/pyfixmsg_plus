@@ -71,22 +71,37 @@ class MultilegOrderCancelReplaceHandler(MessageHandler):
 class ResendRequestHandler(MessageHandler):
     @logging_decorator
     async def handle(self, message):
-        start_seq_num = int(message.get(7))  # Get the start sequence number from the resend request
-        end_seq_num = int(message.get(16))  # Get the end sequence number from the resend request
+        start_seq_num = int(message.get('7'))  # Get the start sequence number from the resend request
+        end_seq_num = int(message.get('16'))  # Get the end sequence number from the resend request
+        self.logger.info(f"Received Resend Request: BeginSeqNo={start_seq_num}, EndSeqNo={end_seq_num}")
+        
+        if end_seq_num == 0:
+            end_seq_num = self.message_store.get_next_outgoing_sequence_number() - 1
+        
         for seq_num in range(start_seq_num, end_seq_num + 1):
-            direction = 'outbound'  # Specify the direction
-            msg = self.message_store.get_message(seq_num, direction)
-            if msg:
-                await self.send_message(msg)
+            stored_message = self.message_store.get_message(self.version, self.sender, self.target, seq_num)
+            if stored_message:
+                await self.send_message(stored_message)
             else:
-                await self.send_gap_fill(seq_num)
+                await self.send_gap_fill_message(seq_num)
 
 class SequenceResetHandler(MessageHandler):
     @logging_decorator
     async def handle(self, message):
-        new_seq_num = int(message.get(36))  # Get the new sequence number from the sequence reset
-        self.sequence_manager.reset_sequence(new_seq_num)
-        self.logger.info(f"Sequence reset to {new_seq_num}")
+        gap_fill_flag = message.get('123', 'N')
+        new_seq_no = int(message.get('36'))
+
+        if new_seq_no <= self.message_store.get_next_incoming_sequence_number():
+            self.logger.error("Received Sequence Reset attempting to decrease sequence number.")
+            await self.send_reject_message(message.get('34'), 36, 99, "Sequence Reset attempted to decrease sequence number")
+            return
+
+        if gap_fill_flag == 'Y':
+            self.logger.info(f"Processing Sequence Reset - GapFill to {new_seq_no}")
+            self.message_store.set_incoming_sequence_number(new_seq_no)
+        else:
+            self.logger.info(f"Processing Sequence Reset - Reset to {new_seq_no}")
+            self.message_store.set_incoming_sequence_number(new_seq_no)
 
 class RejectHandler(MessageHandler):
     @logging_decorator
