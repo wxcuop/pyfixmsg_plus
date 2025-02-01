@@ -30,6 +30,20 @@ class Scheduler:
         # Implement the logout action
         print("Logout action executed")
 
+    async def reset(self):
+        # Implement the reset action
+        print("Reset action executed")
+
+    async def reset_logon(self):
+        # Implement the reset and logon action
+        await self.reset()
+        await self.logon()
+
+    async def logout_reset(self):
+        # Implement the logout and reset action
+        await self.logout()
+        await self.reset()
+
     async def run_scheduler(self):
         while True:
             now = datetime.now().time()
