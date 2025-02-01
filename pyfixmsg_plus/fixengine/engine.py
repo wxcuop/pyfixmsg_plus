@@ -27,6 +27,7 @@ from message_handler import (
 )
 from message_store_factory import MessageStoreFactory
 from state_machine import StateMachine, Disconnected, LogonInProgress, LogoutInProgress, Active, Reconnecting
+from scheduler import Scheduler
 
 class FixEngine:
     def __init__(self, config_manager):
@@ -79,6 +80,10 @@ class FixEngine:
         self.message_processor.register_handler('3', RejectHandler(self.message_store, self.state_machine))
         self.message_processor.register_handler('5', LogoutHandler(self.message_store, self.state_machine))
         self.message_processor.register_handler('0', HeartbeatHandler(self.message_store, self.state_machine))
+
+        # Initialize scheduler
+        self.scheduler = Scheduler()
+        self.scheduler_task = asyncio.create_task(self.scheduler.run_scheduler())
 
     def on_state_change(self, state_name):
         self.logger.info(f"State changed to: {state_name}")
