@@ -1,5 +1,3 @@
-# pyfixmsg_plus/fixengine/state_machine.py
-
 class State:
     def __init__(self, name):
         self.name = name
@@ -10,44 +8,31 @@ class State:
 class StateMachine:
     def __init__(self, initial_state):
         self.state = initial_state
+        self.subscribers = []
 
     def on_event(self, event):
         self.state = self.state.on_event(event)
+        self.notify_subscribers()
+
+    def subscribe(self, callback):
+        self.subscribers.append(callback)
+
+    def notify_subscribers(self):
+        for callback in self.subscribers:
+            callback(self.state.name)
 
 class Disconnected(State):
     def __init__(self):
-        super().__init__('Disconnected')
+        super().__init__('DISCONNECTED')
 
     def on_event(self, event):
         if event == 'connect':
-            return Connecting()
+            return LogonInProgress()
         return self
 
-class Connecting(State):
+class LogonInProgress(State):
     def __init__(self):
-        super().__init__('Connecting')
-
-    def on_event(self, event):
-        if event == 'logon':
-            return Active()
-        elif event == 'disconnect':
-            return Disconnected()
-        return self
-
-class Active(State):
-    def __init__(self):
-        super().__init__('Active')
-
-    def on_event(self, event):
-        if event == 'disconnect':
-            return Disconnected()
-        elif event == 'reconnect':
-            return Reconnecting()
-        return self
-
-class Reconnecting(State):
-    def __init__(self):
-        super().__init__('Reconnecting')
+        super().__init__('LOGON_IN_PROGRESS')
 
     def on_event(self, event):
         if event == 'logon':
@@ -58,9 +43,31 @@ class Reconnecting(State):
 
 class LogoutInProgress(State):
     def __init__(self):
-        super().__init__('LogoutInProgress')
+        super().__init__('LOGOUT_IN_PROGRESS')
 
     def on_event(self, event):
         if event == 'disconnect':
+            return Disconnected()
+        return self
+
+class Active(State):
+    def __init__(self):
+        super().__init__('ACTIVE')
+
+    def on_event(self, event):
+        if event == 'disconnect':
+            return Disconnected()
+        elif event == 'reconnect':
+            return Reconnecting()
+        return self
+
+class Reconnecting(State):
+    def __init__(self):
+        super().__init__('RECONNECTING')
+
+    def on_event(self, event):
+        if event == 'logon':
+            return Active()
+        elif event == 'disconnect':
             return Disconnected()
         return self
