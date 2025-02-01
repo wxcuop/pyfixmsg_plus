@@ -1,6 +1,9 @@
+from testrequest import TestRequest
+
 class Heartbeat:
     def __init__(self, send_message_callback, config_manager, heartbeat_interval, state_machine, fix_engine):
         self.send_message_callback = send_message_callback
+        self.config_manager = config_manager
         self.heartbeat_interval = heartbeat_interval
         self.state_machine = state_machine
         self.fix_engine = fix_engine
@@ -9,6 +12,7 @@ class Heartbeat:
         self.last_received_time = None
         self.test_request_id = 0
         self.running = False
+        self.test_request = TestRequest(self.send_message_callback, self.config_manager)
 
     async def start(self):
         self.running = True
@@ -20,7 +24,8 @@ class Heartbeat:
 
     async def stop(self):
         self.running = False
-
+        self.state_machine.on_event('stop')
+        
     async def check_heartbeat(self):
         current_time = asyncio.get_event_loop().time()
         if current_time - self.last_sent_time >= self.heartbeat_interval:
@@ -42,13 +47,8 @@ class Heartbeat:
         self.logger.info("Sent Heartbeat")
 
     async def send_test_request(self):
-        self.test_request_id += 1
-        test_request_message = {
-            '35': '1',  # Test Request
-            '112': str(self.test_request_id)  # TestReqID
-        }
-        await self.send_message_callback(test_request_message)
-        self.logger.info("Sent Test Request")
+        test_req_id = await self.test_request.send_test_request()
+        self.logger.info(f"Sent Test Request with TestReqID {test_req_id}")
 
     async def receive_heartbeat(self, message):
         self.last_received_time = asyncio.get_event_loop().time()
