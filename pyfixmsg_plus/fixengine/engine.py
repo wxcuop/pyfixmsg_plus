@@ -22,7 +22,8 @@ from message_handler import (
     ResendRequestHandler,
     SequenceResetHandler,
     RejectHandler,
-    LogoutHandler
+    LogoutHandler,
+    HeartbeatHandler
 )
 from message_store_factory import MessageStoreFactory
 
@@ -75,6 +76,7 @@ class FixEngine:
         self.message_processor.register_handler('4', SequenceResetHandler(self.message_store))
         self.message_processor.register_handler('3', RejectHandler(self.message_store))
         self.message_processor.register_handler('5', LogoutHandler(self.message_store))
+        self.message_processor.register_handler('0', HeartbeatHandler(self.message_store))
 
     async def connect(self):
         try:
@@ -170,22 +172,6 @@ class FixEngine:
             self.message_store.set_incoming_sequence_number(self.received_message[34] + 1)
 
             await self.message_processor.process_message(self.received_message)
-            msg_type = self.received_message.get(35)
-
-            if msg_type == '0':  # Heartbeat
-                self.heartbeat.last_received_time = asyncio.get_event_loop().time()
-                if '112' in self.received_message:
-                    self.heartbeat.test_request_id = None
-            elif msg_type == '1':  # Test Request
-                await self.heartbeat.receive_test_request(self.received_message)
-            elif msg_type == '2':  # Resend Request
-                await self.handle_resend_request(self.received_message)
-            elif msg_type == '4':  # Sequence Reset
-                await self.handle_sequence_reset(self.received_message)
-            elif msg_type == '5':  # Logout
-                await self.handle_logout(self.received_message)
-            else:
-                self.event_notifier.notify(msg_type, self.received_message)
 
     async def handle_resend_request(self, message):
         begin_seq_no = int(message.get('7'))
