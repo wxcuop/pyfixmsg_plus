@@ -22,27 +22,22 @@ class Scheduler:
             "target": self.config_manager.get('FIX', 'target', 'TARGET')
         }
 
-    async def logon(self):
-        # Implement the logon action
-        print("Logon action executed")
+    async def start(self):
+        # Implement the start action
+        print("Start action executed")
 
-    async def logout(self):
-        # Implement the logout action
-        print("Logout action executed")
+    async def stop(self):
+        # Implement the stop action
+        print("Stop action executed")
 
     async def reset(self):
         # Implement the reset action
         print("Reset action executed")
 
-    async def reset_logon(self):
-        # Implement the reset and logon action
+    async def reset_start(self):
+        # Implement the reset and start action
         await self.reset()
-        await self.logon()
-
-    async def logout_reset(self):
-        # Implement the logout and reset action
-        await self.logout()
-        await self.reset()
+        await self.start()
 
     async def run_scheduler(self):
         while True:
