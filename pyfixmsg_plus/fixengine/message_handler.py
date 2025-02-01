@@ -17,6 +17,7 @@ class MessageHandler:
     def __init__(self, message_store, state_machine):
         self.message_store = message_store
         self.state_machine = state_machine
+        self.application = application
 
     def handle(self, message):
         raise NotImplementedError
@@ -47,37 +48,37 @@ class TestRequestHandler(MessageHandler):
 class ExecutionReportHandler(MessageHandler):
     @logging_decorator
     def handle(self, message):
-        print(f"Handling execution report: {message}")
+        await self.application.onMessage(message)  # Use application method
 
 class NewOrderHandler(MessageHandler):
     @logging_decorator
     def handle(self, message):
-        print(f"Handling new order: {message}")
+        await self.application.onMessage(message)  # Use application method
 
 class CancelOrderHandler(MessageHandler):
     @logging_decorator
     def handle(self, message):
-        print(f"Handling cancel order: {message}")
+        await self.application.onMessage(message)  # Use application method
 
 class OrderCancelReplaceHandler(MessageHandler):
     @logging_decorator
     def handle(self, message):
-        print(f"Handling order cancel/replace: {message}")
+        await self.application.onMessage(message)  # Use application method
 
 class OrderCancelRejectHandler(MessageHandler):
     @logging_decorator
     def handle(self, message):
-        print(f"Handling order cancel reject: {message}")
+        await self.application.onMessage(message)  # Use application method
 
 class NewOrderMultilegHandler(MessageHandler):
     @logging_decorator
     def handle(self, message):
-        print(f"Handling new order - multileg: {message}")
+        await self.application.onMessage(message)  # Use application method
 
 class MultilegOrderCancelReplaceHandler(MessageHandler):
     @logging_decorator
     def handle(self, message):
-        print(f"Handling multileg order cancel/replace: {message}")
+        await self.application.onMessage(message)  # Use application method
 
 class ResendRequestHandler(MessageHandler):
     @logging_decorator
@@ -139,6 +140,7 @@ class MessageProcessor:
         self.handlers = {}
         self.message_store = message_store
         self.state_machine = state_machine
+        self.application = application
 
     def register_handler(self, message_type, handler):
         self.handlers[message_type] = handler
@@ -151,33 +153,3 @@ class MessageProcessor:
         else:
             print(f"No handler for message type: {message_type}")
 
-# Example usage for registering handlers
-if __name__ == "__main__":
-    db_path = 'fix_messages.db'
-    message_store = DatabaseMessageStore(db_path)
-    state_machine = StateMachine(Disconnected())
-    processor = MessageProcessor(message_store, state_machine)
-    
-    processor.register_handler('A', LogonHandler(message_store, state_machine))
-    processor.register_handler('1', TestRequestHandler(message_store, state_machine))
-    processor.register_handler('8', ExecutionReportHandler(message_store, state_machine))
-    processor.register_handler('D', NewOrderHandler(message_store, state_machine))
-    processor.register_handler('F', CancelOrderHandler(message_store, state_machine))
-    processor.register_handler('G', OrderCancelReplaceHandler(message_store, state_machine))
-    processor.register_handler('9', OrderCancelRejectHandler(message_store, state_machine))
-    processor.register_handler('AB', NewOrderMultilegHandler(message_store, state_machine))
-    processor.register_handler('AC', MultilegOrderCancelReplaceHandler(message_store, state_machine))
-    processor.register_handler('2', ResendRequestHandler(message_store, state_machine))
-    processor.register_handler('4', SequenceResetHandler(message_store, state_machine))
-    processor.register_handler('3', RejectHandler(message_store, state_machine))
-    processor.register_handler('5', LogoutHandler(message_store, state_machine))
-    processor.register_handler('0', HeartbeatHandler(message_store, state_machine))
-
-    # Example message processing
-    logon_message = FixMessageFactory.create_message('A')  # Create logon message using factory
-    execution_report_message = FixMessageFactory.create_message('8')  # Create execution report message using factory
-
-    # Note: In real usage, these would be handled within an async context
-    import asyncio
-    asyncio.run(processor.process_message(logon_message))
-    asyncio.run(processor.process_message(execution_report_message))
