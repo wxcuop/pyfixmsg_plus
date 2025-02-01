@@ -82,7 +82,7 @@ class FixEngine:
         self.message_processor.register_handler('0', HeartbeatHandler(self.message_store, self.state_machine))
 
         # Initialize scheduler
-        self.scheduler = Scheduler()
+        self.scheduler = Scheduler(self.config_manager, self)
         self.scheduler_task = asyncio.create_task(self.scheduler.run_scheduler())
 
     def on_state_change(self, state_name):
