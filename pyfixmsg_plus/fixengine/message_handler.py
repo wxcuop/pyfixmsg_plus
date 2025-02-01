@@ -23,10 +23,19 @@ class MessageHandler:
 class LogonHandler(MessageHandler):
     @logging_decorator
     async def handle(self, message):
-        print(f"Handling logon message: {message}")
-        await self.handle_logon()
-        await self.heartbeat.start()  # Start the heartbeat after logon
-
+        if not self.is_connected:
+            self.logger.error("Cannot logon: not connected.")
+            return
+        try:
+            logon_message = FixMessageFactory.create_message('A')
+            logon_message[49] = self.sender
+            logon_message[56] = self.target
+            logon_message[34] = self.message_store.get_next_outgoing_sequence_number()
+            await self.send_message(logon_message)
+            await self.heartbeat.start()
+        except Exception as e:
+            self.logger.error(f"Failed to logon: {e}")
+            
 class TestRequestHandler(MessageHandler):
     @logging_decorator
     async def handle(self, message):
