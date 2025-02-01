@@ -85,6 +85,11 @@ class FixEngine:
         self.scheduler = Scheduler(self.config_manager, self)
         self.scheduler_task = asyncio.create_task(self.scheduler.run_scheduler())
 
+        # Retry and backoff strategy settings
+        self.retry_interval = int(self.config_manager.get('FIX', 'retry_interval', '5'))
+        self.max_retries = int(self.config_manager.get('FIX', 'max_retries', '5'))
+        self.retry_attempts = 0
+
     def on_state_change(self, state_name):
         self.logger.info(f"State changed to: {state_name}")
 
@@ -101,6 +106,17 @@ class FixEngine:
                 await self.logon()
         except Exception as e:
             self.logger.error(f"Failed to connect: {e}")
+            await self.retry_connect()
+
+    async def retry_connect(self):
+        if self.retry_attempts < self.max_retries:
+            self.retry_attempts += 1
+            backoff_time = self.retry_interval * (2 ** (self.retry_attempts - 1))
+            self.logger.info(f"Retrying connection in {backoff_time} seconds (Attempt {self.retry_attempts}/{self.max_retries})...")
+            await asyncio.sleep(backoff_time)
+            await self.connect()
+        else:
+            self.logger.error("Max retries reached. Connection failed.")
 
     async def handle_incoming_connection(self, reader, writer):
         try:
@@ -128,6 +144,17 @@ class FixEngine:
             await self.heartbeat.start()
         except Exception as e:
             self.logger.error(f"Failed to logon: {e}")
+            await self.retry_logon()
+
+    async def retry_logon(self):
+        if self.retry_attempts < self.max_retries:
+            self.retry_attempts += 1
+            backoff_time = self.retry_interval * (2 ** (self.retry_attempts - 1))
+            self.logger.info(f"Retrying logon in {backoff_time} seconds (Attempt {self.retry_attempts}/{self.max_retries})...")
+            await asyncio.sleep(backoff_time)
+            await self.logon()
+        else:
+            self.logger.error("Max retries reached. Logon failed.")
 
     async def send_message(self, message):
         fix_message = FixMessageFactory.create_message_from_dict(message)
