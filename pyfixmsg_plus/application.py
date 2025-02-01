@@ -28,6 +28,7 @@ class Application(ABC):
     @abstractmethod
     def fromApp(self, message, sessionID):
         pass
+
     @abstractmethod
     def onMessage(self, message, sessionID):
         """Processing application message here"""
