@@ -1,5 +1,6 @@
 from functools import wraps
 import asyncio
+from state_machine import StateMachine, Disconnected, Connecting, Active, Reconnecting, LogoutInProgress
 
 # Define the logging decorator
 def logging_decorator(handler_func):
@@ -13,8 +14,9 @@ def logging_decorator(handler_func):
 
 # Base class for message handlers
 class MessageHandler:
-    def __init__(self, message_store):
+    def __init__(self, message_store, state_machine):
         self.message_store = message_store
+        self.state_machine = state_machine
 
     def handle(self, message):
         raise NotImplementedError
@@ -23,7 +25,7 @@ class MessageHandler:
 class LogonHandler(MessageHandler):
     @logging_decorator
     async def handle(self, message):
-        if not self.is_connected:
+        if self.state_machine.state.name not in ['Connecting', 'Active']:
             self.logger.error("Cannot logon: not connected.")
             return
         try:
@@ -35,7 +37,7 @@ class LogonHandler(MessageHandler):
             await self.heartbeat.start()
         except Exception as e:
             self.logger.error(f"Failed to logon: {e}")
-            
+
 class TestRequestHandler(MessageHandler):
     @logging_decorator
     async def handle(self, message):
@@ -121,6 +123,7 @@ class LogoutHandler(MessageHandler):
     @logging_decorator
     async def handle(self, message):
         self.logger.info(f"Logout message received: {message}")
+        self.state_machine.on_event('disconnect')
         await self.disconnect()
 
 class HeartbeatHandler(MessageHandler):
@@ -132,9 +135,10 @@ class HeartbeatHandler(MessageHandler):
 
 # MessageProcessor to register and process different message handlers
 class MessageProcessor:
-    def __init__(self, message_store):
+    def __init__(self, message_store, state_machine):
         self.handlers = {}
         self.message_store = message_store
+        self.state_machine = state_machine
 
     def register_handler(self, message_type, handler):
         self.handlers[message_type] = handler
@@ -151,22 +155,23 @@ class MessageProcessor:
 if __name__ == "__main__":
     db_path = 'fix_messages.db'
     message_store = DatabaseMessageStore(db_path)
-    processor = MessageProcessor(message_store)
+    state_machine = StateMachine(Disconnected())
+    processor = MessageProcessor(message_store, state_machine)
     
-    processor.register_handler('A', LogonHandler(message_store))
-    processor.register_handler('1', TestRequestHandler(message_store))
-    processor.register_handler('8', ExecutionReportHandler(message_store))
-    processor.register_handler('D', NewOrderHandler(message_store))
-    processor.register_handler('F', CancelOrderHandler(message_store))
-    processor.register_handler('G', OrderCancelReplaceHandler(message_store))
-    processor.register_handler('9', OrderCancelRejectHandler(message_store))
-    processor.register_handler('AB', NewOrderMultilegHandler(message_store))
-    processor.register_handler('AC', MultilegOrderCancelReplaceHandler(message_store))
-    processor.register_handler('2', ResendRequestHandler(message_store))
-    processor.register_handler('4', SequenceResetHandler(message_store))
-    processor.register_handler('3', RejectHandler(message_store))
-    processor.register_handler('5', LogoutHandler(message_store))
-    processor.register_handler('0', HeartbeatHandler(message_store))
+    processor.register_handler('A', LogonHandler(message_store, state_machine))
+    processor.register_handler('1', TestRequestHandler(message_store, state_machine))
+    processor.register_handler('8', ExecutionReportHandler(message_store, state_machine))
+    processor.register_handler('D', NewOrderHandler(message_store, state_machine))
+    processor.register_handler('F', CancelOrderHandler(message_store, state_machine))
+    processor.register_handler('G', OrderCancelReplaceHandler(message_store, state_machine))
+    processor.register_handler('9', OrderCancelRejectHandler(message_store, state_machine))
+    processor.register_handler('AB', NewOrderMultilegHandler(message_store, state_machine))
+    processor.register_handler('AC', MultilegOrderCancelReplaceHandler(message_store, state_machine))
+    processor.register_handler('2', ResendRequestHandler(message_store, state_machine))
+    processor.register_handler('4', SequenceResetHandler(message_store, state_machine))
+    processor.register_handler('3', RejectHandler(message_store, state_machine))
+    processor.register_handler('5', LogoutHandler(message_store, state_machine))
+    processor.register_handler('0', HeartbeatHandler(message_store, state_machine))
 
     # Example message processing
     logon_message = FixMessageFactory.create_message('A')  # Create logon message using factory
