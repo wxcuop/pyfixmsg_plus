@@ -1,5 +1,5 @@
 
-```markdown
+
 # FIX Session Logic Implementation
 
 This directory contains the implementation of the session logic for the FIX protocol. Below is a detailed explanation of how the code handles various session-related messages.
