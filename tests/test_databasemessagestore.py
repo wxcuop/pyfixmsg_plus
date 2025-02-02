@@ -1,5 +1,4 @@
 import pytest
-import sqlite3
 import os
 from pyfixmsg_plus.fixengine.database_message_store import DatabaseMessageStore
 
