@@ -5,7 +5,10 @@ class DatabaseMessageStore:
     def __init__(self, db_path):
         self.conn = sqlite3.connect(db_path)
         self.create_table()
-        self.incoming_seqnum, self.outgoing_seqnum = self.load_sequence_numbers()
+        self.beginstring = None
+        self.sendercompid = None
+        self.targetcompid = None
+        self.incoming_seqnum, self.outgoing_seqnum = 0, 0
 
     def create_table(self):
         cursor = self.conn.cursor()
@@ -49,16 +52,16 @@ class DatabaseMessageStore:
         return result[0] if result else None
 
     def load_sequence_numbers(self):
-        cursor = self.conn.cursor()
-        cursor.execute('''
-            SELECT incoming_seqnum, outgoing_seqnum FROM sessions WHERE
-            beginstring = ? AND sendercompid = ? AND targetcompid = ?
-        ''', (self.beginstring, self.sendercompid, self.targetcompid))
-        result = cursor.fetchone()
-        if result:
-            return result
-        else:
-            return 0, 0
+        if self.beginstring and self.sendercompid and self.targetcompid:
+            cursor = self.conn.cursor()
+            cursor.execute('''
+                SELECT incoming_seqnum, outgoing_seqnum FROM sessions WHERE
+                beginstring = ? AND sendercompid = ? AND targetcompid = ?
+            ''', (self.beginstring, self.sendercompid, self.targetcompid))
+            result = cursor.fetchone()
+            if result:
+                return result
+        return 0, 0
 
     def save_sequence_numbers(self, incoming_seqnum, outgoing_seqnum):
         cursor = self.conn.cursor()
