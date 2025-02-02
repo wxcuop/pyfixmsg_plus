@@ -63,7 +63,7 @@ class DatabaseMessageStore:
                 return result
         return 0, 0
 
-    def save_sequence_numbers(self, incoming_seqnum, outgoing_seqnum):
+    def save_sequence_numbers(self):
         cursor = self.conn.cursor()
         cursor.execute('''
             INSERT INTO sessions (beginstring, sendercompid, targetcompid, creation_time, incoming_seqnum, outgoing_seqnum)
@@ -71,31 +71,31 @@ class DatabaseMessageStore:
             ON CONFLICT(beginstring, sendercompid, targetcompid)
             DO UPDATE SET incoming_seqnum = ?, outgoing_seqnum = ?
         ''', (self.beginstring, self.sendercompid, self.targetcompid, datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S"),
-              incoming_seqnum, outgoing_seqnum, incoming_seqnum, outgoing_seqnum))
+              self.incoming_seqnum, self.outgoing_seqnum, self.incoming_seqnum, self.outgoing_seqnum))
         self.conn.commit()
 
     def get_next_incoming_sequence_number(self):
         self.incoming_seqnum += 1
-        self.save_sequence_numbers(self.incoming_seqnum, self.outgoing_seqnum)
+        self.save_sequence_numbers()
         return self.incoming_seqnum
 
     def get_next_outgoing_sequence_number(self):
         self.outgoing_seqnum += 1
-        self.save_sequence_numbers(self.incoming_seqnum, self.outgoing_seqnum)
+        self.save_sequence_numbers()
         return self.outgoing_seqnum
 
     def set_incoming_sequence_number(self, number):
         self.incoming_seqnum = number
-        self.save_sequence_numbers(self.incoming_seqnum, self.outgoing_seqnum)
+        self.save_sequence_numbers()
 
     def set_outgoing_sequence_number(self, number):
         self.outgoing_seqnum = number
-        self.save_sequence_numbers(self.incoming_seqnum, self.outgoing_seqnum)
+        self.save_sequence_numbers()
 
     def reset_sequence_numbers(self):
         self.incoming_seqnum = 1
         self.outgoing_seqnum = 1
-        self.save_sequence_numbers(self.incoming_seqnum, self.outgoing_seqnum)
+        self.save_sequence_numbers()
 
 # Example usage
 if __name__ == "__main__":
