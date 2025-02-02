@@ -4,7 +4,7 @@ import sys
 sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..'))
 
 import pytest
-from .fixmessage_builder import FixMessageBuilder
+from pyfixmsg_plus.fixengine.fixmessage_builder import FixMessageBuilder
 
 def test_fixmessagebuilder_set_version():
     builder = FixMessageBuilder()
