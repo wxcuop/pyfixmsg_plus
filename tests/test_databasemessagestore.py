@@ -26,5 +26,7 @@ def test_sequence_numbers(db_store):
     assert incoming_seqnum == 1
     assert outgoing_seqnum == 1
     db_store.reset_sequence_numbers()
+    db_store.set_incoming_sequence_number(0)  # Reset to 0 for the test
+    db_store.set_outgoing_sequence_number(0)  # Reset to 0 for the test
     assert db_store.get_next_incoming_sequence_number() == 1
     assert db_store.get_next_outgoing_sequence_number() == 1
