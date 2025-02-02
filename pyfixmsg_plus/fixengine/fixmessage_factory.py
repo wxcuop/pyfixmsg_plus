@@ -1,5 +1,5 @@
-from fixmessage_builder import FixMessageBuilder
-from fixmessage_pool import FixMessagePool
+from .fixmessage_builder import FixMessageBuilder
+from .fixmessage_pool import FixMessagePool
 
 class FixMessageFactory:
     pool = FixMessagePool(size=20)  # Adjust pool size based on expected load
