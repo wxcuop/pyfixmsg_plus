@@ -19,6 +19,9 @@ def test_store_message(db_store):
     assert db_store.get_message('FIX.4.4', 'SENDER', 'TARGET', 1) == 'Test message'
 
 def test_sequence_numbers(db_store):
+    db_store.beginstring = 'FIX.4.4'
+    db_store.sendercompid = 'SENDER'
+    db_store.targetcompid = 'TARGET'
     incoming_seqnum = db_store.get_next_incoming_sequence_number()
     outgoing_seqnum = db_store.get_next_outgoing_sequence_number()
     assert incoming_seqnum == 1
