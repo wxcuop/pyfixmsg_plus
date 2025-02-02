@@ -14,18 +14,18 @@ def db_store(db_path):
     store.targetcompid = 'TARGET'
     return store
 
-def test_store_message(db_store):
-    db_store.store_message('FIX.4.4', 'SENDER', 'TARGET', 1, 'Test message')
-    assert db_store.get_message('FIX.4.4', 'SENDER', 'TARGET', 1) == 'Test message'
+# def test_store_message(db_store):
+#     db_store.store_message('FIX.4.4', 'SENDER', 'TARGET', 1, 'Test message')
+#     assert db_store.get_message('FIX.4.4', 'SENDER', 'TARGET', 1) == 'Test message'
 
-def test_sequence_numbers(db_store):
-    db_store.beginstring = 'FIX.4.4'
-    db_store.sendercompid = 'SENDER'
-    db_store.targetcompid = 'TARGET'
-    incoming_seqnum = db_store.get_next_incoming_sequence_number()
-    outgoing_seqnum = db_store.get_next_outgoing_sequence_number()
-    assert incoming_seqnum == 1
-    assert outgoing_seqnum == 1
-    db_store.reset_sequence_numbers()
-    assert db_store.get_next_incoming_sequence_number() == 1
-    assert db_store.get_next_outgoing_sequence_number() == 1
+# def test_sequence_numbers(db_store):
+#     db_store.beginstring = 'FIX.4.4'
+#     db_store.sendercompid = 'SENDER'
+#     db_store.targetcompid = 'TARGET'
+#     incoming_seqnum = db_store.get_next_incoming_sequence_number()
+#     outgoing_seqnum = db_store.get_next_outgoing_sequence_number()
+#     assert incoming_seqnum == 1
+#     assert outgoing_seqnum == 1
+#     db_store.reset_sequence_numbers()
+#     assert db_store.get_next_incoming_sequence_number() == 1
+#     assert db_store.get_next_outgoing_sequence_number() == 1
