@@ -1,4 +1,6 @@
 import pytest
+sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..'))
+
 from pyfixmsg_plus.fixengine.configmanager import ConfigManager
 
 def test_config_manager_initialization():
