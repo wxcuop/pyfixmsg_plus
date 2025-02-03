@@ -10,11 +10,11 @@ def spec(request):
     return FixSpec(xml_file=fname)
 
 def test_set_codec(spec):
-    FixMessageFactory.set_codec(spec.xml_file)
+    FixMessageFactory.set_codec(spec)
     assert FixMessageFactory.codec is not None
 
 def test_create_message(spec):
-    FixMessageFactory.set_codec(spec.xml_file)
+    FixMessageFactory.set_codec(spec)
     message = FixMessageFactory.create_message('D', sender='SENDER', target='TARGET', clordid='12345')
     assert message[35] == 'D'
     assert message[49] == 'SENDER'
@@ -22,7 +22,7 @@ def test_create_message(spec):
     assert message['clordid'] == '12345'
 
 def test_return_message(spec):
-    FixMessageFactory.set_codec(spec.xml_file)
+    FixMessageFactory.set_codec(spec)
     message = FixMessageFactory.create_message('D')
     FixMessageFactory.return_message(message)
     # Since the pool is internal, we can't assert directly, but we can ensure no exceptions are raised
