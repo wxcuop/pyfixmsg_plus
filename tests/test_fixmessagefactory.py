@@ -3,6 +3,7 @@ from pyfixmsg_plus.fixengine.fixmessage_factory import FixMessageFactory
 
 def test_fixmessagefactory_create_message():
     message = FixMessageFactory.create_message('D', sender='SENDER', target='TARGET', clordid='12345')
+    print(message)  # Debug: Print the created message to inspect its contents
     assert message[35] == 'D'
     assert message[49] == 'SENDER'
     assert message[56] == 'TARGET'
