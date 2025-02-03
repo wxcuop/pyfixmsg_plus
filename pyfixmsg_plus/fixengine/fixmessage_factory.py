@@ -19,10 +19,16 @@ class FixMessageFactory:
         message[35] = message_type
         for tag, value in kwargs.items():
             message[tag] = value
-            
         return message
 
     @staticmethod
     def return_message(message):
-        # If required, implement logic to handle returned messages
         pass
+
+    @staticmethod
+    def load_message(data, separator='|'):
+        if FixMessageFactory.codec is None:
+            raise ValueError("FixMessageFactory.codec is not initialized. Call set_codec first.")
+        message = FixMessage(codec=FixMessageFactory.codec, fragment_class=FixMessageFactory.fragment_class)
+        message.load_fix(data, separator=separator)
+        return message
