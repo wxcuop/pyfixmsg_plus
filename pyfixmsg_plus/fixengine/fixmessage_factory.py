@@ -40,3 +40,21 @@ class FixMessageFactory:
     def return_message(message):
         # Implement any cleanup or recycling logic if needed
         pass
+
+    @staticmethod
+    def fixmsg(*args, **kwargs):
+        """
+        Factory function. This allows us to keep the dictionary __init__
+        arguments unchanged and force the codec to our given spec and avoid
+        passing codec to serialisation and parsing methods.
+
+        The codec defaults to a reasonable parser but without repeating groups.
+
+        An alternative method is to use the ``to_wire`` and ``from_wire`` methods
+        to serialise and parse messages and pass the codec explicitly.
+        """
+        if FixMessageFactory.codec is None:
+            raise ValueError("FixMessageFactory.codec is not initialized. Call set_codec first.")
+        returned = FixMessage(*args, **kwargs)
+        returned.codec = FixMessageFactory.codec
+        return returned
