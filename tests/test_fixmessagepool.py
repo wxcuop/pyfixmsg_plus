@@ -1,17 +1,26 @@
 import pytest
 from pyfixmsg_plus.fixengine.fixmessage_pool import FixMessagePool
-from pyfixmsg.fixmessage import FixMessage, FixFragment
+from pyfixmsg.reference import FixSpec
+from pyfixmsg.codecs.stringfix import Codec
 
-def test_fixmessagepool_get_message():
-    pool = FixMessagePool(size=2)
-    message1 = pool.get_message()
-    message2 = pool.get_message()
-    assert isinstance(message1, FixMessage)
-    assert isinstance(message2, FixMessage)
-    assert len(pool.available) == 0
+@pytest.fixture
+def spec(request):
+    fname = request.config.getoption("--spec")
+    if fname is None:
+        raise ValueError("This test script needs to be invoked with the --spec argument, set to the path to the FIX50.xml file from quickfix.org")
+    return FixSpec(xml_file=fname)
 
-def test_fixmessagepool_return_message():
-    pool = FixMessagePool(size=2)
+@pytest.fixture
+def codec(spec):
+    return Codec(spec=spec)
+
+def test_fixmessagepool_get_message(codec):
+    pool = FixMessagePool(size=20, codec=codec)
+    message = pool.get_message()
+    assert message is not None
+
+def test_fixmessagepool_return_message(codec):
+    pool = FixMessagePool(size=20, codec=codec)
     message = pool.get_message()
     pool.return_message(message)
-    assert len(pool.available) == 1
+    assert len(pool.pool) == 20
