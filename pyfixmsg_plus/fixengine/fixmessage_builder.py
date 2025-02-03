@@ -1,9 +1,13 @@
 from datetime import datetime
-from pyfixmsg.fixmessage import FixMessage
+from pyfixmsg_plus.fixengine.fixmessage_pool import FixMessagePool
+from pyfixmsg import RepeatingGroup
+from pyfixmsg.fixmessage import FixMessage, FixFragment
+from pyfixmsg.reference import FixSpec, FixTag
+from pyfixmsg.codecs.stringfix import Codec
 
 class FixMessageBuilder:
-    def __init__(self, message=None, codec=None):
-        self.message = message or FixMessage()
+    def __init__(self, message=None, codec=None, fragment_class=None):
+        self.message = message or FixMessage(codec=codec, fragment_class=fragment_class)
         self.codec = codec
 
     def set_version(self, version):
