@@ -1,6 +1,7 @@
 from functools import wraps
 import asyncio
 from state_machine import StateMachine, Disconnected, LogonInProgress, LogoutInProgress, Active, Reconnecting
+from fixmessage_factory import FixMessageFactory
 
 # Define the logging decorator
 def logging_decorator(handler_func):
@@ -14,7 +15,7 @@ def logging_decorator(handler_func):
 
 # Base class for message handlers
 class MessageHandler:
-    def __init__(self, message_store, state_machine):
+    def __init__(self, message_store, state_machine, application):
         self.message_store = message_store
         self.state_machine = state_machine
         self.application = application
@@ -30,10 +31,10 @@ class LogonHandler(MessageHandler):
             self.logger.error("Cannot logon: not connected.")
             return
         try:
-            logon_message = FixMessageFactory.create_message('A')
-            logon_message[49] = self.sender
-            logon_message[56] = self.target
-            logon_message[34] = self.message_store.get_next_outgoing_sequence_number()
+            logon_message = FixMessageFactory.create_message('A', 
+                                                             sender=self.sender, 
+                                                             target=self.target, 
+                                                             seq_num=self.message_store.get_next_outgoing_sequence_number())
             await self.send_message(logon_message)
             await self.heartbeat.start()
         except Exception as e:
@@ -47,38 +48,38 @@ class TestRequestHandler(MessageHandler):
 
 class ExecutionReportHandler(MessageHandler):
     @logging_decorator
-    def handle(self, message):
-        await self.application.onMessage(message)  # Use application method
+    async def handle(self, message):
+        await self.application.onMessage(message)
 
 class NewOrderHandler(MessageHandler):
     @logging_decorator
-    def handle(self, message):
-        await self.application.onMessage(message)  # Use application method
+    async def handle(self, message):
+        await self.application.onMessage(message)
 
 class CancelOrderHandler(MessageHandler):
     @logging_decorator
-    def handle(self, message):
-        await self.application.onMessage(message)  # Use application method
+    async def handle(self, message):
+        await self.application.onMessage(message)
 
 class OrderCancelReplaceHandler(MessageHandler):
     @logging_decorator
-    def handle(self, message):
-        await self.application.onMessage(message)  # Use application method
+    async def handle(self, message):
+        await self.application.onMessage(message)
 
 class OrderCancelRejectHandler(MessageHandler):
     @logging_decorator
-    def handle(self, message):
-        await self.application.onMessage(message)  # Use application method
+    async def handle(self, message):
+        await self.application.onMessage(message)
 
 class NewOrderMultilegHandler(MessageHandler):
     @logging_decorator
-    def handle(self, message):
-        await self.application.onMessage(message)  # Use application method
+    async def handle(self, message):
+        await self.application.onMessage(message)
 
 class MultilegOrderCancelReplaceHandler(MessageHandler):
     @logging_decorator
-    def handle(self, message):
-        await self.application.onMessage(message)  # Use application method
+    async def handle(self, message):
+        await self.application.onMessage(message)
 
 class ResendRequestHandler(MessageHandler):
     @logging_decorator
@@ -136,7 +137,7 @@ class HeartbeatHandler(MessageHandler):
 
 # MessageProcessor to register and process different message handlers
 class MessageProcessor:
-    def __init__(self, message_store, state_machine):
+    def __init__(self, message_store, state_machine, application):
         self.handlers = {}
         self.message_store = message_store
         self.state_machine = state_machine
@@ -152,4 +153,3 @@ class MessageProcessor:
             await handler.handle(message)
         else:
             print(f"No handler for message type: {message_type}")
-
