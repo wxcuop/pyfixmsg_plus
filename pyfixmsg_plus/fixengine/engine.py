@@ -32,7 +32,7 @@ from scheduler import Scheduler
 class FixEngine:
     def __init__(self, config_manager, application):
         self.config_manager = config_manager
-        self.application = application  # Add this line
+        self.application = application
         self.state_machine = StateMachine(Disconnected())
         self.state_machine.subscribe(self.on_state_change)
         self.host = self.config_manager.get('FIX', 'host', '127.0.0.1')
@@ -44,7 +44,7 @@ class FixEngine:
         self.mode = self.config_manager.get('FIX', 'mode', 'initiator').lower()
         db_path = self.config_manager.get('FIX', 'state_file', 'fix_state.db')
         
-        self.codec = Codec()
+        # Codec initialization removed
         self.running = False
         self.logger = logging.getLogger('FixEngine')
         self.logger.setLevel(logging.DEBUG)
@@ -70,7 +70,7 @@ class FixEngine:
         self.network = Acceptor(self.host, self.port, self.use_tls) if self.mode == 'acceptor' else Initiator(self.host, self.port, self.use_tls)
         
         self.event_notifier = EventNotifier()
-        self.message_processor = MessageProcessor(self.message_store, self.application)  # Modify this line
+        self.message_processor = MessageProcessor(self.message_store, self.application)
         
         # Register message handlers
         self.message_processor.register_handler('A', LogonHandler(self.message_store, self.state_machine, self.application))
@@ -154,7 +154,7 @@ class FixEngine:
             await self.retry_logon()
 
     async def retry_logon(self):
-        if self.retry_attempts < self.max_retries:
+        if self retry_attempts < self.max_retries:
             self.state_machine.on_event('reconnect')
             self.retry_attempts += 1
             backoff_time = self.retry_interval * (2 ** (self.retry_attempts - 1))
@@ -169,7 +169,7 @@ class FixEngine:
         if not fix_message.anywhere(52):
             fix_message[52] = datetime.utcnow().strftime("%Y%m%d-%H:%M:%S.%f")[:-3]
         fix_message[34] = self.message_store.get_next_outgoing_sequence_number()
-        wire_message = fix_message.to_wire(codec=self.codec)
+        wire_message = fix_message.to_wire(codec=FixMessageFactory.codec)
         await self.network.send(wire_message)
         self.message_store.store_message(self.version, self.sender, self.target, fix_message[34], wire_message)
         FixMessageFactory.return_message(fix_message)
@@ -200,7 +200,7 @@ class FixEngine:
         async with self.lock:
             self.received_message.clear()
             try:
-                self.received_message.from_wire(data, codec=self.codec)
+                self.received_message.from_wire(data, codec=FixMessageFactory.codec)
             except Exception as e:
                 self.logger.error(f"Failed to parse message: {e}")
                 await self.send_reject_message(self.message_store.get_next_incoming_sequence_number(), 0, 99, "Failed to parse message")
