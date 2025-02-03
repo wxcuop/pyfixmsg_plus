@@ -1,30 +1,28 @@
-from .fixmessage_builder import FixMessageBuilder
-from .fixmessage_pool import FixMessagePool
+from pyfixmsg.fixmessage import FixMessage, FixFragment
+from pyfixmsg.reference import FixSpec
+from pyfixmsg.codecs.stringfix import Codec
 
 class FixMessageFactory:
-    pool = None
-    codec = None  # Add a codec attribute
-    fragment_class = None  # Add a fragment_class attribute
+    codec = None
+    fragment_class = FixFragment
 
     @staticmethod
-    def set_codec(codec, fragment_class=None):
-        FixMessageFactory.codec = codec
-        FixMessageFactory.fragment_class = fragment_class
-        FixMessageFactory.pool = FixMessagePool(size=20, codec=codec, fragment_class=fragment_class)  # Initialize pool with codec and fragment_class
+    def set_codec(spec_file):
+        spec = FixSpec(spec_file)
+        FixMessageFactory.codec = Codec(spec=spec, fragment_class=FixMessageFactory.fragment_class)
 
     @staticmethod
     def create_message(message_type, **kwargs):
-        if FixMessageFactory.pool is None:
-            raise ValueError("FixMessageFactory.pool is not initialized. Call set_codec first.")
-        message = FixMessageFactory.pool.get_message()
-        builder = FixMessageBuilder(message, codec=FixMessageFactory.codec, fragment_class=FixMessageFactory.fragment_class).set_msg_type(message_type)
+        if FixMessageFactory.codec is None:
+            raise ValueError("FixMessageFactory.codec is not initialized. Call set_codec first.")
+        message = FixMessage(codec=FixMessageFactory.codec, fragment_class=FixMessageFactory.fragment_class)
+        message[35] = message_type
         for tag, value in kwargs.items():
-            builder.set_custom_field(tag, value)
-        
-        return builder.build()
+            message[tag] = value
+            
+        return message
 
     @staticmethod
     def return_message(message):
-        if FixMessageFactory.pool is None:
-            raise ValueError("FixMessageFactory.pool is not initialized. Call set_codec first.")
-        FixMessageFactory.pool.return_message(message)
+        # If required, implement logic to handle returned messages
+        pass
