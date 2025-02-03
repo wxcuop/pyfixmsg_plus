@@ -12,6 +12,8 @@ class FixMessageFactory:
 
     @staticmethod
     def create_message(message_type, **kwargs):
+        if FixMessageFactory.pool is None:
+            raise ValueError("FixMessageFactory.pool is not initialized. Call set_codec first.")
         message = FixMessageFactory.pool.get_message()
         builder = FixMessageBuilder(message, codec=FixMessageFactory.codec).set_msg_type(message_type)
         for tag, value in kwargs.items():
@@ -21,4 +23,6 @@ class FixMessageFactory:
 
     @staticmethod
     def return_message(message):
+        if FixMessageFactory.pool is None:
+            raise ValueError("FixMessageFactory.pool is not initialized. Call set_codec first.")
         FixMessageFactory.pool.return_message(message)
