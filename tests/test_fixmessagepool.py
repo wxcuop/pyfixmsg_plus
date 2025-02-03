@@ -1,6 +1,6 @@
 import pytest
 from pyfixmsg_plus.fixengine.fixmessage_pool import FixMessagePool
-from pyfixmsg import FixMessage
+from pyfixmsg.fixmessage import FixMessage, FixFragment
 
 def test_fixmessagepool_get_message():
     pool = FixMessagePool(size=2)
