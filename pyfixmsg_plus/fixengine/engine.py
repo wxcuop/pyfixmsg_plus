@@ -1,7 +1,6 @@
 import asyncio
 import logging
 from datetime import datetime
-from pyfixmsg.codecs.stringfix import Codec
 from heartbeat import Heartbeat, HeartbeatBuilder
 from testrequest import TestRequest
 from network import Acceptor, Initiator
@@ -44,7 +43,10 @@ class FixEngine:
         self.mode = self.config_manager.get('FIX', 'mode', 'initiator').lower()
         db_path = self.config_manager.get('FIX', 'state_file', 'fix_state.db')
         
-        # Codec initialization removed
+        # Set the codec for the FixMessageFactory
+        spec_file = 'path/to/your/spec/file.xml'
+        FixMessageFactory.set_codec(spec_file)
+        
         self.running = False
         self.logger = logging.getLogger('FixEngine')
         self.logger.setLevel(logging.DEBUG)
@@ -154,7 +156,7 @@ class FixEngine:
             await self.retry_logon()
 
     async def retry_logon(self):
-        if self retry_attempts < self.max_retries:
+        if self.retry_attempts < self.max_retries:
             self.state_machine.on_event('reconnect')
             self.retry_attempts += 1
             backoff_time = self.retry_interval * (2 ** (self.retry_attempts - 1))
