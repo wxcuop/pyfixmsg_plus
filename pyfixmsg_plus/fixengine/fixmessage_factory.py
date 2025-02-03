@@ -26,3 +26,17 @@ class FixMessageFactory:
         message = FixMessage(codec=FixMessageFactory.codec, fragment_class=FixMessageFactory.fragment_class)
         message.load_fix(data, separator=separator)
         return message
+
+    @staticmethod
+    def create_message_from_dict(message_dict):
+        if FixMessageFactory.codec is None:
+            raise ValueError("FixMessageFactory.codec is not initialized. Call set_codec first.")
+        message = FixMessage(codec=FixMessageFactory.codec, fragment_class=FixMessageFactory.fragment_class)
+        for tag, value in message_dict.items():
+            message[tag] = value
+        return message
+
+    @staticmethod
+    def return_message(message):
+        # Implement any cleanup or recycling logic if needed
+        pass
