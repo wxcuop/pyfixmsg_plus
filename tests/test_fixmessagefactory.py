@@ -18,6 +18,9 @@ def test_create_message(request):
     fname = request.config.getoption("--spec")
     FixMessageFactory.set_codec(fname)
     message = FixMessageFactory.create_message('D', sender='SENDER', target='TARGET', clordid='12345')
+    
+    print(f"Message: {message}")
+    
     assert message[35] == 'D'
     assert message[49] == 'SENDER'
     assert message[56] == 'TARGET'
