@@ -34,7 +34,7 @@ class MockConfigManager:
 @pytest.fixture
 def fix_message_builder(spec, request):
     config_manager = MockConfigManager(request.config.getoption("--spec"))
-    print(FixMessageBuilder(config_manager))
+    print(FixMessageBuilder(config_manager).all_tags())
     return FixMessageBuilder(config_manager)
 
 def test_set_version(fix_message_builder):
