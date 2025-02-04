@@ -183,32 +183,30 @@ class FixEngine:
 
     async def handle_message(self, data):
         async with self.lock:
-            self.received_message.clear()
             try:
-                self.received_message.from_wire(data, codec=self.codec)
-                self.received_message = FixMessageBuilder(self.config_manager).update_message(self.received_message).set_direction(0).set_time(datetime.utcnow()).set_recipient(self.sender).build()
+                self.received_message = FixMessageBuilder(self.config_manager).update_message(FixMessage().from_wire(data, codec=self.codec)).set_direction(0).set_recipient(self.sender).build()
             except Exception as e:
                 self.logger.error(f"Failed to parse message: {e}")
                 await self.send_reject_message(self.message_store.get_next_incoming_sequence_number(), 0, 99, "Failed to parse message")
                 return
-
+    
             self.logger.info(f"Received: {self.received_message}")
-
+    
             if self.received_message.checksum() != self.received_message[10]:
                 self.logger.error("Checksum validation failed for received message.")
                 await self.send_reject_message(self.received_message[34], 10, 5, "Invalid checksum")
                 return
-
+    
             expected_seq_num = self.message_store.get_next_incoming_sequence_number()
             received_seq_num = self.received_message[34]
             if received_seq_num != expected_seq_num:
                 self.logger.warning(f"Sequence number gap detected. Expected: {expected_seq_num}, Received: {received_seq_num}")
                 await self.message_processor.get_handler('2').handle_resend_request(self.received_message, self.send_message)
                 return
-
+    
             self.message_store.store_message(self.version, self.sender, self.target, self.received_message[34], data)
             self.message_store.set_incoming_sequence_number(self.received_message[34] + 1)
-
+    
             await self.message_processor.process_message(self.received_message)
 
     async def reset_sequence_numbers(self):
