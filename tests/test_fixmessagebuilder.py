@@ -37,7 +37,7 @@ def fix_message_builder(spec, request):
     return FixMessageBuilder(config_manager)
 
 def test_set_version(fix_message_builder):
-    print(dir(spec))
+    print(dir(FixSpec(xml_file=request.config.getoption("--spec"))))
     fix_message_builder.set_version('FIX.4.2')
     assert fix_message_builder.get_message()['BeginString'] == 'FIX.4.2'
 
