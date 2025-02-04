@@ -37,7 +37,7 @@ class FixMessageBuilder:
         self.message[52] = datetime.utcnow().strftime("%Y%m%d-%H:%M:%S.%f")[:-3]
         return self
 
-    def set_custom_field(self, tag, value):
+    def set_fixtag(self, tag, value):
         self.message[tag] = value
         return self
 
