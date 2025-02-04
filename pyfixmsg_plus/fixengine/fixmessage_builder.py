@@ -14,28 +14,23 @@ class FixMessageBuilder:
         self.message = FixMessage(codec=self.codec)
 
     def set_version(self, version):
-        self.message[8] = version
-        return self
+        return self.set_fixtag_by_name('BeginString', version)
 
     def set_msg_type(self, msg_type):
-        self.message[35] = msg_type
-        return self
+        return self.set_fixtag_by_name('MsgType', msg_type)
 
     def set_sender(self, sender):
-        self.message[49] = sender
-        return self
+        return self.set_fixtag_by_name('SenderCompID', sender)
 
     def set_target(self, target):
-        self.message[56] = target
-        return self
+        return self.set_fixtag_by_name('TargetCompID', target)
 
     def set_sequence_number(self, seq_number):
-        self.message[34] = seq_number
-        return self
+        return self.set_fixtag_by_name('MsgSeqNum', seq_number)
 
     def set_sending_time(self):
-        self.message[52] = datetime.utcnow().strftime("%Y%m%d-%H:%M:%S.%f")[:-3]
-        return self
+        sending_time = datetime.utcnow().strftime("%Y%m%d-%H:%M:%S.%f")[:-3]
+        return self.set_fixtag_by_name('SendingTime', sending_time)
 
     def set_fixtag(self, tag, value):
         self.message[tag] = value
