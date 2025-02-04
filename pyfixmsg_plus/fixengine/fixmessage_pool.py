@@ -1,4 +1,5 @@
 from pyfixmsg.fixmessage import FixMessage
+import datetime
 
 class FixMessagePool:
     def __init__(self, size=20, codec=None):
@@ -7,8 +8,11 @@ class FixMessagePool:
 
     def get_message(self):
         if not self.pool:
-            return FixMessage(codec=self.codec)
-        return self.pool.pop()
+            message = FixMessage(codec=self.codec)
+        else:
+            message = self.pool.pop()
+        message.time = datetime.datetime.utcnow()  # Update the time
+        return message
 
     def return_message(self, message):
         self.pool.append(message)
