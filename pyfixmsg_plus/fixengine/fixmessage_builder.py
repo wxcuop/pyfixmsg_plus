@@ -4,11 +4,14 @@ from pyfixmsg import RepeatingGroup
 from pyfixmsg.fixmessage import FixMessage, FixFragment
 from pyfixmsg.reference import FixSpec, FixTag
 from pyfixmsg.codecs.stringfix import Codec
+from pyfixmsg_plus.fixengine.configmanager import ConfigManager  # Import ConfigManager
 
 class FixMessageBuilder:
-    def __init__(self, message=None, codec=None, fragment_class=None):
-        self.message = message or FixMessage(codec=codec, fragment_class=fragment_class)
-        self.codec = codec
+    def __init__(self, config_manager):
+        fix_spec_path = config_manager.get('FIX', 'spec_path', 'path/to/default/spec.xml')
+        self.fix_spec = FixSpec(fix_spec_path)
+        self.codec = Codec(spec=self.fix_spec)
+        self.message = FixMessage(codec=self.codec)
 
     def set_version(self, version):
         self.message[8] = version
@@ -53,16 +56,14 @@ class FixMessageBuilder:
     def reset_message(self):
         self.message = FixMessage(codec=self.codec)
         return self
-        
+
 class FixMessageDecoder:
-    def __init__(self, codec=None):
-        self.codec = codec
+    def __init__(self, config_manager):
+        fix_spec_path = config_manager.get('FIX', 'spec_path', 'path/to/default/spec.xml')
+        self.fix_spec = FixSpec(fix_spec_path)
+        self.codec = Codec(spec=self.fix_spec)
 
     def decode(self, raw_message):
         """Decode a raw FIX message."""
         decoded_message = FixMessage.from_buffer(raw_message, self.codec)
         return decoded_message
-# Usage example
-# pool = FixMessagePool(size=20, codec=your_codec)
-# builder = FixMessageBuilder(codec=your_codec)
-# builder.set_version("FIX.4.2").set_msg_type("D").set_sender("SENDER").set_target("TARGET").set_sequence_number(1).set_sending_time().set_custom_field(100, "value").build()
