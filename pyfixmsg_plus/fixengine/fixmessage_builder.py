@@ -42,3 +42,27 @@ class FixMessageBuilder:
         if self.codec:
             return self.codec.serialise(self.message)
         return self.message
+
+    def get_message(self):
+        return self.message
+
+    def update_message(self, tags_dict):
+        self.message.update(tags_dict)
+        return self
+
+    def reset_message(self):
+        self.message = FixMessage(codec=self.codec)
+        return self
+        
+class FixMessageDecoder:
+    def __init__(self, codec=None):
+        self.codec = codec
+
+    def decode(self, raw_message):
+        """Decode a raw FIX message."""
+        decoded_message = FixMessage.from_buffer(raw_message, self.codec)
+        return decoded_message
+# Usage example
+# pool = FixMessagePool(size=20, codec=your_codec)
+# builder = FixMessageBuilder(codec=your_codec)
+# builder.set_version("FIX.4.2").set_msg_type("D").set_sender("SENDER").set_target("TARGET").set_sequence_number(1).set_sending_time().set_custom_field(100, "value").build()
