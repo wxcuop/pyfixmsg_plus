@@ -41,6 +41,14 @@ class FixMessageBuilder:
         self.message[tag] = value
         return self
 
+    def set_fixtag_by_name(self, tag_name, value):
+        tag_number = self.fix_spec.tags.get(tag_name)
+        if tag_number is not None:
+            self.message[tag_number] = value
+        else:
+            raise ValueError(f"Tag name '{tag_name}' not found in FixSpec.")
+        return self
+
     def build(self):
         if self.codec:
             return self.codec.serialise(self.message)
