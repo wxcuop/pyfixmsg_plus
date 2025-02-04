@@ -37,9 +37,9 @@ def fix_message_builder(spec, request):
     print(dir(SPEC.all_tags()))
     return FixMessageBuilder(config_manager)
 
-# def test_set_version(fix_message_builder):
-#     fix_message_builder.set_version('FIX.4.2')
-#     assert fix_message_builder.get_message()['BeginString'] == 'FIX.4.2'
+def test_set_version(fix_message_builder):
+    fix_message_builder.set_version('FIX.4.2')
+    assert fix_message_builder.get_message()['BeginString'] == 'FIX.4.2'
 
 # def test_set_msg_type(fix_message_builder):
 #     fix_message_builder.set_msg_type('D')
