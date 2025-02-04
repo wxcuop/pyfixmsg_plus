@@ -139,7 +139,7 @@ class FixEngine:
             self.logger.error("Cannot logon: not connected.")
             return
         try:
-            logon_message = FixMessageBuilder(self.config_manager).set_msg_type('A').set_sender(self.sender).set_target(self.target).set_sequence_number(self.message_store.get_next_outgoing_sequence_number()).set_sending_time().build()
+            logon_message = FixMessageBuilder(self.config_manager).set_msg_type('A').set_sender(self.sender).set_target(self.target).set_sequence_number(self.message_store.get_next_outgoing_sequence_number()).set_sending_time().set_direction(1).set_time(datetime.utcnow()).set_recipient(self.target).build()
             await self.send_message(logon_message)
             await self.heartbeat.start()
         except Exception as e:
@@ -158,7 +158,7 @@ class FixEngine:
             self.logger.error("Max retries reached. Logon failed.")
 
     async def send_message(self, message):
-        fix_message = FixMessageBuilder(self.config_manager).update_message(message).build()
+        fix_message = FixMessageBuilder(self.config_manager).update_message(message).set_direction(1).set_time(datetime.utcnow()).set_recipient(self.target).build()
         if not fix_message.anywhere(52):
             fix_message.set_sending_time()
         fix_message.set_sequence_number(self.message_store.get_next_outgoing_sequence_number())
@@ -176,7 +176,7 @@ class FixEngine:
             await self.disconnect()
 
     async def send_reject_message(self, ref_seq_num, ref_tag_id, session_reject_reason, text):
-        reject_message = FixMessageBuilder(self.config_manager).set_msg_type('3').set_sender(self.sender).set_target(self.target).set_sequence_number(self.message_store.get_next_outgoing_sequence_number()).set_fixtag(45, ref_seq_num).set_fixtag(371, ref_tag_id).set_fixtag(373, session_reject_reason).set_fixtag(58, text).build()
+        reject_message = FixMessageBuilder(self.config_manager).set_msg_type('3').set_sender(self.sender).set_target(self.target).set_sequence_number(self.message_store.get_next_outgoing_sequence_number()).set_fixtag(45, ref_seq_num).set_fixtag(371, ref_tag_id).set_fixtag(373, session_reject_reason).set_fixtag(58, text).set_direction(1).set_time(datetime.utcnow()).set_recipient(self.target).build()
         await self.send_message(reject_message)
         self.message_store.set_incoming_sequence_number(ref_seq_num + 1)
         self.logger.info(f"Sent Reject message for sequence number {ref_seq_num} with reason {session_reject_reason}")
@@ -186,31 +186,29 @@ class FixEngine:
             self.received_message.clear()
             try:
                 self.received_message.from_wire(data, codec=self.codec)
-                self.received_message.direction = 0  # Set the direction to inbound (0)
-                self.received_message.time = datetime.utcnow()  # Set the current time
-                self.received_message.recipient = self.sender  # Set the recipient to the sender
+                self.received_message = FixMessageBuilder(self.config_manager).update_message(self.received_message).set_direction(0).set_time(datetime.utcnow()).set_recipient(self.sender).build()
             except Exception as e:
                 self.logger.error(f"Failed to parse message: {e}")
                 await self.send_reject_message(self.message_store.get_next_incoming_sequence_number(), 0, 99, "Failed to parse message")
                 return
-    
+
             self.logger.info(f"Received: {self.received_message}")
-    
+
             if self.received_message.checksum() != self.received_message[10]:
                 self.logger.error("Checksum validation failed for received message.")
                 await self.send_reject_message(self.received_message[34], 10, 5, "Invalid checksum")
                 return
-    
+
             expected_seq_num = self.message_store.get_next_incoming_sequence_number()
             received_seq_num = self.received_message[34]
             if received_seq_num != expected_seq_num:
                 self.logger.warning(f"Sequence number gap detected. Expected: {expected_seq_num}, Received: {received_seq_num}")
                 await self.message_processor.get_handler('2').handle_resend_request(self.received_message, self.send_message)
                 return
-    
+
             self.message_store.store_message(self.version, self.sender, self.target, self.received_message[34], data)
             self.message_store.set_incoming_sequence_number(self.received_message[34] + 1)
-    
+
             await self.message_processor.process_message(self.received_message)
 
     async def reset_sequence_numbers(self):
@@ -232,7 +230,7 @@ class FixEngine:
         await self.network.disconnect()
 
     async def send_logout_message(self):
-        logout_message = FixMessageBuilder(self.config_manager).set_msg_type('5').set_sender(self.sender).set_target(self.target).set_sequence_number(self.message_store.get_next_outgoing_sequence_number()).build()
+        logout_message = FixMessageBuilder(self.config_manager).set_msg_type('5').set_sender(self.sender).set_target(self.target).set_sequence_number(self.message_store.get_next_outgoing_sequence_number()).set_direction(1).set_time(datetime.utcnow()).set_recipient(self.target).build()
         await self.send_message(logout_message)
         self.logger.info("Sent Logout message.")
 
