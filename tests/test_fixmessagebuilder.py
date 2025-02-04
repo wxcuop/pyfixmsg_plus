@@ -34,10 +34,10 @@ class MockConfigManager:
 @pytest.fixture
 def fix_message_builder(spec, request):
     config_manager = MockConfigManager(request.config.getoption("--spec"))
-    print(dir(SPEC.all_tags()))
     return FixMessageBuilder(config_manager)
 
 def test_set_version(fix_message_builder):
+    print(dir(SPEC))
     fix_message_builder.set_version('FIX.4.2')
     assert fix_message_builder.get_message()['BeginString'] == 'FIX.4.2'
 
