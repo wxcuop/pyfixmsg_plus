@@ -186,6 +186,9 @@ class FixEngine:
             self.received_message.clear()
             try:
                 self.received_message.from_wire(data, codec=self.codec)
+                self.received_message.direction = 0  # Set the direction to inbound (0)
+                self.received_message.time = datetime.utcnow()  # Set the current time
+                self.received_message.recipient = self.sender  # Set the recipient to the sender
             except Exception as e:
                 self.logger.error(f"Failed to parse message: {e}")
                 await self.send_reject_message(self.message_store.get_next_incoming_sequence_number(), 0, 99, "Failed to parse message")
