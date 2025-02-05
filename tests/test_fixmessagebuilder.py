@@ -38,4 +38,4 @@ def test_set_version(fix_message_builder):
     tag_name = 'BeginString'
     tag_number = fix_message_builder.fix_spec.tags.by_name(tag_name).tag
     print(f"Tag name: {tag_name}, Tag number: {tag_number}")
-    print(fix_message_builder.get_message())
+    print(fix_message_builder.get_message().output_fix())
