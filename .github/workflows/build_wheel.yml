@@ -33,7 +33,7 @@ jobs:
           python -m build
 
       - name: Upload wheel
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         with:
           name: pyfixmsg-wheel
           path: pyfixmsg/dist/*.whl
