@@ -29,7 +29,6 @@ jobs:
 
       - name: Build wheel
         run: |
-          cd pyfixmsg
           python -m build
 
       - name: Upload wheel
