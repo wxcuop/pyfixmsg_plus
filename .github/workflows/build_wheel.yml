@@ -1,0 +1,39 @@
+name: Build Wheel
+
+# on:
+#   push:
+#     branches:
+#       - main
+#   pull_request:
+#     branches:
+#       - main
+
+on: [workflow_dispatch]
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
+
+      - name: Set up Python
+        uses: actions/setup-python@v2
+        with:
+          python-version: '3.x'
+
+      - name: Install build dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install build
+
+      - name: Build wheel
+        run: |
+          cd pyfixmsg
+          python -m build
+
+      - name: Upload wheel
+        uses: actions/upload-artifact@v2
+        with:
+          name: pyfixmsg-wheel
+          path: pyfixmsg/dist/*.whl
