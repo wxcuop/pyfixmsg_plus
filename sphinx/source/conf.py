@@ -17,9 +17,9 @@ extensions = [
 ]
 
 
-project = 'Pyfixmsg'
-copyright = '2016, Morgan Stanley'
-author = 'eti-python-oss@morganstanley.com'
+project = 'Pyfixmsg_plus'
+copyright = '2025, wxcuop'
+author = 'wxcuop@github'
 
 master_doc = 'index'
 
