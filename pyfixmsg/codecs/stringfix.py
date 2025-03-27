@@ -254,6 +254,7 @@ class Codec(object):
         if self.spec is None:
             #  No spec, let's just get reasonable header order, and 10 at the end.
             tag_vals = list(msg.items())
+            print(tag_vals)
             #tag_vals.sort(key=lambda x: HEADER_SORT_MAP.get(x[0], int(1e9 + x[0])))
             #tag_vals.sort(key=lambda x: HEADER_SORT_MAP.get(x[0], int(1e9) + (int(x[0]) if isinstance(x[0], (int, str)) and str(x[0]).isdigit() else 0)))
             # Add this before the sort line
