@@ -9,6 +9,7 @@ from pyfixmsg_plus.fixengine.configmanager import ConfigManager  # Import Config
 class FixMessageBuilder:
     def __init__(self, config_manager):
         fix_spec_path = config_manager.get('FIX', 'spec_path', 'path/to/default/spec.xml')
+        print(fix_spec_path)
         self.fix_spec = FixSpec(fix_spec_path)
         self.codec = Codec(spec=self.fix_spec)
         self.message = FixMessage(codec=self.codec)
