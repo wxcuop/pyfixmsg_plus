@@ -39,7 +39,7 @@ class FixMessageBuilder:
     def set_fixtag_by_name(self, tag_name, value):
         tag_number = self.fix_spec.tags.by_name(tag_name).tag
         if tag_number is not None:
-            self.message[tag_number] = value
+            self.message[tag_number] = str(value)
         else:
             raise ValueError(f"Tag name '{tag_name}' not found in FixSpec.")
         return self
