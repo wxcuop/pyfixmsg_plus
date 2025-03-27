@@ -1,5 +1,5 @@
 import sqlite3
-from datetime import datetime
+from datetime import datetime,UTC
 
 class DatabaseMessageStore:
     def __init__(self, db_path):
@@ -70,7 +70,7 @@ class DatabaseMessageStore:
             VALUES (?, ?, ?, ?, ?, ?)
             ON CONFLICT(beginstring, sendercompid, targetcompid)
             DO UPDATE SET incoming_seqnum = ?, outgoing_seqnum = ?
-        ''', (self.beginstring, self.sendercompid, self.targetcompid, datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S"),
+        ''', (self.beginstring, self.sendercompid, self.targetcompid, datetime.now(UTC).strftime("%Y-%m-%d %H:%M:%S"),
               self.incoming_seqnum, self.outgoing_seqnum, self.incoming_seqnum, self.outgoing_seqnum))
         self.conn.commit()
 
