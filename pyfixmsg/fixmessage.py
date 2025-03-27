@@ -4,7 +4,7 @@ Main FixMessage class and supporting tools
 import re
 import decimal
 import warnings
-import datetime
+import datetime,UTC
 
 import six
 
@@ -247,7 +247,7 @@ class FixMessage(FixFragment):  # pylint: disable=R0904
         """
         self.process = ''
         self.separator = ';'
-        self.time = datetime.datetime.utcnow()
+        self.time = datetime.datetime.now(UTC)
         self.recipient = ''
         self.direction = None
         self.typed_values = False
