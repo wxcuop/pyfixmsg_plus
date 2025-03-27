@@ -267,8 +267,8 @@ class Codec(object):
                 tag_vals.sort(key=lambda x: HEADER_SORT_MAP.get(x[0], int(1e9 + x[0])))
             except TypeError as e:
                 print(f"Error occurred with x[0]: {x[0]}, type: {type(x[0])}")
-                for i, (tag, val) in enumerate(tag_vals):
-                    print(f"Item {i}: tag={tag} (type={type(tag)}), val={val}")
+                # for i, (tag, val) in enumerate(tag_vals):
+                #     print(f"Item {i}: tag={tag} (type={type(tag)}), val={val}")
                 raise  # Re-raise the exception after debugging info
 
             
