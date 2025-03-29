@@ -284,23 +284,23 @@ class NyseBranchSeqGenerator(ClientOrderIdGenerator):
 
     def __init__(self, s, sep):
         if not s:
-            raise ValueError(f"Nyse_Branch_Seq_Generator::Nyse_Branch_Seq_Generator(): wrong parameter = {s}")
+            raise ValueError(f"NyseBranchSeqGenerator: wrong parameter = {s}")
         if len(s) > 7:
-            raise ValueError(f"Nyse_Branch_Seq_Generator::Nyse_Branch_Seq_Generator(): wrong parameter = {s}")
+            raise ValueError(f"NyseBranchSeqGenerator: wrong parameter = {s}")
         if '-' not in s:
-            raise ValueError(f"Nyse_Branch_Seq_Generator::Nyse_Branch_Seq_Generator(): wrong parameter = {s}")
+            raise ValueError(f"NyseBranchSeqGenerator: wrong parameter = {s}")
 
         self.min_ = self.get_min(s, s.split('-')[0])
         if self.min_ == -1:
-            raise ValueError(f"Nyse_Branch_Seq_Generator::Nyse_Branch_Seq_Generator(): wrong parameter = {s}")
+            raise ValueError(f"NyseBranchSeqGenerator: wrong parameter = {s}")
 
         for skipped in self.skipped:
             if self.min_ * 10000 == skipped:
-                raise ValueError(f"Nyse_Branch_Seq_Generator::Nyse_Branch_Seq_Generator(): starting branch code is reserved: {s}")
+                raise ValueError(f"NyseBranchSeqGenerator: starting branch code is reserved: {s}")
 
         self.max_ = self.get_max(s.split('-')[1], s)
         if self.max_ == -1 or self.max_ < self.min_:
-            raise ValueError(f"Nyse_Branch_Seq_Generator::Nyse_Branch_Seq_Generator(): wrong parameter = {s}")
+            raise ValueError(f"NyseBranchSeqGenerator: wrong parameter = {s}")
 
         self.min_ *= 10000
         self.max_ = self.max_ * 10000 + 9999
@@ -309,7 +309,7 @@ class NyseBranchSeqGenerator(ClientOrderIdGenerator):
         self.num_of_skips_for_min_ = self.min_ // 10000
 
         if self.available_ids_ <= 0:
-            raise ValueError(f"Nyse_Branch_Seq_Generator::Nyse_Branch_Seq_Generator(): wrong parameter = {s}")
+            raise ValueError(f"NyseBranchSeqGenerator: wrong parameter = {s}")
 
         logging.info(f"Total available ids for {s} = {self.available_ids_}")
         logging.info(f"Number of skips of min for {s} = {self.num_of_skips_for_min_}")
