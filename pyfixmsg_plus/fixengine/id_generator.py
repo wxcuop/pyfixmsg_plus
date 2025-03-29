@@ -470,3 +470,11 @@ class OSESeqGenerator(ClientOrderIdGenerator):
             return int(to_be_decoded[10:])
         except ValueError:
             return -1
+
+class CHIXBranchSeqGenerator(NyseBranchSeqGenerator):
+    """
+    Generates unique ClOrdIDs with a CHIX branch sequence.
+    """
+
+    def __init__(self, s):
+        super().__init__(s, '_')
