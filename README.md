@@ -51,4 +51,5 @@ More documentation
 Read the [documentation](http://pyfixmsg.readthedocs.io/), or browse the [examples](examples/pyfixmsg_example.py) file for 
 many examples
 
+* https://wxcuop.github.io/pyfixmsg_plus/index.html
  
