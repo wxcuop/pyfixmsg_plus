@@ -15,10 +15,9 @@ Objectives
 
 Dependencies
 ------------
- * None for the core library.
  * Optional `lxml <http://lxml.de>`_ for faster parsing of xml specification files.
  * Optional pytest to run the tests.
- * Optional `spec files from quickfix <https://github.com/quickfix/quickfix/tree/master/spec>`_ to get started with
+ * `spec files from quickfix <https://github.com/quickfix/quickfix/tree/master/spec>`_ to get started with
    standard FIX specifications.
 
 
@@ -35,7 +34,7 @@ Core classes
 
 How to run the tests
 --------------------
-``py.test --spec=/var/tmp/FIX50.xml`` will launch the tests against the spec file in /var/tmp. You will need to load
+``py.test --spec=/var/tmp/FIX44.xml`` will launch the tests against the spec file in /var/tmp. You will need to load
 the `spec files from quickfix <https://github.com/quickfix/quickfix/tree/master/spec>`_ to get the tests to work.
 
 The spec files are not included in this distribution.
