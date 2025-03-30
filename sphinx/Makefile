@@ -3,7 +3,7 @@
 # You can set these variables from the command line.
 SPHINXOPTS    =
 SPHINXBUILD   = sphinx-build
-SPHINXPROJ    = Pyfixmsg_plus
+SPHINXPROJ    = pyfixmsg_plus
 SOURCEDIR     = source
 BUILDDIR      = build
 
