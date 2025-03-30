@@ -32,8 +32,9 @@ def test_fixmsg_creation(setup_codec):
 def test_fixmsg_without_codec():
     FixMessageFactory.codec = None  # Ensure codec is not set
     with pytest.raises(ValueError, match="FixMessageFactory.codec is not initialized. Call set_codec first."):
-        FixMessageFactory.fixmsg(35='D', ClOrdID='12345')
-
+        msg = FixMessageFactory.fixmsg()
+        msg.update({35: 'D', 11: '12345'})
+        
 def test_fixmsg_serialization(setup_codec):
     msg = FixMessageFactory.fixmsg()
     msg.update({35: 'D', 11: '12345', 55: 'AAPL', 54: '1', 38: '100', 44: '150.00'})
