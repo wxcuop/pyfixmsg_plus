@@ -19,7 +19,8 @@ def test_set_codec(setup_codec):
     assert FixMessageFactory.codec is not None, "Codec should be initialized after calling set_codec"
 
 def test_fixmsg_creation(setup_codec):
-    msg = FixMessageFactory.fixmsg(35='D', ClOrdID='12345', Symbol='AAPL', Side='1', OrderQty='100', Price='150.00')
+    msg = FixMessageFactory.fixmsg()
+    msg.update({35: 'D', 11: '12345', 55: 'AAPL', 54: '1', 38: '100', 44: '150.00'})
     assert isinstance(msg, FixMessage), "fixmsg should return an instance of FixMessage"
     assert msg[35] == 'D', "Message type should be 'D' for New Order Single"
     assert msg[11] == '12345', "ClOrdID should be '12345'"
@@ -34,7 +35,8 @@ def test_fixmsg_without_codec():
         FixMessageFactory.fixmsg(35='D', ClOrdID='12345')
 
 def test_fixmsg_serialization(setup_codec):
-    msg = FixMessageFactory.fixmsg(35='D', ClOrdID='12345', Symbol='AAPL', Side='1', OrderQty='100', Price='150.00')
+    msg = FixMessageFactory.fixmsg()
+    msg.update({35: 'D', 11: '12345', 55: 'AAPL', 54: '1', 38: '100', 44: '150.00'})
     serialized_message = msg.to_wire()
     assert isinstance(serialized_message, bytes), "Serialized message should be a bytestring"
 
