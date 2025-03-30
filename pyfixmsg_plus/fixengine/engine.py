@@ -39,6 +39,7 @@ class FixEngine:
         self.sender = self.config_manager.get('FIX', 'sender', 'SENDER')
         self.target = self.config_manager.get('FIX', 'target', 'TARGET')
         self.version = self.config_manager.get('FIX', 'version', 'FIX.4.4')
+        self.spec_filename = self.config_manager.get('FIX', 'spec_filename', 'FIX44.xml')
         self.use_tls = self.config_manager.get('FIX', 'use_tls', 'false').lower() == 'true'
         self.mode = self.config_manager.get('FIX', 'mode', 'initiator').lower()
         db_path = self.config_manager.get('FIX', 'state_file', 'fix_state.db')
@@ -94,7 +95,7 @@ class FixEngine:
         self.retry_attempts = 0
 
         # Set codec for FixMessageFactory
-        FixMessageFactory.set_codec('path_to_spec_file.xml')
+        FixMessageFactory.set_codec(self.spec_filename)
         
     def on_state_change(self, state_name):
         self.logger.info(f"State changed to: {state_name}")
