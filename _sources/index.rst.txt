@@ -15,6 +15,7 @@ Objectives
 
 Dependencies
 ------------
+ * six library (at least version 1.16.0).
  * Optional `lxml <http://lxml.de>`_ for faster parsing of xml specification files.
  * Optional pytest to run the tests.
  * `spec files from quickfix <https://github.com/quickfix/quickfix/tree/master/spec>`_ to get started with
