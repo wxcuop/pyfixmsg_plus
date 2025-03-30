@@ -1,0 +1,719 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../../">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>pyfixmsg.fixmessage &mdash; Pyfixmsg_plus  documentation</title>
+      <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=03e43079" />
+      <link rel="stylesheet" type="text/css" href="../../_static/css/theme.css?v=e59714d7" />
+      <link rel="stylesheet" type="text/css" href="../../_static/graphviz.css?v=4ae1632d" />
+      <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=03e43079" />
+
+  
+      <script src="../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../_static/documentation_options.js?v=5929fcd5"></script>
+      <script src="../../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../index.html" class="icon icon-home">
+            Pyfixmsg_plus
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul>
+<li class="toctree-l1"><a class="reference internal" href="../../api.html">API Documentation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../example.html">Examples</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../index.html">Pyfixmsg_plus</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../index.html">Module code</a></li>
+          <li class="breadcrumb-item"><a href="../pyfixmsg.html">pyfixmsg</a></li>
+      <li class="breadcrumb-item active">pyfixmsg.fixmessage</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for pyfixmsg.fixmessage</h1><div class="highlight"><pre>
+<span></span><span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">Main FixMessage class and supporting tools</span>
+<span class="sd">&#39;&#39;&#39;</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">re</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">decimal</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">warnings</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">datetime</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">datetime</span><span class="w"> </span><span class="kn">import</span> <span class="n">timezone</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">six</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">pyfixmsg</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pyfixmsg.codecs.stringfix</span><span class="w"> </span><span class="kn">import</span> <span class="n">Codec</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pyfixmsg.util</span><span class="w"> </span><span class="kn">import</span> <span class="n">native_str</span>
+
+<span class="n">TAGS_AS_DATE</span> <span class="o">=</span> <span class="p">(</span><span class="mi">432</span><span class="p">,</span> <span class="mi">7509</span><span class="p">,</span> <span class="mi">52</span><span class="p">)</span>
+<span class="n">GTD_EXPIRE_DATE_TAG</span> <span class="o">=</span> <span class="mi">432</span>
+<span class="n">TAGS_AS_DECIMAL</span> <span class="o">=</span> <span class="p">(</span><span class="mi">31</span><span class="p">,</span> <span class="mi">32</span><span class="p">,</span> <span class="mi">151</span><span class="p">,</span> <span class="mi">14</span><span class="p">,</span> <span class="mi">6</span><span class="p">)</span>
+
+
+<div class="viewcode-block" id="FixFragment">
+<a class="viewcode-back" href="../../api.html#pyfixmsg.fixmessage.FixFragment">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">FixFragment</span><span class="p">(</span><span class="nb">dict</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Type designed to hold a collection of fix tags and values.</span>
+<span class="sd">    This type is used directly for the contents of repeating groups.</span>
+<span class="sd">    Whole fix messages are parsed from their wire representation to</span>
+<span class="sd">    instances of the :py:class:`~pyfixmsg.FixMessage` type which inherits from this type.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+<div class="viewcode-block" id="FixFragment.__init__">
+<a class="viewcode-back" href="../../api.html#pyfixmsg.fixmessage.FixFragment.__init__">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;FixFragment constructor.&quot;&quot;&quot;</span>
+        <span class="nb">super</span><span class="p">(</span><span class="n">FixFragment</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">typed_values</span> <span class="o">=</span> <span class="kc">True</span></div>
+
+
+<div class="viewcode-block" id="FixFragment.from_dict">
+<a class="viewcode-back" href="../../api.html#pyfixmsg.fixmessage.FixFragment.from_dict">[docs]</a>
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">from_dict</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">tags_dict</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Create a FixMessage from a dictionary.</span>
+
+<span class="sd">        :param tags_dict: dictionary of FIX tags to values</span>
+<span class="sd">        :type tags_dict: ``dict`` of ``int`` to ``str``</span>
+<span class="sd">                         or ``int`` or ``float`` or ``long``</span>
+
+<span class="sd">        :return: a FixMessage object</span>
+<span class="sd">        :rtype: ``FixMessage``</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">msg</span> <span class="o">=</span> <span class="bp">cls</span><span class="p">()</span>
+        <span class="n">msg</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">tags_dict</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">msg</span></div>
+
+
+<div class="viewcode-block" id="FixFragment.length">
+<a class="viewcode-back" href="../../api.html#pyfixmsg.fixmessage.FixFragment.length">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">length</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Length of the body of the message in bytes</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">pyfixmsg</span><span class="o">.</span><span class="n">len_and_chsum</span><span class="p">(</span><span class="bp">self</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span></div>
+
+
+<div class="viewcode-block" id="FixFragment.find_all">
+<a class="viewcode-back" href="../../api.html#pyfixmsg.fixmessage.FixFragment.find_all">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">find_all</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">tag</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Generator.</span>
+<span class="sd">        Find all instances of the tag in the message or inside repeating groups and returns the path to</span>
+<span class="sd">        them one at a time.</span>
+
+<span class="sd">        Example, navigate all paths for a given tag:</span>
+<span class="sd">          &gt;&gt;&gt; for path in msg.find_all(self, tag):</span>
+<span class="sd">          ...   # path here is a list of ints or str keys</span>
+<span class="sd">          ...   path_msg = msg</span>
+<span class="sd">          ...   for key in path:</span>
+<span class="sd">          ...     path_msg = path_msg[key]</span>
+<span class="sd">          ...     # [...] do something at each level in the path</span>
+<span class="sd">          ...   path_msg[tag] = # [...] do something with the last level of the path</span>
+
+<span class="sd">        :return: a generator of paths where each path is a list of string or integer indices into the message</span>
+<span class="sd">        :rtype: Generator of ``list`` of ``int`` or ``str``</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">tag</span> <span class="ow">in</span> <span class="bp">self</span><span class="p">:</span>
+            <span class="k">yield</span> <span class="p">[</span><span class="n">tag</span><span class="p">,</span> <span class="p">]</span>
+        <span class="k">for</span> <span class="n">innertag</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="nb">list</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">items</span><span class="p">()):</span>
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="n">pyfixmsg</span><span class="o">.</span><span class="n">RepeatingGroup</span><span class="p">):</span>
+                <span class="k">for</span> <span class="n">path</span> <span class="ow">in</span> <span class="n">value</span><span class="o">.</span><span class="n">find_all</span><span class="p">(</span><span class="n">tag</span><span class="p">):</span>
+                    <span class="n">result</span> <span class="o">=</span> <span class="p">[</span><span class="n">innertag</span><span class="p">,</span> <span class="p">]</span>
+                    <span class="n">result</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">path</span><span class="p">)</span>
+                    <span class="k">yield</span> <span class="n">result</span></div>
+
+
+<div class="viewcode-block" id="FixFragment.anywhere">
+<a class="viewcode-back" href="../../api.html#pyfixmsg.fixmessage.FixFragment.anywhere">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">anywhere</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">tag</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot; returns true if the tag is in the message or anywhere inside any contained repeating group&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">tag</span> <span class="ow">in</span> <span class="bp">self</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">True</span>
+        <span class="c1"># Needs a full name for RepeatingGroup for unknown reasons....</span>
+        <span class="c1"># the isinstance here annoys me as it is not duck-typing-safe</span>
+        <span class="c1"># but the only quick alternative is to search for i in values which is going to match way too much</span>
+        <span class="c1"># as the values are string on normal tags, searching for tag 12 in &quot;48=21;31=12;&#39; will match, which</span>
+        <span class="c1"># is obviously wrong</span>
+        <span class="k">for</span> <span class="n">group</span> <span class="ow">in</span> <span class="p">(</span><span class="n">i</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">list</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">values</span><span class="p">())</span> <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">i</span><span class="p">,</span> <span class="n">pyfixmsg</span><span class="o">.</span><span class="n">RepeatingGroup</span><span class="p">)):</span>
+            <span class="k">if</span> <span class="nb">any</span><span class="p">((</span><span class="n">msg</span><span class="o">.</span><span class="n">anywhere</span><span class="p">(</span><span class="n">tag</span><span class="p">)</span> <span class="k">for</span> <span class="n">msg</span> <span class="ow">in</span> <span class="n">group</span><span class="p">)):</span>
+                <span class="k">return</span> <span class="kc">True</span>
+        <span class="k">return</span> <span class="kc">False</span></div>
+
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_all_tags</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Impl of all_tags. Internal, do not use.</span>
+
+<span class="sd">        :return: A generator of tag keys (usually strings or ints)</span>
+<span class="sd">        :rtype: ``generator``</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">for</span> <span class="n">tag</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="nb">list</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">items</span><span class="p">()):</span>
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="n">pyfixmsg</span><span class="o">.</span><span class="n">RepeatingGroup</span><span class="p">):</span>
+                <span class="k">for</span> <span class="n">inner_tag</span> <span class="ow">in</span> <span class="n">value</span><span class="o">.</span><span class="n">all_tags</span><span class="p">():</span>
+                    <span class="k">yield</span> <span class="n">inner_tag</span>
+            <span class="k">yield</span> <span class="n">tag</span>
+
+<div class="viewcode-block" id="FixFragment.all_tags">
+<a class="viewcode-back" href="../../api.html#pyfixmsg.fixmessage.FixFragment.all_tags">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">all_tags</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Returns a list of all the tag keys in this message,</span>
+<span class="sd">        including flattened tags that are only present in repeating groups.</span>
+<span class="sd">        The same tag will not appear twice in the list.</span>
+
+<span class="sd">        :return: A list of tag keys (usually strings or ints)</span>
+<span class="sd">        :rtype: ``list``</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="nb">list</span><span class="p">(</span><span class="nb">set</span><span class="p">(</span><span class="n">tag</span> <span class="k">for</span> <span class="n">tag</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_all_tags</span><span class="p">()))</span></div>
+</div>
+
+
+
+<div class="viewcode-block" id="FixMessage">
+<a class="viewcode-back" href="../../api.html#pyfixmsg.fixmessage.FixMessage">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">FixMessage</span><span class="p">(</span><span class="n">FixFragment</span><span class="p">):</span>  <span class="c1"># pylint: disable=R0904</span>
+    <span class="c1"># too many public methods. Needed for compatibility and functionality</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot; Simple dictionary-like object, for use with FIX raw messages. Note that the tags are converted (when possible)</span>
+<span class="sd">    to integers, and that the values are kept as strings. The default separator is ``;``, but can be specified.</span>
+<span class="sd">    Check the definition of :py:meth:`~pyfixmsg.FixMessage.load_fix` for details.</span>
+
+<span class="sd">    Example:</span>
+<span class="sd">      &gt;&gt;&gt; fix = FixMessage()</span>
+<span class="sd">      &gt;&gt;&gt; fix.load_fix(line)</span>
+<span class="sd">      &gt;&gt;&gt; #print(fix)</span>
+<span class="sd">      {6: &#39;0&#39;, 8: &#39;FIX.4.2&#39;,</span>
+<span class="sd">      10: &#39;100&#39;, 10481: &#39;A&#39;, 14: &#39;0&#39;,</span>
+<span class="sd">      15: &#39;EUR&#39;, 10641: &#39;blabla&#39;,</span>
+<span class="sd">      18: &#39;1&#39;, 21: &#39;2&#39;, 22: &#39;5&#39;,</span>
+<span class="sd">      151: &#39;1&#39;,</span>
+<span class="sd">      11951: &#39;HOOF7M0f4BGJ0rkaNTkkeAA&#39;,</span>
+<span class="sd">      ....</span>
+
+<span class="sd">    FixMessage also have a ``time`` attribute, a ``direction`` attribute (inbound : 0, outbound : 1)</span>
+<span class="sd">    and a ``recipient`` which is rather where it&#39;s been received from or sent to.</span>
+<span class="sd">    FixMessages sort by default on time, and will be considered equal if the dictionary values are the same AND the</span>
+<span class="sd">    time is the same.</span>
+
+<span class="sd">    This FixMessage is eager : it will parse the whole fix and store it locally. It is significantly faster in most</span>
+<span class="sd">    usage patterns that we observed.</span>
+
+<span class="sd">    useful shortcut methods : ::</span>
+
+<span class="sd">        fix.tag_exact(tag, value)</span>
+<span class="sd">        fix.tag_iexact(tag, value)</span>
+<span class="sd">        fix.tag_contains(tag, value)</span>
+<span class="sd">        fix.tag_icontains(tag, value)</span>
+<span class="sd">        fix.tag_match_regex(tag, value)</span>
+
+<span class="sd">    Note : the tag_* methods don&#39;t support repeating groups</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="c1"># Class type of FIX message fragments</span>
+    <span class="n">FragmentType</span> <span class="o">=</span> <span class="n">FixFragment</span>
+
+<div class="viewcode-block" id="FixMessage.from_buffer">
+<a class="viewcode-back" href="../../api.html#pyfixmsg.fixmessage.FixMessage.from_buffer">[docs]</a>
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">from_buffer</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">msg_buffer</span><span class="p">,</span> <span class="n">fix_codec</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Create a FixMessage from a buffer and a codec</span>
+
+<span class="sd">        :param msg_buffer: a buffer as a string</span>
+<span class="sd">        :type msg_buffer: ``str``</span>
+<span class="sd">        :param fix_codec: an object with static encode() and decode() calls</span>
+<span class="sd">        :type fix_codec: ``Codec``</span>
+
+<span class="sd">        :return: a FixMessage object</span>
+<span class="sd">        :rtype: ``FixMessage``</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">msg</span> <span class="o">=</span> <span class="bp">cls</span><span class="p">()</span>
+        <span class="n">msg</span><span class="o">.</span><span class="n">codec</span> <span class="o">=</span> <span class="n">fix_codec</span>
+        <span class="n">msg</span><span class="o">.</span><span class="n">raw_message</span> <span class="o">=</span> <span class="n">msg_buffer</span>
+        <span class="n">msg</span><span class="o">.</span><span class="n">from_wire</span><span class="p">(</span><span class="n">msg</span><span class="o">.</span><span class="n">raw_message</span><span class="p">,</span> <span class="n">fix_codec</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">msg</span></div>
+
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__lt__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">time</span> <span class="o">&lt;</span> <span class="n">other</span><span class="o">.</span><span class="n">time</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__gt__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">time</span> <span class="o">&gt;</span> <span class="n">other</span><span class="o">.</span><span class="n">time</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__eq__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">other</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">None</span>
+        <span class="k">for</span> <span class="n">msg</span> <span class="ow">in</span> <span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">):</span>
+            <span class="k">if</span> <span class="mi">9</span> <span class="ow">in</span> <span class="n">msg</span><span class="p">:</span>
+                <span class="k">del</span> <span class="n">msg</span><span class="p">[</span><span class="mi">9</span><span class="p">]</span>
+            <span class="k">if</span> <span class="mi">10</span> <span class="ow">in</span> <span class="n">msg</span><span class="p">:</span>
+                <span class="k">del</span> <span class="n">msg</span><span class="p">[</span><span class="mi">10</span><span class="p">]</span>
+        <span class="k">if</span> <span class="nb">super</span><span class="p">(</span><span class="n">FixMessage</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__eq__</span><span class="p">(</span><span class="n">other</span><span class="p">):</span>
+            <span class="k">if</span> <span class="p">(</span><span class="nb">hasattr</span><span class="p">(</span><span class="n">other</span><span class="p">,</span> <span class="s1">&#39;time&#39;</span><span class="p">)</span> <span class="ow">and</span>
+                    <span class="p">(</span><span class="n">other</span><span class="o">.</span><span class="n">time</span> <span class="o">==</span> <span class="bp">self</span><span class="o">.</span><span class="n">time</span><span class="p">)</span> <span class="ow">and</span>
+                    <span class="p">(</span><span class="n">other</span><span class="o">.</span><span class="n">recipient</span> <span class="o">==</span> <span class="bp">self</span><span class="o">.</span><span class="n">recipient</span><span class="p">)):</span>
+                <span class="k">return</span> <span class="kc">True</span>
+        <span class="k">return</span> <span class="kc">False</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__ne__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">):</span>
+        <span class="k">if</span> <span class="nb">super</span><span class="p">(</span><span class="n">FixMessage</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__ne__</span><span class="p">(</span><span class="n">other</span><span class="p">)</span> <span class="ow">or</span> <span class="n">other</span><span class="o">.</span><span class="n">time</span> <span class="o">!=</span> <span class="bp">self</span><span class="o">.</span><span class="n">time</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">True</span>
+        <span class="k">return</span> <span class="kc">False</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__le__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">time</span> <span class="o">&lt;=</span> <span class="n">other</span><span class="o">.</span><span class="n">time</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__ge__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">time</span> <span class="o">&gt;=</span> <span class="n">other</span><span class="o">.</span><span class="n">time</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">__copy__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        copy module support. This copies the message by serialising it and parsing the serialised</span>
+<span class="sd">        data back into a new message. This is a lot faster than deepcopy or other techniques.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">new_msg</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="vm">__class__</span><span class="p">()</span>
+        <span class="n">new_msg</span><span class="o">.</span><span class="n">codec</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">codec</span>
+        <span class="n">new_msg</span><span class="o">.</span><span class="n">from_wire</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">to_wire</span><span class="p">())</span>
+        <span class="n">new_msg</span><span class="o">.</span><span class="n">time</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">time</span>
+        <span class="n">new_msg</span><span class="o">.</span><span class="n">process</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">process</span>
+        <span class="n">new_msg</span><span class="o">.</span><span class="n">recipient</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">recipient</span>
+        <span class="n">new_msg</span><span class="o">.</span><span class="n">direction</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">direction</span>
+        <span class="n">new_msg</span><span class="o">.</span><span class="n">raw_message</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">raw_message</span>
+        <span class="n">new_msg</span><span class="o">.</span><span class="n">set_len_and_chksum</span><span class="p">()</span>
+        <span class="k">return</span> <span class="n">new_msg</span>
+
+<div class="viewcode-block" id="FixMessage.copy">
+<a class="viewcode-back" href="../../api.html#pyfixmsg.fixmessage.FixMessage.copy">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">copy</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot; Copy interface without using the copy module&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">__copy__</span><span class="p">()</span></div>
+
+
+<div class="viewcode-block" id="FixMessage.__init__">
+<a class="viewcode-back" href="../../api.html#pyfixmsg.fixmessage.FixMessage.__init__">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        The constructor uses the ``dict()`` signature unmodified.</span>
+<span class="sd">        You can set the following manually or through a factory function:</span>
+
+<span class="sd">          * ``self.process`` an opaque value (to store the process that received or processed the message,</span>
+<span class="sd">            defaults to empty string).</span>
+<span class="sd">          * ``self.separator`` the default separator to use when parsing messages. Defaults to ``&#39;;&#39;``</span>
+<span class="sd">          * ``self.time`` the time the message has been created or received. Defaults to ``datetime.now(timezone.utc)``</span>
+<span class="sd">          * ``self.recipient`` opaque value (to store for whom the message was intended)</span>
+<span class="sd">          * ``self.direction`` Whether the message was received (``0``), sent (``1``) or unknown (``None``)</span>
+<span class="sd">          * ``self.typed_values`` Whether the values in the message are typed. Defaults to ``False``</span>
+<span class="sd">          * ``self.raw_message`` If constructed by class method ``from_buffer``, keep the original format</span>
+<span class="sd">          * ``self.codec`` Default :py:class:`~pyfixmsg.codec.stringfix.Codec` to use to parse message. Defaults</span>
+<span class="sd">            to a naive codec that doesn&#39;t support repeating groups</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">process</span> <span class="o">=</span> <span class="s1">&#39;&#39;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">separator</span> <span class="o">=</span> <span class="s1">&#39;;&#39;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">time</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">now</span><span class="p">(</span><span class="n">timezone</span><span class="o">.</span><span class="n">utc</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">recipient</span> <span class="o">=</span> <span class="s1">&#39;&#39;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">direction</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">typed_values</span> <span class="o">=</span> <span class="kc">False</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">raw_message</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">codec</span> <span class="o">=</span> <span class="n">Codec</span><span class="p">()</span>
+        <span class="c1"># Allows maintaining tag order if constructing msg from a FixFragment</span>
+        <span class="k">if</span> <span class="n">args</span> <span class="ow">and</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">args</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">FixFragment</span><span class="p">):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">tag_order</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">args</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="s1">&#39;tag_order&#39;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">tag_order</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="nb">super</span><span class="p">(</span><span class="n">FixMessage</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span></div>
+
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">tags</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Note: this property is there to replace a self reference that existed before.</span>
+
+<span class="sd">        Deprecated.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span><span class="s2">&quot;FixMessage.tags is deprecated&quot;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span>
+
+<div class="viewcode-block" id="FixMessage.set_or_delete">
+<a class="viewcode-back" href="../../api.html#pyfixmsg.fixmessage.FixMessage.set_or_delete">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">set_or_delete</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">tag</span><span class="p">,</span> <span class="n">value</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Sets the tag if value is neither None or the empty string. Deletes the tag otherwise.</span>
+<span class="sd">        Only works on top-level tags (not inside repeating groups)</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">value</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">value</span> <span class="o">!=</span> <span class="s2">&quot;&quot;</span><span class="p">:</span>  <span class="c1"># don&#39;t remove if the tag is 0</span>
+            <span class="bp">self</span><span class="p">[</span><span class="n">tag</span><span class="p">]</span> <span class="o">=</span> <span class="n">value</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">tag</span> <span class="ow">in</span> <span class="bp">self</span><span class="p">:</span>
+                <span class="k">del</span> <span class="bp">self</span><span class="p">[</span><span class="n">tag</span><span class="p">]</span></div>
+
+
+<div class="viewcode-block" id="FixMessage.apply">
+<a class="viewcode-back" href="../../api.html#pyfixmsg.fixmessage.FixMessage.apply">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">apply</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">update</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        equivalent to :py:meth:`~pyfixmsg.FixMessage.update()` but if any value in the update dictionary</span>
+<span class="sd">        is None and the tag is present in the current message, that tag is removed.</span>
+<span class="sd">        Note: naive about repeating groups</span>
+
+<span class="sd">        :param update: map of values to update the state with.</span>
+<span class="sd">        :type update: ``dict``</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">for</span> <span class="n">tag</span> <span class="ow">in</span> <span class="n">update</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">set_or_delete</span><span class="p">(</span><span class="n">tag</span><span class="p">,</span> <span class="n">update</span><span class="p">[</span><span class="n">tag</span><span class="p">])</span></div>
+
+
+<div class="viewcode-block" id="FixMessage.load_fix">
+<a class="viewcode-back" href="../../api.html#pyfixmsg.fixmessage.FixMessage.load_fix">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">load_fix</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">string</span><span class="p">,</span> <span class="n">process</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">separator</span><span class="o">=</span><span class="s1">&#39;;&#39;</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Parses a FIX message from a string using default codecs and separators.</span>
+
+<span class="sd">        :param string: the string containing the FIX message to be parsed</span>
+<span class="sd">        :type string: ``bytes``</span>
+<span class="sd">        :param process: Optional originator of the FIX message</span>
+<span class="sd">        :type process: ``unicode``</span>
+<span class="sd">        :param separator: Character delimiting &quot;tag=val&quot; pairs.</span>
+<span class="sd">          Optional. By default this is a &#39;;&#39; character.</span>
+<span class="sd">          Specify ``pyfixmsg.SEPARATOR`` when parsing standard FIX.</span>
+<span class="sd">        :type separator: ``unicode``</span>
+<span class="sd">        :return: A parsed fix message</span>
+<span class="sd">        :rtype: ``FixMessage``</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">fix_msg</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">codec</span><span class="o">.</span><span class="n">parse</span><span class="p">(</span><span class="n">string</span><span class="o">.</span><span class="n">strip</span><span class="p">(),</span> <span class="n">separator</span><span class="o">=</span><span class="n">separator</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">fix_msg</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">tag_order</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">fix_msg</span><span class="p">,</span> <span class="s1">&#39;tag_order&#39;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">process</span> <span class="o">=</span> <span class="n">process</span>
+        <span class="k">return</span> <span class="bp">self</span></div>
+
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">fix</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot; Legacy compatibility, will be removed shortly&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">output_fix</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">separator</span><span class="p">)</span>
+
+<div class="viewcode-block" id="FixMessage.output_fix">
+<a class="viewcode-back" href="../../api.html#pyfixmsg.fixmessage.FixMessage.output_fix">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">output_fix</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">separator</span><span class="o">=</span><span class="s1">&#39;;&#39;</span><span class="p">,</span> <span class="n">calc_checksum</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">remove_length</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot; ouputs itself as a vanilla FIX message. This forces the output to String fix</span>
+<span class="sd">         but tries to reuse the spec from the current codec&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">calc_checksum</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">set_len_and_chksum</span><span class="p">()</span>
+        <span class="k">if</span> <span class="n">remove_length</span><span class="p">:</span>
+            <span class="k">del</span> <span class="bp">self</span><span class="p">[</span><span class="mi">9</span><span class="p">]</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">codec</span> <span class="o">=</span> <span class="n">Codec</span><span class="p">(</span><span class="n">spec</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">codec</span><span class="o">.</span><span class="n">spec</span><span class="p">)</span>
+        <span class="k">except</span> <span class="ne">AttributeError</span><span class="p">:</span>
+            <span class="n">codec</span> <span class="o">=</span> <span class="n">Codec</span><span class="p">()</span>
+        <span class="k">return</span> <span class="n">codec</span><span class="o">.</span><span class="n">serialise</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">separator</span><span class="p">,</span> <span class="n">delimiter</span><span class="o">=</span><span class="s1">&#39;=&#39;</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="FixMessage.to_wire">
+<a class="viewcode-back" href="../../api.html#pyfixmsg.fixmessage.FixMessage.to_wire">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">to_wire</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">codec</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Return wire representation according to a codec</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">codec</span> <span class="o">=</span> <span class="n">codec</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">codec</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">set_len_and_chksum</span><span class="p">()</span>
+        <span class="k">return</span> <span class="n">codec</span><span class="o">.</span><span class="n">serialise</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="FixMessage.from_wire">
+<a class="viewcode-back" href="../../api.html#pyfixmsg.fixmessage.FixMessage.from_wire">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">from_wire</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">msg</span><span class="p">,</span> <span class="n">codec</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Extract from a wire representation according to a codec</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">codec</span> <span class="o">=</span> <span class="n">codec</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">codec</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">codec</span><span class="o">.</span><span class="n">parse</span><span class="p">(</span><span class="n">msg</span><span class="p">))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">typed_values</span> <span class="o">=</span> <span class="ow">not</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">codec</span><span class="p">,</span> <span class="s1">&#39;decoded_values_are_untyped&#39;</span><span class="p">,</span> <span class="kc">False</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="FixMessage.get_raw_message">
+<a class="viewcode-back" href="../../api.html#pyfixmsg.fixmessage.FixMessage.get_raw_message">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_raw_message</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Return the original string from which the fix message was constructed</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">raw_message</span></div>
+
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__str__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Human-readable representation</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">out</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">output_fix</span><span class="p">()</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">out</span> <span class="o">=</span> <span class="n">six</span><span class="o">.</span><span class="n">ensure_text</span><span class="p">(</span><span class="n">out</span><span class="p">)</span><span class="o">.</span><span class="n">encode</span><span class="p">(</span><span class="s1">&#39;UTF-8&#39;</span><span class="p">)</span>
+        <span class="k">except</span> <span class="p">(</span><span class="ne">UnicodeDecodeError</span><span class="p">,</span> <span class="ne">NameError</span><span class="p">):</span>
+            <span class="k">pass</span>
+        <span class="k">return</span> <span class="n">six</span><span class="o">.</span><span class="n">ensure_str</span><span class="p">(</span><span class="n">out</span><span class="p">)</span>
+
+<div class="viewcode-block" id="FixMessage.calculate_checksum">
+<a class="viewcode-back" href="../../api.html#pyfixmsg.fixmessage.FixMessage.calculate_checksum">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">calculate_checksum</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot; calculates the standard fix checksum&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">checksum</span><span class="p">()</span></div>
+
+
+<div class="viewcode-block" id="FixMessage.checksum">
+<a class="viewcode-back" href="../../api.html#pyfixmsg.fixmessage.FixMessage.checksum">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">checksum</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">value</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        FIX checksum</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">value</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">value</span> <span class="o">=</span> <span class="n">pyfixmsg</span><span class="o">.</span><span class="n">len_and_chsum</span><span class="p">(</span><span class="bp">self</span><span class="p">)[</span><span class="mi">1</span><span class="p">]</span> <span class="o">%</span> <span class="mi">256</span>
+        <span class="k">return</span> <span class="s1">&#39;</span><span class="si">{0:03d}</span><span class="s1">&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">value</span> <span class="o">%</span> <span class="mi">256</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="FixMessage.set_len_and_chksum">
+<a class="viewcode-back" href="../../api.html#pyfixmsg.fixmessage.FixMessage.set_len_and_chksum">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">set_len_and_chksum</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Assign length and checksum based on current contents</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">length</span><span class="p">,</span> <span class="n">raw_checksum</span> <span class="o">=</span> <span class="n">pyfixmsg</span><span class="o">.</span><span class="n">len_and_chsum</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
+        <span class="bp">self</span><span class="p">[</span><span class="mi">9</span><span class="p">]</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">length</span><span class="p">)</span>
+        <span class="bp">self</span><span class="p">[</span><span class="mi">10</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">checksum</span><span class="p">(</span><span class="n">raw_checksum</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="FixMessage.tag_exact">
+<a class="viewcode-back" href="../../api.html#pyfixmsg.fixmessage.FixMessage.tag_exact">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">tag_exact</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">tag</span><span class="p">,</span> <span class="n">value</span><span class="p">,</span> <span class="n">case_insensitive</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot; Returns True if self[tag] has the exact value. Returns False if the tag doesnt exist or is not exact &quot;&quot;&quot;</span>
+        <span class="n">value</span> <span class="o">=</span> <span class="n">native_str</span><span class="p">(</span><span class="n">value</span><span class="p">)</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">mine</span> <span class="o">=</span> <span class="n">native_str</span><span class="p">(</span><span class="bp">self</span><span class="p">[</span><span class="n">tag</span><span class="p">])</span>
+        <span class="k">except</span> <span class="ne">KeyError</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">False</span>
+        <span class="k">if</span> <span class="n">case_insensitive</span><span class="p">:</span>
+            <span class="n">value</span> <span class="o">=</span> <span class="n">value</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span>
+            <span class="n">mine</span> <span class="o">=</span> <span class="n">mine</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span>
+        <span class="k">return</span> <span class="n">mine</span> <span class="o">==</span> <span class="n">value</span></div>
+
+
+<div class="viewcode-block" id="FixMessage.tag_iexact">
+<a class="viewcode-back" href="../../api.html#pyfixmsg.fixmessage.FixMessage.tag_iexact">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">tag_iexact</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">tag</span><span class="p">,</span> <span class="n">value</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot; Returns True if self[tag] has the exact value (case insensitive).</span>
+<span class="sd">           Returns False if the tag doesnt exist or is not exact &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">tag_exact</span><span class="p">(</span><span class="n">tag</span><span class="p">,</span> <span class="n">value</span><span class="p">,</span> <span class="n">case_insensitive</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="FixMessage.tag_contains">
+<a class="viewcode-back" href="../../api.html#pyfixmsg.fixmessage.FixMessage.tag_contains">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">tag_contains</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">tag</span><span class="p">,</span> <span class="n">value</span><span class="p">,</span> <span class="n">case_insensitive</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot; Returns True if self[tag] contains value. Returns False otherwise, or if the tag doesnt exist</span>
+<span class="sd">        This is a string string comparison&quot;&quot;&quot;</span>
+        <span class="n">value</span> <span class="o">=</span> <span class="n">native_str</span><span class="p">(</span><span class="n">value</span><span class="p">)</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">mine</span> <span class="o">=</span> <span class="n">native_str</span><span class="p">(</span><span class="bp">self</span><span class="p">[</span><span class="n">tag</span><span class="p">])</span>
+        <span class="k">except</span> <span class="ne">KeyError</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">False</span>
+        <span class="k">if</span> <span class="n">case_insensitive</span><span class="p">:</span>
+            <span class="n">value</span> <span class="o">=</span> <span class="n">value</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span>
+            <span class="n">mine</span> <span class="o">=</span> <span class="n">mine</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span>
+        <span class="k">return</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">mine</span></div>
+
+
+<div class="viewcode-block" id="FixMessage.tag_icontains">
+<a class="viewcode-back" href="../../api.html#pyfixmsg.fixmessage.FixMessage.tag_icontains">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">tag_icontains</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">tag</span><span class="p">,</span> <span class="n">value</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot; case-insensitive version of tag_contains&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">tag_contains</span><span class="p">(</span><span class="n">tag</span><span class="p">,</span> <span class="n">value</span><span class="p">,</span> <span class="n">case_insensitive</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="FixMessage.tag_exact_dict">
+<a class="viewcode-back" href="../../api.html#pyfixmsg.fixmessage.FixMessage.tag_exact_dict">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">tag_exact_dict</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">dictionary</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot; check that all the keys and values of the passed dict are present and identical in the fixmsg&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="nb">all</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">tag_exact</span><span class="p">(</span><span class="n">tag</span><span class="p">,</span> <span class="n">value</span><span class="p">)</span> <span class="k">for</span> <span class="n">tag</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="nb">list</span><span class="p">(</span><span class="n">dictionary</span><span class="o">.</span><span class="n">items</span><span class="p">()))</span></div>
+
+
+<div class="viewcode-block" id="FixMessage.tag_match_regex">
+<a class="viewcode-back" href="../../api.html#pyfixmsg.fixmessage.FixMessage.tag_match_regex">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">tag_match_regex</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">tag</span><span class="p">,</span> <span class="n">regex</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot; returns True of self[tag] matches regex, false otherwise or if the tag doesnt exist &quot;&quot;&quot;</span>
+        <span class="n">regex</span> <span class="o">=</span> <span class="n">native_str</span><span class="p">(</span><span class="n">regex</span><span class="p">)</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">re</span><span class="o">.</span><span class="n">match</span><span class="p">(</span><span class="n">regex</span><span class="p">,</span> <span class="n">native_str</span><span class="p">(</span><span class="bp">self</span><span class="p">[</span><span class="n">tag</span><span class="p">])):</span>
+                <span class="k">return</span> <span class="kc">True</span>
+        <span class="k">except</span> <span class="ne">KeyError</span><span class="p">:</span>
+            <span class="k">pass</span>
+        <span class="k">return</span> <span class="kc">False</span></div>
+
+
+<div class="viewcode-block" id="FixMessage.tag_lt">
+<a class="viewcode-back" href="../../api.html#pyfixmsg.fixmessage.FixMessage.tag_lt">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">tag_lt</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">tag</span><span class="p">,</span> <span class="n">value</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot; Test tag is smaller than value. Uses decimal comparison if possible. Returns False if tag absent&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">tag</span><span class="p">):</span>
+            <span class="k">return</span> <span class="kc">False</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">value</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">False</span>
+        <span class="n">tag</span> <span class="o">=</span> <span class="n">native_str</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">tag</span><span class="p">))</span>
+        <span class="n">value</span> <span class="o">=</span> <span class="n">native_str</span><span class="p">(</span><span class="n">value</span><span class="p">)</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">tag</span> <span class="o">=</span> <span class="n">decimal</span><span class="o">.</span><span class="n">Decimal</span><span class="p">(</span><span class="n">tag</span><span class="p">)</span>
+            <span class="n">value</span> <span class="o">=</span> <span class="n">decimal</span><span class="o">.</span><span class="n">Decimal</span><span class="p">(</span><span class="n">value</span><span class="p">)</span>
+        <span class="k">except</span> <span class="p">(</span><span class="ne">ValueError</span><span class="p">,</span> <span class="n">decimal</span><span class="o">.</span><span class="n">InvalidOperation</span><span class="p">):</span>
+            <span class="k">pass</span>
+        <span class="k">return</span> <span class="n">tag</span> <span class="o">&lt;</span> <span class="n">value</span></div>
+
+
+<div class="viewcode-block" id="FixMessage.tag_le">
+<a class="viewcode-back" href="../../api.html#pyfixmsg.fixmessage.FixMessage.tag_le">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">tag_le</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">tag</span><span class="p">,</span> <span class="n">value</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot; Test tag is smaller or equal value. Uses decimal comparison if possible. Returns False if tag absent&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">tag</span><span class="p">):</span>
+            <span class="k">return</span> <span class="kc">False</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">value</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">False</span>
+        <span class="n">tag</span> <span class="o">=</span> <span class="n">native_str</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">tag</span><span class="p">))</span>
+        <span class="n">value</span> <span class="o">=</span> <span class="n">native_str</span><span class="p">(</span><span class="n">value</span><span class="p">)</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">tag</span> <span class="o">=</span> <span class="n">decimal</span><span class="o">.</span><span class="n">Decimal</span><span class="p">(</span><span class="n">tag</span><span class="p">)</span>
+            <span class="n">value</span> <span class="o">=</span> <span class="n">decimal</span><span class="o">.</span><span class="n">Decimal</span><span class="p">(</span><span class="n">value</span><span class="p">)</span>
+        <span class="k">except</span> <span class="p">(</span><span class="ne">ValueError</span><span class="p">,</span> <span class="n">decimal</span><span class="o">.</span><span class="n">InvalidOperation</span><span class="p">):</span>
+            <span class="k">pass</span>
+        <span class="k">return</span> <span class="n">tag</span> <span class="o">&lt;=</span> <span class="n">value</span></div>
+
+
+<div class="viewcode-block" id="FixMessage.tag_gt">
+<a class="viewcode-back" href="../../api.html#pyfixmsg.fixmessage.FixMessage.tag_gt">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">tag_gt</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">tag</span><span class="p">,</span> <span class="n">value</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot; Test tag is greater than value. Uses decimal comparison if possible. Returns False if tag absent&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">tag</span><span class="p">):</span>
+            <span class="k">return</span> <span class="kc">False</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">value</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">False</span>
+        <span class="n">tag</span> <span class="o">=</span> <span class="n">native_str</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">tag</span><span class="p">))</span>
+        <span class="n">value</span> <span class="o">=</span> <span class="n">native_str</span><span class="p">(</span><span class="n">value</span><span class="p">)</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">tag</span> <span class="o">=</span> <span class="n">decimal</span><span class="o">.</span><span class="n">Decimal</span><span class="p">(</span><span class="n">tag</span><span class="p">)</span>
+            <span class="n">value</span> <span class="o">=</span> <span class="n">decimal</span><span class="o">.</span><span class="n">Decimal</span><span class="p">(</span><span class="n">value</span><span class="p">)</span>
+        <span class="k">except</span> <span class="p">(</span><span class="ne">ValueError</span><span class="p">,</span> <span class="n">decimal</span><span class="o">.</span><span class="n">InvalidOperation</span><span class="p">):</span>
+            <span class="k">pass</span>
+        <span class="k">return</span> <span class="n">tag</span> <span class="o">&gt;</span> <span class="n">value</span></div>
+
+
+<div class="viewcode-block" id="FixMessage.tag_ge">
+<a class="viewcode-back" href="../../api.html#pyfixmsg.fixmessage.FixMessage.tag_ge">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">tag_ge</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">tag</span><span class="p">,</span> <span class="n">value</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot; Test tag is greater or equal to value. Uses decimal comparison if possible. Returns False if tag absent&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">tag</span><span class="p">):</span>
+            <span class="k">return</span> <span class="kc">False</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">value</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">False</span>
+        <span class="n">tag</span> <span class="o">=</span> <span class="n">native_str</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">tag</span><span class="p">))</span>
+        <span class="n">value</span> <span class="o">=</span> <span class="n">native_str</span><span class="p">(</span><span class="n">value</span><span class="p">)</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">tag</span> <span class="o">=</span> <span class="n">decimal</span><span class="o">.</span><span class="n">Decimal</span><span class="p">(</span><span class="n">tag</span><span class="p">)</span>
+            <span class="n">value</span> <span class="o">=</span> <span class="n">decimal</span><span class="o">.</span><span class="n">Decimal</span><span class="p">(</span><span class="n">value</span><span class="p">)</span>
+        <span class="k">except</span> <span class="p">(</span><span class="ne">ValueError</span><span class="p">,</span> <span class="n">decimal</span><span class="o">.</span><span class="n">InvalidOperation</span><span class="p">):</span>
+            <span class="k">pass</span>
+
+        <span class="k">return</span> <span class="n">tag</span> <span class="o">&gt;=</span> <span class="n">value</span></div>
+
+
+<div class="viewcode-block" id="FixMessage.tag_in">
+<a class="viewcode-back" href="../../api.html#pyfixmsg.fixmessage.FixMessage.tag_in">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">tag_in</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">tag</span><span class="p">,</span> <span class="n">values</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot; returns True if self[tag] is in values, false otherwise or if the tag doesnt exist &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">tag</span><span class="p">):</span>
+            <span class="k">return</span> <span class="kc">False</span>
+        <span class="n">values</span> <span class="o">=</span> <span class="p">[</span><span class="n">native_str</span><span class="p">(</span><span class="n">i</span><span class="p">)</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">values</span><span class="p">]</span>
+        <span class="k">return</span> <span class="n">native_str</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">tag</span><span class="p">,</span> <span class="kc">None</span><span class="p">))</span> <span class="ow">in</span> <span class="n">values</span></div>
+
+
+<div class="viewcode-block" id="FixMessage.update_all">
+<a class="viewcode-back" href="../../api.html#pyfixmsg.fixmessage.FixMessage.update_all">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">update_all</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">tag</span><span class="p">,</span> <span class="n">value</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot; this will force a tag (that already exists!) to a value at all appearances &quot;&quot;&quot;</span>
+        <span class="k">for</span> <span class="n">path</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">find_all</span><span class="p">(</span><span class="n">tag</span><span class="p">):</span>
+            <span class="n">point</span> <span class="o">=</span> <span class="bp">self</span>
+            <span class="n">last_key</span> <span class="o">=</span> <span class="kc">None</span>
+            <span class="n">last_point</span> <span class="o">=</span> <span class="n">point</span>
+            <span class="k">for</span> <span class="n">key</span> <span class="ow">in</span> <span class="n">path</span><span class="p">:</span>
+                <span class="n">last_point</span> <span class="o">=</span> <span class="n">point</span>
+                <span class="n">point</span> <span class="o">=</span> <span class="n">point</span><span class="p">[</span><span class="n">key</span><span class="p">]</span>
+                <span class="n">last_key</span> <span class="o">=</span> <span class="n">key</span>
+            <span class="k">if</span> <span class="n">last_key</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">last_point</span><span class="p">[</span><span class="n">last_key</span><span class="p">]</span> <span class="o">=</span> <span class="n">value</span></div>
+</div>
+
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2025, wxcuop.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

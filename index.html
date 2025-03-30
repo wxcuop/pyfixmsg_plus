@@ -1,0 +1,256 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="./">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Pyfixmsg &mdash; Pyfixmsg_plus  documentation</title>
+      <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=03e43079" />
+      <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=e59714d7" />
+      <link rel="stylesheet" type="text/css" href="_static/graphviz.css?v=4ae1632d" />
+      <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=03e43079" />
+
+  
+      <script src="_static/jquery.js?v=5d32c60e"></script>
+      <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="_static/documentation_options.js?v=5929fcd5"></script>
+      <script src="_static/doctools.js?v=9bcbadda"></script>
+      <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="API Documentation" href="api.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="#" class="icon icon-home">
+            Pyfixmsg_plus
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul>
+<li class="toctree-l1"><a class="reference internal" href="api.html">API Documentation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="example.html">Examples</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="#">Pyfixmsg_plus</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="#" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">Pyfixmsg</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="_sources/index.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="pyfixmsg">
+<h1>Pyfixmsg<a class="headerlink" href="#pyfixmsg" title="Link to this heading"></a></h1>
+<p><code class="docutils literal notranslate"><span class="pre">pyfixmsg</span></code> is a library for parsing, manipulating and serialising <a class="reference external" href="http://www.fixtradingcommunity.org">FIX</a>
+messages, primarily geared towards testing. See the <a class="reference internal" href="example.html#examples"><span class="std std-ref">example</span></a>.</p>
+<section id="objectives">
+<h2>Objectives<a class="headerlink" href="#objectives" title="Link to this heading"></a></h2>
+<blockquote>
+<div><ul class="simple">
+<li><p>provide a rich API to compare and manipulate messages.</p></li>
+<li><p>(mostly) Message type agnostic,</p></li>
+<li><p>(mostly) value types agnostic</p></li>
+<li><p>pluggable : load specification XML files, custom specifications or build your own Specification class for repeating
+groups definitions and message types, define your own codec for custom serialisation or deserialisation quirks.</p></li>
+</ul>
+</div></blockquote>
+</section>
+<section id="dependencies">
+<h2>Dependencies<a class="headerlink" href="#dependencies" title="Link to this heading"></a></h2>
+<blockquote>
+<div><ul class="simple">
+<li><p>None for the core library.</p></li>
+<li><p>Optional <a class="reference external" href="http://lxml.de">lxml</a> for faster parsing of xml specification files.</p></li>
+<li><p>Optional pytest to run the tests.</p></li>
+<li><p>Optional <a class="reference external" href="https://github.com/quickfix/quickfix/tree/master/spec">spec files from quickfix</a> to get started with
+standard FIX specifications.</p></li>
+</ul>
+</div></blockquote>
+</section>
+<section id="core-classes">
+<h2>Core classes<a class="headerlink" href="#core-classes" title="Link to this heading"></a></h2>
+<blockquote>
+<div><ul class="simple">
+<li><p><a class="reference internal" href="api.html#pyfixmsg.fixmessage.FixMessage" title="pyfixmsg.fixmessage.FixMessage"><code class="xref py py-class docutils literal notranslate"><span class="pre">FixMessage</span></code></a>. Inherits from <code class="docutils literal notranslate"><span class="pre">dict</span></code>. The workhorse class.
+By default comes with a codec that will parse standard-looking <code class="docutils literal notranslate"><span class="pre">FIX</span></code>, but without support repeating groups.</p></li>
+<li><p><code class="xref py py-class docutils literal notranslate"><span class="pre">RepeatingGroup</span></code>. defines repeating groups of a FixMessage.</p></li>
+<li><p><a class="reference internal" href="api.html#pyfixmsg.codecs.stringfix.Codec" title="pyfixmsg.codecs.stringfix.Codec"><code class="xref py py-class docutils literal notranslate"><span class="pre">Codec</span></code></a> defines how to parse a buffer into a FixMessage,
+and how to serialise it back</p></li>
+<li><p><a class="reference internal" href="api.html#pyfixmsg.reference.FixSpec" title="pyfixmsg.reference.FixSpec"><code class="xref py py-class docutils literal notranslate"><span class="pre">FixSpec</span></code></a> defines the <code class="docutils literal notranslate"><span class="pre">FIX</span></code> specification to follow. Only required for support of repeating group. Defined from
+Quickfix’s spec XML files.</p></li>
+</ul>
+</div></blockquote>
+</section>
+<section id="how-to-run-the-tests">
+<h2>How to run the tests<a class="headerlink" href="#how-to-run-the-tests" title="Link to this heading"></a></h2>
+<p><code class="docutils literal notranslate"><span class="pre">py.test</span> <span class="pre">--spec=/var/tmp/FIX50.xml</span></code> will launch the tests against the spec file in /var/tmp. You will need to load
+the <a class="reference external" href="https://github.com/quickfix/quickfix/tree/master/spec">spec files from quickfix</a> to get the tests to work.</p>
+<p>The spec files are not included in this distribution.</p>
+</section>
+<section id="notes">
+<h2>Notes<a class="headerlink" href="#notes" title="Link to this heading"></a></h2>
+<p>This is only a FIX message library. It doesn’t include a FIX session management system or an order management
+core, or anything similar. It is purely message parsing-manipulation-serialisation. It is however easy to integrate
+into an order management or a exchange/broker simulator, etc.</p>
+<div class="toctree-wrapper compound">
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="api.html">API Documentation</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="api.html#fixmessage">FixMessage</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="api.html#pyfixmsg.fixmessage.FixMessage"><code class="docutils literal notranslate"><span class="pre">FixMessage</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="api.html#pyfixmsg.fixmessage.FixMessage.FragmentType"><code class="docutils literal notranslate"><span class="pre">FixMessage.FragmentType</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api.html#pyfixmsg.fixmessage.FixMessage.__init__"><code class="docutils literal notranslate"><span class="pre">FixMessage.__init__()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api.html#pyfixmsg.fixmessage.FixMessage.apply"><code class="docutils literal notranslate"><span class="pre">FixMessage.apply()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api.html#pyfixmsg.fixmessage.FixMessage.calculate_checksum"><code class="docutils literal notranslate"><span class="pre">FixMessage.calculate_checksum()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api.html#pyfixmsg.fixmessage.FixMessage.checksum"><code class="docutils literal notranslate"><span class="pre">FixMessage.checksum()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api.html#pyfixmsg.fixmessage.FixMessage.copy"><code class="docutils literal notranslate"><span class="pre">FixMessage.copy()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api.html#pyfixmsg.fixmessage.FixMessage.fix"><code class="docutils literal notranslate"><span class="pre">FixMessage.fix</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api.html#pyfixmsg.fixmessage.FixMessage.from_buffer"><code class="docutils literal notranslate"><span class="pre">FixMessage.from_buffer()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api.html#pyfixmsg.fixmessage.FixMessage.from_wire"><code class="docutils literal notranslate"><span class="pre">FixMessage.from_wire()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api.html#pyfixmsg.fixmessage.FixMessage.get_raw_message"><code class="docutils literal notranslate"><span class="pre">FixMessage.get_raw_message()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api.html#pyfixmsg.fixmessage.FixMessage.load_fix"><code class="docutils literal notranslate"><span class="pre">FixMessage.load_fix()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api.html#pyfixmsg.fixmessage.FixMessage.output_fix"><code class="docutils literal notranslate"><span class="pre">FixMessage.output_fix()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api.html#pyfixmsg.fixmessage.FixMessage.set_len_and_chksum"><code class="docutils literal notranslate"><span class="pre">FixMessage.set_len_and_chksum()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api.html#pyfixmsg.fixmessage.FixMessage.set_or_delete"><code class="docutils literal notranslate"><span class="pre">FixMessage.set_or_delete()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api.html#pyfixmsg.fixmessage.FixMessage.tag_contains"><code class="docutils literal notranslate"><span class="pre">FixMessage.tag_contains()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api.html#pyfixmsg.fixmessage.FixMessage.tag_exact"><code class="docutils literal notranslate"><span class="pre">FixMessage.tag_exact()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api.html#pyfixmsg.fixmessage.FixMessage.tag_exact_dict"><code class="docutils literal notranslate"><span class="pre">FixMessage.tag_exact_dict()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api.html#pyfixmsg.fixmessage.FixMessage.tag_ge"><code class="docutils literal notranslate"><span class="pre">FixMessage.tag_ge()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api.html#pyfixmsg.fixmessage.FixMessage.tag_gt"><code class="docutils literal notranslate"><span class="pre">FixMessage.tag_gt()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api.html#pyfixmsg.fixmessage.FixMessage.tag_icontains"><code class="docutils literal notranslate"><span class="pre">FixMessage.tag_icontains()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api.html#pyfixmsg.fixmessage.FixMessage.tag_iexact"><code class="docutils literal notranslate"><span class="pre">FixMessage.tag_iexact()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api.html#pyfixmsg.fixmessage.FixMessage.tag_in"><code class="docutils literal notranslate"><span class="pre">FixMessage.tag_in()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api.html#pyfixmsg.fixmessage.FixMessage.tag_le"><code class="docutils literal notranslate"><span class="pre">FixMessage.tag_le()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api.html#pyfixmsg.fixmessage.FixMessage.tag_lt"><code class="docutils literal notranslate"><span class="pre">FixMessage.tag_lt()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api.html#pyfixmsg.fixmessage.FixMessage.tag_match_regex"><code class="docutils literal notranslate"><span class="pre">FixMessage.tag_match_regex()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api.html#pyfixmsg.fixmessage.FixMessage.tags"><code class="docutils literal notranslate"><span class="pre">FixMessage.tags</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api.html#pyfixmsg.fixmessage.FixMessage.to_wire"><code class="docutils literal notranslate"><span class="pre">FixMessage.to_wire()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api.html#pyfixmsg.fixmessage.FixMessage.update_all"><code class="docutils literal notranslate"><span class="pre">FixMessage.update_all()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="api.html#pyfixmsg.fixmessage.FixFragment"><code class="docutils literal notranslate"><span class="pre">FixFragment</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="api.html#pyfixmsg.fixmessage.FixFragment.__init__"><code class="docutils literal notranslate"><span class="pre">FixFragment.__init__()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api.html#pyfixmsg.fixmessage.FixFragment.all_tags"><code class="docutils literal notranslate"><span class="pre">FixFragment.all_tags()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api.html#pyfixmsg.fixmessage.FixFragment.anywhere"><code class="docutils literal notranslate"><span class="pre">FixFragment.anywhere()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api.html#pyfixmsg.fixmessage.FixFragment.find_all"><code class="docutils literal notranslate"><span class="pre">FixFragment.find_all()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api.html#pyfixmsg.fixmessage.FixFragment.from_dict"><code class="docutils literal notranslate"><span class="pre">FixFragment.from_dict()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api.html#pyfixmsg.fixmessage.FixFragment.length"><code class="docutils literal notranslate"><span class="pre">FixFragment.length()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="api.html#repeating-groups">Repeating groups</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="api.html#pyfixmsg.RepeatingGroup"><code class="docutils literal notranslate"><span class="pre">RepeatingGroup</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="api.html#pyfixmsg.RepeatingGroup.__init__"><code class="docutils literal notranslate"><span class="pre">RepeatingGroup.__init__()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api.html#pyfixmsg.RepeatingGroup.all_tags"><code class="docutils literal notranslate"><span class="pre">RepeatingGroup.all_tags()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api.html#pyfixmsg.RepeatingGroup.create_repeating_group"><code class="docutils literal notranslate"><span class="pre">RepeatingGroup.create_repeating_group()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api.html#pyfixmsg.RepeatingGroup.entry_tag"><code class="docutils literal notranslate"><span class="pre">RepeatingGroup.entry_tag</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api.html#pyfixmsg.RepeatingGroup.find_all"><code class="docutils literal notranslate"><span class="pre">RepeatingGroup.find_all()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api.html#pyfixmsg.RepeatingGroup.length"><code class="docutils literal notranslate"><span class="pre">RepeatingGroup.length()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="api.html#pyfixmsg.RepeatingGroupFactory"><code class="docutils literal notranslate"><span class="pre">RepeatingGroupFactory</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="api.html#pyfixmsg.RepeatingGroupFactory.__init__"><code class="docutils literal notranslate"><span class="pre">RepeatingGroupFactory.__init__()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api.html#pyfixmsg.RepeatingGroupFactory.get_r_group"><code class="docutils literal notranslate"><span class="pre">RepeatingGroupFactory.get_r_group()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="api.html#codec">Codec</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="api.html#pyfixmsg.codecs.stringfix.Codec"><code class="docutils literal notranslate"><span class="pre">Codec</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="api.html#pyfixmsg.codecs.stringfix.Codec.__init__"><code class="docutils literal notranslate"><span class="pre">Codec.__init__()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api.html#pyfixmsg.codecs.stringfix.Codec.parse"><code class="docutils literal notranslate"><span class="pre">Codec.parse()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api.html#pyfixmsg.codecs.stringfix.Codec.serialise"><code class="docutils literal notranslate"><span class="pre">Codec.serialise()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="api.html#fixtag">FixTag</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="api.html#pyfixmsg.reference.FixTag"><code class="docutils literal notranslate"><span class="pre">FixTag</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="api.html#pyfixmsg.reference.FixTag.__init__"><code class="docutils literal notranslate"><span class="pre">FixTag.__init__()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api.html#pyfixmsg.reference.FixTag.add_enum_value"><code class="docutils literal notranslate"><span class="pre">FixTag.add_enum_value()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api.html#pyfixmsg.reference.FixTag.del_enum_value"><code class="docutils literal notranslate"><span class="pre">FixTag.del_enum_value()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api.html#pyfixmsg.reference.FixTag.enum_by_name"><code class="docutils literal notranslate"><span class="pre">FixTag.enum_by_name()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api.html#pyfixmsg.reference.FixTag.enum_by_value"><code class="docutils literal notranslate"><span class="pre">FixTag.enum_by_value()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="api.html#fixspec">FixSpec</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="api.html#pyfixmsg.reference.FixSpec"><code class="docutils literal notranslate"><span class="pre">FixSpec</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="api.html#pyfixmsg.reference.FixSpec.__init__"><code class="docutils literal notranslate"><span class="pre">FixSpec.__init__()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="example.html">Examples</a></li>
+</ul>
+</div>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="api.html" class="btn btn-neutral float-right" title="API Documentation" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2025, wxcuop.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

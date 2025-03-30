@@ -1,0 +1,434 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../../../">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>pyfixmsg.codecs.stringfix &mdash; Pyfixmsg_plus  documentation</title>
+      <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=03e43079" />
+      <link rel="stylesheet" type="text/css" href="../../../_static/css/theme.css?v=e59714d7" />
+      <link rel="stylesheet" type="text/css" href="../../../_static/graphviz.css?v=4ae1632d" />
+      <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=03e43079" />
+
+  
+      <script src="../../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../../_static/documentation_options.js?v=5929fcd5"></script>
+      <script src="../../../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../../index.html" class="icon icon-home">
+            Pyfixmsg_plus
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../api.html">API Documentation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../example.html">Examples</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../../index.html">Pyfixmsg_plus</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../../index.html">Module code</a></li>
+          <li class="breadcrumb-item"><a href="../../pyfixmsg.html">pyfixmsg</a></li>
+      <li class="breadcrumb-item active">pyfixmsg.codecs.stringfix</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for pyfixmsg.codecs.stringfix</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;This codec implements a simpler repeating group logic where the first tag is seen as a marker</span>
+<span class="sd">for repetition in a repeating group (rather than relying on the order of the tags) &quot;&quot;&quot;</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">re</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">warnings</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">collections</span><span class="w"> </span><span class="kn">import</span> <span class="n">deque</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">six</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">pyfixmsg</span><span class="w"> </span><span class="kn">import</span> <span class="n">RepeatingGroup</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pyfixmsg.util</span><span class="w"> </span><span class="kn">import</span> <span class="n">int_or_str</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pyfixmsg.reference</span><span class="w"> </span><span class="kn">import</span> <span class="n">HEADER_TAGS</span><span class="p">,</span> <span class="n">HEADER_SORT_MAP</span><span class="p">,</span> <span class="n">ENCODED_DATA_TAGS</span>
+
+<span class="n">SEPARATOR</span> <span class="o">=</span> <span class="s1">&#39;</span><span class="se">\1</span><span class="s1">&#39;</span>
+<span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">Standard separator for the StringFIX codec between tag value pairs.</span>
+<span class="sd">However, the codec supports an arbitrary separator as using | or ; or &quot;&lt;SOH&gt;&quot; is</span>
+<span class="sd">common.</span>
+<span class="sd">&quot;&quot;&quot;</span>
+
+<span class="n">DELIMITER</span> <span class="o">=</span> <span class="s1">&#39;=&#39;</span>
+<span class="n">FIX_REGEX_STRING</span> <span class="o">=</span> <span class="sa">r</span><span class="s1">&#39;([^</span><span class="si">{s}{d}</span><span class="s1">]*)[</span><span class="si">{d}</span><span class="s1">](.*?)</span><span class="si">{s}</span><span class="s1">(?!\w+</span><span class="si">{s}</span><span class="s1">)&#39;</span>
+<span class="n">FIX_REGEX</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">compile</span><span class="p">(</span><span class="n">FIX_REGEX_STRING</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">d</span><span class="o">=</span><span class="n">DELIMITER</span><span class="p">,</span> <span class="n">s</span><span class="o">=</span><span class="n">SEPARATOR</span><span class="p">),</span> <span class="n">re</span><span class="o">.</span><span class="n">DOTALL</span><span class="p">)</span>
+<span class="n">MICROSECONDS</span> <span class="o">=</span> <span class="mi">0</span>
+<span class="n">MILLISECONDS</span> <span class="o">=</span> <span class="mi">1</span>
+
+<span class="n">HEADER_TAGS_SET</span> <span class="o">=</span> <span class="p">{</span><span class="nb">str</span><span class="p">(</span><span class="n">tag</span><span class="p">)</span> <span class="k">for</span> <span class="n">tag</span> <span class="ow">in</span> <span class="n">HEADER_TAGS</span><span class="p">}</span>
+<span class="n">ENCODED_TAG_SET</span> <span class="o">=</span> <span class="p">{</span><span class="nb">str</span><span class="p">(</span><span class="n">tag</span><span class="p">)</span> <span class="k">for</span> <span class="n">tag</span> <span class="ow">in</span> <span class="n">ENCODED_DATA_TAGS</span><span class="p">}</span>
+
+
+<div class="viewcode-block" id="Codec">
+<a class="viewcode-back" href="../../../api.html#pyfixmsg.codecs.stringfix.Codec">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">Codec</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    FIX codec. Initialise with a :py:class:`~pyfixmsg.reference.FixSpec` to support</span>
+<span class="sd">    repeating groups.</span>
+
+<span class="sd">    This class is used to transform the serialised FIX message into an instance of ``fragment_class``, default ``dict``</span>
+<span class="sd">    Tags are assumed to be all of type ``int``, repeating groups are lists of ``fragment_class``</span>
+
+<span class="sd">    Values can either bytes or unicode or a mix thereof, depending on the constructor arguments.</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+
+<div class="viewcode-block" id="Codec.__init__">
+<a class="viewcode-back" href="../../../api.html#pyfixmsg.codecs.stringfix.Codec.__init__">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">spec</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">no_groups</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">fragment_class</span><span class="o">=</span><span class="nb">dict</span><span class="p">,</span> <span class="n">decode_as</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">decode_all_as_347</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        :param spec: the :py:class:`~pyfixmsg.reference.FixSpec` instance to use to parse messages.</span>
+<span class="sd">            If spec is not defined repeating groups will not be parsed correctly, and the logic to handle encoded</span>
+<span class="sd">            tags will not be functional.</span>
+<span class="sd">        :param no_groups: set to ``True`` to ignore repeating groups</span>
+<span class="sd">        :param fragment_class: Which dict-like object to return when parsing messages. Also sets the type of</span>
+<span class="sd">          members of repeating groups</span>
+<span class="sd">        :param decode_as: what encoding to decode all tags. Defaults to None, which returns the raw byte strings.</span>
+<span class="sd">           setting to a non-None value makes both non-numerical tags and values to be unicode,</span>
+<span class="sd">           using this value for decode.</span>
+<span class="sd">        :param decode_all_as_347: whether to trust tag 347 to decode all other tags or only the Encoded* ones.</span>
+<span class="sd">          If set to False, use 347 normally for Encoded* tags, respect ``decode_as`` for all other tags. If 347 is</span>
+<span class="sd">          not present on the message, the values are left encoded.</span>
+
+<span class="sd">          &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">encoding</span> <span class="o">=</span> <span class="n">decode_as</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">decode_all_as_347</span> <span class="o">=</span> <span class="n">decode_all_as_347</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">spec</span> <span class="o">=</span> <span class="n">spec</span>
+        <span class="k">if</span> <span class="n">spec</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_no_groups</span> <span class="o">=</span> <span class="kc">True</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_no_groups</span> <span class="o">=</span> <span class="n">no_groups</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_frg_class</span> <span class="o">=</span> <span class="n">fragment_class</span></div>
+
+
+<div class="viewcode-block" id="Codec.parse">
+<a class="viewcode-back" href="../../../api.html#pyfixmsg.codecs.stringfix.Codec.parse">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">parse</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">buff</span><span class="p">,</span> <span class="n">delimiter</span><span class="o">=</span><span class="n">DELIMITER</span><span class="p">,</span> <span class="n">separator</span><span class="o">=</span><span class="n">SEPARATOR</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Parse a FIX message. The FIX message is expected to be a bytestring and the output</span>
+<span class="sd">        is a dictionary-like object which type is determined by the ``fragment_class`` constructor argument</span>
+<span class="sd">        and which keys are ``int`` and values ``unicode``. Note that if there is a non-int tag in the message,</span>
+<span class="sd">        this will be stored as a key in the original format (i.e. bytestring)</span>
+
+<span class="sd">        :param buff: Buffer to parse</span>
+<span class="sd">        :type buff:  ``bytestr`` or ``unicode``</span>
+<span class="sd">        :param delimiter: A character that separate key and values inside the FIX message. Generally &#39;=&#39;. Note the type:</span>
+<span class="sd">          because of the way the buffer is tokenised, this needs to be unicode (or ``str`` in python 2.7*).</span>
+<span class="sd">        :type delimiter: ``unicode``</span>
+<span class="sd">        :param separator: A character that separate key+value pairs inside the FIX message. Generally &#39;\1&#39;. See type</span>
+<span class="sd">          observations above.</span>
+<span class="sd">        :type separator: ``unicode``</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">def</span><span class="w"> </span><span class="nf">pushback_generator</span><span class="p">(</span><span class="n">iterator</span><span class="p">):</span>
+<span class="w">            </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">            Generator which allows to push back a previously picked item</span>
+<span class="sd">            for example:</span>
+<span class="sd">            gen = pushback_generator(range(10))</span>
+<span class="sd">            print next(gen)</span>
+<span class="sd">            print next(gen)</span>
+<span class="sd">            v = next(gen)</span>
+<span class="sd">            print v</span>
+<span class="sd">            gen.send(v)</span>
+<span class="sd">            print next(gen)</span>
+<span class="sd">            :param iterator:</span>
+<span class="sd">            :return:</span>
+<span class="sd">            &quot;&quot;&quot;</span>
+            <span class="k">for</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">iterator</span><span class="p">:</span>
+                <span class="n">back</span> <span class="o">=</span> <span class="k">yield</span> <span class="n">value</span>
+                <span class="k">if</span> <span class="n">back</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                    <span class="k">yield</span> <span class="n">back</span>
+                    <span class="k">yield</span> <span class="n">back</span>
+
+        <span class="k">assert</span> <span class="ow">not</span> <span class="p">(</span><span class="n">delimiter</span><span class="o">.</span><span class="n">isalnum</span><span class="p">()</span> <span class="ow">or</span> <span class="n">separator</span><span class="o">.</span><span class="n">isalnum</span><span class="p">())</span>
+
+        <span class="n">encoding</span><span class="p">,</span> <span class="n">encoding_347</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">encoding</span><span class="p">,</span> <span class="kc">None</span>
+        <span class="n">input_in_unicode</span> <span class="o">=</span> <span class="kc">False</span>
+        <span class="n">msg_type</span> <span class="o">=</span> <span class="kc">None</span>
+
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">buff</span><span class="p">,</span> <span class="n">six</span><span class="o">.</span><span class="n">text_type</span><span class="p">):</span>
+            <span class="n">input_in_unicode</span> <span class="o">=</span> <span class="kc">True</span>
+            <span class="n">custom_r</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">compile</span><span class="p">(</span><span class="n">six</span><span class="o">.</span><span class="n">ensure_text</span><span class="p">(</span><span class="n">FIX_REGEX_STRING</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
+                <span class="n">d</span><span class="o">=</span><span class="n">re</span><span class="o">.</span><span class="n">escape</span><span class="p">(</span><span class="n">delimiter</span><span class="p">),</span> <span class="n">s</span><span class="o">=</span><span class="n">re</span><span class="o">.</span><span class="n">escape</span><span class="p">(</span><span class="n">separator</span><span class="p">)),</span> <span class="n">encoding</span><span class="o">=</span><span class="s1">&#39;ascii&#39;</span><span class="p">),</span> <span class="n">re</span><span class="o">.</span><span class="n">DOTALL</span><span class="p">)</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">encoding</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">encoding</span> <span class="o">=</span> <span class="kc">None</span>  <span class="c1"># No need to decode</span>
+                <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span><span class="s1">&#39;Processing a unicode message and ignore the argument &quot;decode_as=</span><span class="si">{}</span><span class="s1">&quot;&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">encoding</span><span class="p">))</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">decode_all_as_347</span><span class="p">:</span>
+                <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span><span class="s1">&#39;Processing a unicode message and ignore the argument &quot;decode_all_as_347=</span><span class="si">{}</span><span class="s1">&quot;&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">decode_all_as_347</span><span class="p">))</span>
+        <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">buff</span><span class="p">,</span> <span class="nb">bytes</span><span class="p">):</span>
+            <span class="n">custom_r</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">compile</span><span class="p">(</span><span class="n">six</span><span class="o">.</span><span class="n">ensure_binary</span><span class="p">(</span><span class="n">FIX_REGEX_STRING</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
+                <span class="n">d</span><span class="o">=</span><span class="n">re</span><span class="o">.</span><span class="n">escape</span><span class="p">(</span><span class="n">delimiter</span><span class="p">),</span> <span class="n">s</span><span class="o">=</span><span class="n">re</span><span class="o">.</span><span class="n">escape</span><span class="p">(</span><span class="n">separator</span><span class="p">)),</span> <span class="n">encoding</span><span class="o">=</span><span class="s1">&#39;ascii&#39;</span><span class="p">),</span> <span class="n">re</span><span class="o">.</span><span class="n">DOTALL</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">&#39;Unsupported type of input: </span><span class="si">{}</span><span class="s1">&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="nb">type</span><span class="p">(</span><span class="n">buff</span><span class="p">)))</span>
+
+        <span class="n">tagvals</span> <span class="o">=</span> <span class="n">custom_r</span><span class="o">.</span><span class="n">findall</span><span class="p">(</span><span class="n">buff</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_no_groups</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">spec</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">4</span><span class="p">):</span>
+                <span class="k">if</span> <span class="n">tagvals</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span> <span class="ow">in</span> <span class="p">(</span><span class="sa">b</span><span class="s1">&#39;35&#39;</span><span class="p">,</span> <span class="sa">u</span><span class="s1">&#39;35&#39;</span><span class="p">):</span>
+                    <span class="n">msg_type</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">spec</span><span class="o">.</span><span class="n">msg_types</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">tagvals</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="mi">1</span><span class="p">])</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">input_in_unicode</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">tag</span><span class="p">,</span> <span class="n">val</span> <span class="ow">in</span> <span class="n">tagvals</span><span class="p">:</span>
+                <span class="k">if</span> <span class="n">int_or_str</span><span class="p">(</span><span class="n">tag</span><span class="p">)</span> <span class="o">==</span> <span class="mi">347</span><span class="p">:</span>
+                    <span class="n">encoding_347</span> <span class="o">=</span> <span class="n">six</span><span class="o">.</span><span class="n">ensure_str</span><span class="p">(</span><span class="n">val</span><span class="p">)</span>
+                    <span class="k">break</span>
+                <span class="k">if</span> <span class="n">six</span><span class="o">.</span><span class="n">ensure_str</span><span class="p">(</span><span class="n">tag</span><span class="p">)</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">HEADER_TAGS_SET</span><span class="p">:</span>  <span class="c1"># already enter the message body</span>
+                    <span class="k">break</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">decode_all_as_347</span> <span class="ow">and</span> <span class="n">encoding_347</span><span class="p">:</span>
+            <span class="n">tagvals</span> <span class="o">=</span> <span class="p">((</span><span class="n">int_or_str</span><span class="p">(</span><span class="n">tval</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">encoding_347</span><span class="p">),</span> <span class="n">six</span><span class="o">.</span><span class="n">ensure_text</span><span class="p">(</span><span class="n">tval</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">encoding_347</span><span class="p">))</span> <span class="k">for</span> <span class="n">tval</span> <span class="ow">in</span> <span class="n">tagvals</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="n">encoding</span><span class="p">:</span>
+            <span class="n">tagvals</span> <span class="o">=</span> <span class="p">((</span><span class="n">int_or_str</span><span class="p">(</span><span class="n">tval</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">encoding</span><span class="p">),</span>
+                        <span class="n">six</span><span class="o">.</span><span class="n">ensure_text</span><span class="p">(</span><span class="n">tval</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="p">(</span><span class="n">encoding_347</span> <span class="k">if</span> <span class="n">encoding_347</span> <span class="ow">and</span> <span class="n">tval</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">decode</span><span class="p">()</span> <span class="ow">in</span> <span class="n">ENCODED_TAG_SET</span> <span class="k">else</span> <span class="n">encoding</span><span class="p">))</span>
+                       <span class="p">)</span> <span class="k">for</span> <span class="n">tval</span> <span class="ow">in</span> <span class="n">tagvals</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="ow">not</span> <span class="n">input_in_unicode</span> <span class="ow">and</span> <span class="n">six</span><span class="o">.</span><span class="n">PY3</span><span class="p">:</span>
+            <span class="n">tagvals</span> <span class="o">=</span> <span class="p">((</span><span class="n">int_or_str</span><span class="p">(</span><span class="n">tval</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="s1">&#39;ascii&#39;</span><span class="p">),</span>
+                        <span class="n">six</span><span class="o">.</span><span class="n">ensure_text</span><span class="p">(</span><span class="n">tval</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="p">(</span><span class="n">encoding_347</span> <span class="k">if</span> <span class="n">encoding_347</span> <span class="ow">and</span> <span class="n">tval</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">decode</span><span class="p">()</span> <span class="ow">in</span> <span class="n">ENCODED_TAG_SET</span> <span class="k">else</span> <span class="s1">&#39;UTF-8&#39;</span><span class="p">))</span>
+                       <span class="p">)</span> <span class="k">for</span> <span class="n">tval</span> <span class="ow">in</span> <span class="n">tagvals</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="n">input_in_unicode</span> <span class="ow">and</span> <span class="n">six</span><span class="o">.</span><span class="n">PY2</span><span class="p">:</span>
+            <span class="n">tagvals</span> <span class="o">=</span> <span class="p">((</span><span class="n">int_or_str</span><span class="p">(</span><span class="n">six</span><span class="o">.</span><span class="n">ensure_binary</span><span class="p">(</span><span class="n">tval</span><span class="p">[</span><span class="mi">0</span><span class="p">]),</span> <span class="s1">&#39;ascii&#39;</span><span class="p">),</span>
+                        <span class="n">six</span><span class="o">.</span><span class="n">ensure_binary</span><span class="p">(</span><span class="n">tval</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="p">(</span><span class="n">encoding_347</span> <span class="k">if</span> <span class="n">encoding_347</span> <span class="ow">and</span> <span class="n">tval</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">encode</span><span class="p">()</span> <span class="ow">in</span> <span class="n">ENCODED_TAG_SET</span> <span class="k">else</span> <span class="s1">&#39;UTF-8&#39;</span><span class="p">))</span>
+                        <span class="p">)</span> <span class="k">for</span> <span class="n">tval</span> <span class="ow">in</span> <span class="n">tagvals</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">tagvals</span> <span class="o">=</span> <span class="p">((</span><span class="n">int_or_str</span><span class="p">(</span><span class="n">tval</span><span class="p">[</span><span class="mi">0</span><span class="p">]),</span> <span class="n">tval</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span> <span class="k">for</span> <span class="n">tval</span> <span class="ow">in</span> <span class="n">tagvals</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_no_groups</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">spec</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">msg_type</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="c1"># no groups can be found without a spec, so no point looking up the msg type.</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_frg_class</span><span class="p">(</span><span class="n">tagvals</span><span class="p">)</span>
+        <span class="n">msg</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_frg_class</span><span class="p">()</span>
+        <span class="n">groups</span> <span class="o">=</span> <span class="n">msg_type</span><span class="o">.</span><span class="n">groups</span>
+        <span class="n">tagvals</span> <span class="o">=</span> <span class="n">pushback_generator</span><span class="p">(</span><span class="n">tagvals</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">tag</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">tagvals</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">tag</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">groups</span><span class="p">:</span>
+                <span class="n">msg</span><span class="p">[</span><span class="n">tag</span><span class="p">]</span> <span class="o">=</span> <span class="n">value</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="k">if</span> <span class="n">value</span> <span class="ow">in</span> <span class="p">(</span><span class="sa">b</span><span class="s1">&#39;0&#39;</span><span class="p">,</span> <span class="sa">u</span><span class="s1">&#39;0&#39;</span><span class="p">):</span>
+                    <span class="n">msg</span><span class="p">[</span><span class="n">tag</span><span class="p">]</span> <span class="o">=</span> <span class="n">RepeatingGroup</span><span class="o">.</span><span class="n">create_repeating_group</span><span class="p">(</span><span class="n">tag</span><span class="p">)</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">contents</span><span class="p">,</span> <span class="n">last_tagval</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_process_group</span><span class="p">(</span><span class="n">tag</span><span class="p">,</span> <span class="n">tagvals</span><span class="p">,</span>
+                                                                <span class="n">msg_type</span><span class="o">=</span><span class="n">msg_type</span><span class="p">,</span>
+                                                                <span class="n">group</span><span class="o">=</span><span class="n">groups</span><span class="p">[</span><span class="n">tag</span><span class="p">])</span>
+                    <span class="n">msg</span><span class="p">[</span><span class="n">tag</span><span class="p">]</span> <span class="o">=</span> <span class="n">contents</span>
+                    <span class="k">if</span> <span class="n">last_tagval</span><span class="p">:</span>
+                        <span class="n">tagvals</span><span class="o">.</span><span class="n">send</span><span class="p">(</span><span class="n">last_tagval</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">msg</span></div>
+
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_process_group</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">identifying_tag</span><span class="p">,</span> <span class="n">enumerator</span><span class="p">,</span> <span class="n">msg_type</span><span class="p">,</span> <span class="n">group</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Recursively process a group</span>
+<span class="sd">        Returns ``(count_tag, [{}, {}])``</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">rep_group</span> <span class="o">=</span> <span class="n">RepeatingGroup</span><span class="p">()</span>
+        <span class="n">rep_group</span><span class="o">.</span><span class="n">number_tag</span> <span class="o">=</span> <span class="n">identifying_tag</span>
+        <span class="n">member</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_frg_class</span><span class="p">()</span>
+        <span class="n">first_tag</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="n">inner_groups</span> <span class="o">=</span> <span class="n">group</span><span class="o">.</span><span class="n">groups</span>
+        <span class="n">valid_tags</span> <span class="o">=</span> <span class="n">group</span><span class="o">.</span><span class="n">tags</span>
+        <span class="k">for</span> <span class="n">tag</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">enumerator</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">first_tag</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="c1"># handle first tag: we expect all the members of the group to start with this tag</span>
+                <span class="n">first_tag</span> <span class="o">=</span> <span class="n">tag</span>
+                <span class="n">rep_group</span><span class="o">.</span><span class="n">first_tag</span> <span class="o">=</span> <span class="n">tag</span>
+                <span class="n">member</span><span class="p">[</span><span class="n">tag</span><span class="p">]</span> <span class="o">=</span> <span class="n">value</span>
+            <span class="k">elif</span> <span class="n">first_tag</span> <span class="o">==</span> <span class="n">tag</span><span class="p">:</span>
+                <span class="c1"># we start a new group, replace the current member by an empty one and add the current tag</span>
+                <span class="n">rep_group</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">member</span><span class="p">)</span>
+                <span class="n">member</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_frg_class</span><span class="p">()</span>
+                <span class="n">member</span><span class="p">[</span><span class="n">tag</span><span class="p">]</span> <span class="o">=</span> <span class="n">value</span>
+            <span class="k">elif</span> <span class="n">tag</span> <span class="ow">in</span> <span class="n">valid_tags</span><span class="p">:</span>
+                <span class="c1"># tag is a member, we just add</span>
+                <span class="n">member</span><span class="p">[</span><span class="n">tag</span><span class="p">]</span> <span class="o">=</span> <span class="n">value</span>
+            <span class="k">elif</span> <span class="n">tag</span> <span class="ow">in</span> <span class="n">inner_groups</span><span class="p">:</span>
+                <span class="c1"># tag is starting a new sub group, we recurse</span>
+                <span class="n">contents</span><span class="p">,</span> <span class="n">last_tagval</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_process_group</span><span class="p">(</span><span class="n">tag</span><span class="p">,</span> <span class="n">enumerator</span><span class="p">,</span> <span class="n">msg_type</span><span class="p">,</span> <span class="n">group</span><span class="o">.</span><span class="n">groups</span><span class="p">[</span><span class="n">tag</span><span class="p">])</span>
+                <span class="n">member</span><span class="p">[</span><span class="n">tag</span><span class="p">]</span> <span class="o">=</span> <span class="n">contents</span>
+                <span class="k">if</span> <span class="n">last_tagval</span><span class="p">:</span>
+                    <span class="c1"># we are not at the end of the message.</span>
+                    <span class="n">tag</span><span class="p">,</span> <span class="n">val</span> <span class="o">=</span> <span class="n">last_tagval</span>
+                    <span class="k">if</span> <span class="n">tag</span> <span class="o">==</span> <span class="n">first_tag</span><span class="p">:</span>
+                        <span class="c1"># the embedded group finished this member</span>
+                        <span class="n">rep_group</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">member</span><span class="p">)</span>
+                        <span class="n">member</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_frg_class</span><span class="p">()</span>
+                        <span class="n">member</span><span class="p">[</span><span class="n">tag</span><span class="p">]</span> <span class="o">=</span> <span class="n">val</span>
+                    <span class="k">elif</span> <span class="n">tag</span> <span class="ow">in</span> <span class="n">group</span><span class="o">.</span><span class="n">tags</span><span class="p">:</span>
+                        <span class="c1"># didn&#39;t finish this member</span>
+                        <span class="n">member</span><span class="p">[</span><span class="n">tag</span><span class="p">]</span> <span class="o">=</span> <span class="n">val</span>
+                    <span class="k">else</span><span class="p">:</span>
+                        <span class="c1"># didn&#39;t finish the message but finished the current group</span>
+                        <span class="n">rep_group</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">member</span><span class="p">)</span>
+                        <span class="k">return</span> <span class="n">rep_group</span><span class="p">,</span> <span class="p">(</span><span class="n">tag</span><span class="p">,</span> <span class="n">val</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="c1"># we&#39;re out of the group.</span>
+                <span class="n">rep_group</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">member</span><span class="p">)</span>
+                <span class="k">return</span> <span class="n">rep_group</span><span class="p">,</span> <span class="p">(</span><span class="n">tag</span><span class="p">,</span> <span class="n">value</span><span class="p">)</span>
+        <span class="c1"># we are reaching the end of the message, so complete, no further tags to pass on</span>
+        <span class="n">rep_group</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">member</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">rep_group</span><span class="p">,</span> <span class="kc">None</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_unmap</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">msg</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Create a tag,value sequence from a FixMessage (dict-type interface).</span>
+<span class="sd">        This will leverage the spec to order the tags the same way they are defined in the spec.</span>
+<span class="sd">        If tags are present on the message that are not in the spec they are added in order at the end</span>
+<span class="sd">        of the message before the tail (tag 10).</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="k">def</span><span class="w"> </span><span class="nf">sort_values</span><span class="p">(</span><span class="n">msg</span><span class="p">,</span> <span class="n">spec</span><span class="p">):</span>
+<span class="w">            </span><span class="sd">&quot;&quot;&quot; Sort {tag:value} map into an iterable  &quot;&quot;&quot;</span>
+            <span class="n">tvals</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">msg</span><span class="o">.</span><span class="n">items</span><span class="p">())</span>
+            <span class="n">get_sorting_key</span> <span class="o">=</span> <span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">spec</span><span class="o">.</span><span class="n">sorting_key</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">x</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="nb">int</span><span class="p">(</span><span class="mf">1e9</span> <span class="o">+</span> <span class="n">x</span><span class="p">[</span><span class="mi">0</span><span class="p">]))</span>
+            <span class="n">tvals</span><span class="o">.</span><span class="n">sort</span><span class="p">(</span><span class="n">key</span><span class="o">=</span><span class="n">get_sorting_key</span><span class="p">)</span>
+            <span class="c1">#  using a deque for this already-sorted data structure yields a ~10% speed improvement on serialisation</span>
+            <span class="n">expanded</span> <span class="o">=</span> <span class="n">deque</span><span class="p">()</span>
+            <span class="k">for</span> <span class="n">tag</span><span class="p">,</span> <span class="n">val</span> <span class="ow">in</span> <span class="n">tvals</span><span class="p">:</span>
+                <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">val</span><span class="p">,</span> <span class="nb">list</span><span class="p">):</span>  <span class="c1"># Repeating groups are also lists, so we only need one type here</span>
+                    <span class="n">downspec</span> <span class="o">=</span> <span class="n">spec</span><span class="o">.</span><span class="n">groups</span><span class="p">[</span><span class="n">tag</span><span class="p">]</span>
+                    <span class="n">expanded</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">tag</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">val</span><span class="p">)))</span>
+                    <span class="k">for</span> <span class="n">member</span> <span class="ow">in</span> <span class="n">val</span><span class="p">:</span>
+                        <span class="n">expanded</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">sort_values</span><span class="p">(</span><span class="n">member</span><span class="p">,</span> <span class="n">downspec</span><span class="p">))</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">expanded</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">tag</span><span class="p">,</span> <span class="n">val</span><span class="p">))</span>
+            <span class="k">return</span> <span class="n">expanded</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">spec</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="c1">#  No spec, let&#39;s just get reasonable header order, and 10 at the end.</span>
+            <span class="n">tag_vals</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">msg</span><span class="o">.</span><span class="n">items</span><span class="p">())</span>
+            <span class="c1">#print(&quot;DEBUG: Full msg dictionary before sorting:&quot;, msg)</span>
+            <span class="c1">#print(tag_vals)</span>
+            <span class="c1">#tag_vals.sort(key=lambda x: HEADER_SORT_MAP.get(x[0], int(1e9 + x[0])))</span>
+            <span class="c1">#tag_vals.sort(key=lambda x: HEADER_SORT_MAP.get(x[0], int(1e9) + (int(x[0]) if isinstance(x[0], (int, str)) and str(x[0]).isdigit() else 0)))</span>
+            <span class="c1"># Add this before the sort line</span>
+            <span class="c1"># for x in tag_vals:</span>
+            <span class="c1">#     print(f&quot;Debug - Tag type: {type(x[0])}, Value: {x[0]}, Content: {x}&quot;)</span>
+            <span class="c1">#tag_vals = [x for x in tag_vals if isinstance(x[0], int)] #filter out non-int</span>
+
+            <span class="c1"># Then modify the sort function to catch and print the error</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">tag_vals</span><span class="o">.</span><span class="n">sort</span><span class="p">(</span><span class="n">key</span><span class="o">=</span><span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">HEADER_SORT_MAP</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">x</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="nb">int</span><span class="p">(</span><span class="mf">1e9</span> <span class="o">+</span> <span class="n">x</span><span class="p">[</span><span class="mi">0</span><span class="p">])))</span>
+            <span class="k">except</span> <span class="ne">TypeError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+                <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Error occurred with x[0]: </span><span class="si">{</span><span class="n">x</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="si">}</span><span class="s2">, type: </span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">x</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+                <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;tag_vals: </span><span class="si">{</span><span class="n">tag_vals</span><span class="si">}</span><span class="s2"> &quot;</span><span class="p">)</span> 
+                <span class="c1"># for i, (tag, val) in enumerate(tag_vals):</span>
+                <span class="c1">#     print(f&quot;Item {i}: tag={tag} (type={type(tag)}), val={val}&quot;)</span>
+                <span class="c1"># raise  # Re-raise the exception after debugging info</span>
+
+            
+            <span class="k">return</span> <span class="n">tag_vals</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">sort_values</span><span class="p">(</span><span class="n">msg</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">spec</span><span class="o">.</span><span class="n">msg_types</span><span class="p">[</span><span class="n">msg</span><span class="p">[</span><span class="mi">35</span><span class="p">]])</span>
+
+<div class="viewcode-block" id="Codec.serialise">
+<a class="viewcode-back" href="../../../api.html#pyfixmsg.codecs.stringfix.Codec.serialise">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">serialise</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">msg</span><span class="p">,</span> <span class="n">separator</span><span class="o">=</span><span class="n">SEPARATOR</span><span class="p">,</span> <span class="n">delimiter</span><span class="o">=</span><span class="n">DELIMITER</span><span class="p">,</span> <span class="n">encoding</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Serialise a message into a bytestring.</span>
+
+<span class="sd">        :param msg: the message to serialse</span>
+<span class="sd">        :type msg: ``dict``-like interface</span>
+<span class="sd">        :param delimiter: as in ``parse()``</span>
+<span class="sd">        :param separator: as in ``parse()``</span>
+<span class="sd">        :param encoding: encoding mode</span>
+<span class="sd">        :type encoding: ``str``</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">tag_vals</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_unmap</span><span class="p">(</span><span class="n">msg</span><span class="p">)</span>
+        <span class="n">output</span> <span class="o">=</span> <span class="n">deque</span><span class="p">()</span>
+        <span class="k">for</span> <span class="n">tag</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">tag_vals</span><span class="p">:</span>
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">tag</span><span class="p">,</span> <span class="nb">int</span><span class="p">):</span>
+                <span class="n">output</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">tag</span><span class="p">)</span><span class="o">.</span><span class="n">encode</span><span class="p">(</span><span class="s1">&#39;ascii&#39;</span><span class="p">))</span>
+            <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">tag</span><span class="p">,</span> <span class="nb">bytes</span><span class="p">):</span>
+                <span class="n">output</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">tag</span><span class="p">)</span>
+            <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">tag</span><span class="p">,</span> <span class="n">six</span><span class="o">.</span><span class="n">text_type</span><span class="p">):</span>
+                <span class="n">output</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">tag</span><span class="o">.</span><span class="n">encode</span><span class="p">(</span><span class="s1">&#39;ascii&#39;</span><span class="p">))</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">output</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">tag</span><span class="p">)</span><span class="o">.</span><span class="n">encode</span><span class="p">(</span><span class="s1">&#39;ascii&#39;</span><span class="p">))</span>
+            <span class="n">output</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">delimiter</span><span class="o">.</span><span class="n">encode</span><span class="p">(</span><span class="s1">&#39;ascii&#39;</span><span class="p">))</span>
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="nb">int</span><span class="p">):</span>
+                <span class="n">output</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">value</span><span class="p">)</span><span class="o">.</span><span class="n">encode</span><span class="p">(</span><span class="s1">&#39;UTF-8&#39;</span><span class="p">))</span>
+            <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="nb">bytes</span><span class="p">):</span>
+                <span class="n">output</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">value</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="n">six</span><span class="o">.</span><span class="n">text_type</span><span class="p">):</span>
+                    <span class="n">value</span> <span class="o">=</span> <span class="n">six</span><span class="o">.</span><span class="n">ensure_text</span><span class="p">(</span><span class="n">value</span><span class="p">)</span>
+                <span class="k">if</span> <span class="n">encoding</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                    <span class="n">output</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">value</span><span class="o">.</span><span class="n">encode</span><span class="p">(</span><span class="n">encoding</span><span class="p">))</span>
+                <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">encoding</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                    <span class="n">output</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">value</span><span class="o">.</span><span class="n">encode</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">encoding</span><span class="p">))</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">output</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">value</span><span class="o">.</span><span class="n">encode</span><span class="p">(</span><span class="s1">&#39;UTF-8&#39;</span><span class="p">))</span>
+            <span class="n">output</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">separator</span><span class="o">.</span><span class="n">encode</span><span class="p">(</span><span class="s1">&#39;ascii&#39;</span><span class="p">))</span>
+        <span class="k">return</span> <span class="sa">b</span><span class="s1">&#39;&#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">output</span><span class="p">)</span></div>
+</div>
+
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2025, wxcuop.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

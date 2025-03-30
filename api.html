@@ -1,0 +1,804 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="./">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>API Documentation &mdash; Pyfixmsg_plus  documentation</title>
+      <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=03e43079" />
+      <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=e59714d7" />
+      <link rel="stylesheet" type="text/css" href="_static/graphviz.css?v=4ae1632d" />
+      <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=03e43079" />
+
+  
+      <script src="_static/jquery.js?v=5d32c60e"></script>
+      <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="_static/documentation_options.js?v=5929fcd5"></script>
+      <script src="_static/doctools.js?v=9bcbadda"></script>
+      <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Examples" href="example.html" />
+    <link rel="prev" title="Pyfixmsg" href="index.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="index.html" class="icon icon-home">
+            Pyfixmsg_plus
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul class="current">
+<li class="toctree-l1 current"><a class="current reference internal" href="#">API Documentation</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#fixmessage">FixMessage</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#pyfixmsg.fixmessage.FixMessage"><code class="docutils literal notranslate"><span class="pre">FixMessage</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#pyfixmsg.fixmessage.FixMessage.FragmentType"><code class="docutils literal notranslate"><span class="pre">FixMessage.FragmentType</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#pyfixmsg.fixmessage.FixMessage.__init__"><code class="docutils literal notranslate"><span class="pre">FixMessage.__init__()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#pyfixmsg.fixmessage.FixMessage.apply"><code class="docutils literal notranslate"><span class="pre">FixMessage.apply()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#pyfixmsg.fixmessage.FixMessage.calculate_checksum"><code class="docutils literal notranslate"><span class="pre">FixMessage.calculate_checksum()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#pyfixmsg.fixmessage.FixMessage.checksum"><code class="docutils literal notranslate"><span class="pre">FixMessage.checksum()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#pyfixmsg.fixmessage.FixMessage.copy"><code class="docutils literal notranslate"><span class="pre">FixMessage.copy()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#pyfixmsg.fixmessage.FixMessage.fix"><code class="docutils literal notranslate"><span class="pre">FixMessage.fix</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#pyfixmsg.fixmessage.FixMessage.from_buffer"><code class="docutils literal notranslate"><span class="pre">FixMessage.from_buffer()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#pyfixmsg.fixmessage.FixMessage.from_wire"><code class="docutils literal notranslate"><span class="pre">FixMessage.from_wire()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#pyfixmsg.fixmessage.FixMessage.get_raw_message"><code class="docutils literal notranslate"><span class="pre">FixMessage.get_raw_message()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#pyfixmsg.fixmessage.FixMessage.load_fix"><code class="docutils literal notranslate"><span class="pre">FixMessage.load_fix()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#pyfixmsg.fixmessage.FixMessage.output_fix"><code class="docutils literal notranslate"><span class="pre">FixMessage.output_fix()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#pyfixmsg.fixmessage.FixMessage.set_len_and_chksum"><code class="docutils literal notranslate"><span class="pre">FixMessage.set_len_and_chksum()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#pyfixmsg.fixmessage.FixMessage.set_or_delete"><code class="docutils literal notranslate"><span class="pre">FixMessage.set_or_delete()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#pyfixmsg.fixmessage.FixMessage.tag_contains"><code class="docutils literal notranslate"><span class="pre">FixMessage.tag_contains()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#pyfixmsg.fixmessage.FixMessage.tag_exact"><code class="docutils literal notranslate"><span class="pre">FixMessage.tag_exact()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#pyfixmsg.fixmessage.FixMessage.tag_exact_dict"><code class="docutils literal notranslate"><span class="pre">FixMessage.tag_exact_dict()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#pyfixmsg.fixmessage.FixMessage.tag_ge"><code class="docutils literal notranslate"><span class="pre">FixMessage.tag_ge()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#pyfixmsg.fixmessage.FixMessage.tag_gt"><code class="docutils literal notranslate"><span class="pre">FixMessage.tag_gt()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#pyfixmsg.fixmessage.FixMessage.tag_icontains"><code class="docutils literal notranslate"><span class="pre">FixMessage.tag_icontains()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#pyfixmsg.fixmessage.FixMessage.tag_iexact"><code class="docutils literal notranslate"><span class="pre">FixMessage.tag_iexact()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#pyfixmsg.fixmessage.FixMessage.tag_in"><code class="docutils literal notranslate"><span class="pre">FixMessage.tag_in()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#pyfixmsg.fixmessage.FixMessage.tag_le"><code class="docutils literal notranslate"><span class="pre">FixMessage.tag_le()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#pyfixmsg.fixmessage.FixMessage.tag_lt"><code class="docutils literal notranslate"><span class="pre">FixMessage.tag_lt()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#pyfixmsg.fixmessage.FixMessage.tag_match_regex"><code class="docutils literal notranslate"><span class="pre">FixMessage.tag_match_regex()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#pyfixmsg.fixmessage.FixMessage.tags"><code class="docutils literal notranslate"><span class="pre">FixMessage.tags</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#pyfixmsg.fixmessage.FixMessage.to_wire"><code class="docutils literal notranslate"><span class="pre">FixMessage.to_wire()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#pyfixmsg.fixmessage.FixMessage.update_all"><code class="docutils literal notranslate"><span class="pre">FixMessage.update_all()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#pyfixmsg.fixmessage.FixFragment"><code class="docutils literal notranslate"><span class="pre">FixFragment</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#pyfixmsg.fixmessage.FixFragment.__init__"><code class="docutils literal notranslate"><span class="pre">FixFragment.__init__()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#pyfixmsg.fixmessage.FixFragment.all_tags"><code class="docutils literal notranslate"><span class="pre">FixFragment.all_tags()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#pyfixmsg.fixmessage.FixFragment.anywhere"><code class="docutils literal notranslate"><span class="pre">FixFragment.anywhere()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#pyfixmsg.fixmessage.FixFragment.find_all"><code class="docutils literal notranslate"><span class="pre">FixFragment.find_all()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#pyfixmsg.fixmessage.FixFragment.from_dict"><code class="docutils literal notranslate"><span class="pre">FixFragment.from_dict()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#pyfixmsg.fixmessage.FixFragment.length"><code class="docutils literal notranslate"><span class="pre">FixFragment.length()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#repeating-groups">Repeating groups</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#pyfixmsg.RepeatingGroup"><code class="docutils literal notranslate"><span class="pre">RepeatingGroup</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#pyfixmsg.RepeatingGroup.__init__"><code class="docutils literal notranslate"><span class="pre">RepeatingGroup.__init__()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#pyfixmsg.RepeatingGroup.all_tags"><code class="docutils literal notranslate"><span class="pre">RepeatingGroup.all_tags()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#pyfixmsg.RepeatingGroup.create_repeating_group"><code class="docutils literal notranslate"><span class="pre">RepeatingGroup.create_repeating_group()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#pyfixmsg.RepeatingGroup.entry_tag"><code class="docutils literal notranslate"><span class="pre">RepeatingGroup.entry_tag</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#pyfixmsg.RepeatingGroup.find_all"><code class="docutils literal notranslate"><span class="pre">RepeatingGroup.find_all()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#pyfixmsg.RepeatingGroup.length"><code class="docutils literal notranslate"><span class="pre">RepeatingGroup.length()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#pyfixmsg.RepeatingGroupFactory"><code class="docutils literal notranslate"><span class="pre">RepeatingGroupFactory</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#pyfixmsg.RepeatingGroupFactory.__init__"><code class="docutils literal notranslate"><span class="pre">RepeatingGroupFactory.__init__()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#pyfixmsg.RepeatingGroupFactory.get_r_group"><code class="docutils literal notranslate"><span class="pre">RepeatingGroupFactory.get_r_group()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#codec">Codec</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#pyfixmsg.codecs.stringfix.Codec"><code class="docutils literal notranslate"><span class="pre">Codec</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#pyfixmsg.codecs.stringfix.Codec.__init__"><code class="docutils literal notranslate"><span class="pre">Codec.__init__()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#pyfixmsg.codecs.stringfix.Codec.parse"><code class="docutils literal notranslate"><span class="pre">Codec.parse()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#pyfixmsg.codecs.stringfix.Codec.serialise"><code class="docutils literal notranslate"><span class="pre">Codec.serialise()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#fixtag">FixTag</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#pyfixmsg.reference.FixTag"><code class="docutils literal notranslate"><span class="pre">FixTag</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#pyfixmsg.reference.FixTag.__init__"><code class="docutils literal notranslate"><span class="pre">FixTag.__init__()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#pyfixmsg.reference.FixTag.add_enum_value"><code class="docutils literal notranslate"><span class="pre">FixTag.add_enum_value()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#pyfixmsg.reference.FixTag.del_enum_value"><code class="docutils literal notranslate"><span class="pre">FixTag.del_enum_value()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#pyfixmsg.reference.FixTag.enum_by_name"><code class="docutils literal notranslate"><span class="pre">FixTag.enum_by_name()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#pyfixmsg.reference.FixTag.enum_by_value"><code class="docutils literal notranslate"><span class="pre">FixTag.enum_by_value()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#fixspec">FixSpec</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#pyfixmsg.reference.FixSpec"><code class="docutils literal notranslate"><span class="pre">FixSpec</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#pyfixmsg.reference.FixSpec.__init__"><code class="docutils literal notranslate"><span class="pre">FixSpec.__init__()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="example.html">Examples</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="index.html">Pyfixmsg_plus</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">API Documentation</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="_sources/api.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="api-documentation">
+<span id="api"></span><h1>API Documentation<a class="headerlink" href="#api-documentation" title="Link to this heading"></a></h1>
+<section id="fixmessage">
+<h2>FixMessage<a class="headerlink" href="#fixmessage" title="Link to this heading"></a></h2>
+<dl class="py class">
+<dt class="sig sig-object py" id="pyfixmsg.fixmessage.FixMessage">
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">pyfixmsg.fixmessage.</span></span><span class="sig-name descname"><span class="pre">FixMessage</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/pyfixmsg/fixmessage.html#FixMessage"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pyfixmsg.fixmessage.FixMessage" title="Link to this definition"></a></dt>
+<dd><p>Bases: <a class="reference internal" href="#pyfixmsg.fixmessage.FixFragment" title="pyfixmsg.fixmessage.FixFragment"><code class="xref py py-class docutils literal notranslate"><span class="pre">FixFragment</span></code></a></p>
+<p>Simple dictionary-like object, for use with FIX raw messages. Note that the tags are converted (when possible)
+to integers, and that the values are kept as strings. The default separator is <code class="docutils literal notranslate"><span class="pre">;</span></code>, but can be specified.
+Check the definition of <code class="xref py py-meth docutils literal notranslate"><span class="pre">load_fix()</span></code> for details.</p>
+<dl>
+<dt>Example:</dt><dd><div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">fix</span> <span class="o">=</span> <span class="n">FixMessage</span><span class="p">()</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">fix</span><span class="o">.</span><span class="n">load_fix</span><span class="p">(</span><span class="n">line</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="c1">#print(fix)</span>
+<span class="go">{6: &#39;0&#39;, 8: &#39;FIX.4.2&#39;,</span>
+<span class="go">10: &#39;100&#39;, 10481: &#39;A&#39;, 14: &#39;0&#39;,</span>
+<span class="go">15: &#39;EUR&#39;, 10641: &#39;blabla&#39;,</span>
+<span class="go">18: &#39;1&#39;, 21: &#39;2&#39;, 22: &#39;5&#39;,</span>
+<span class="go">151: &#39;1&#39;,</span>
+<span class="go">11951: &#39;HOOF7M0f4BGJ0rkaNTkkeAA&#39;,</span>
+<span class="go">....</span>
+</pre></div>
+</div>
+</dd>
+</dl>
+<p>FixMessage also have a <code class="docutils literal notranslate"><span class="pre">time</span></code> attribute, a <code class="docutils literal notranslate"><span class="pre">direction</span></code> attribute (inbound : 0, outbound : 1)
+and a <code class="docutils literal notranslate"><span class="pre">recipient</span></code> which is rather where it’s been received from or sent to.
+FixMessages sort by default on time, and will be considered equal if the dictionary values are the same AND the
+time is the same.</p>
+<p>This FixMessage is eager : it will parse the whole fix and store it locally. It is significantly faster in most
+usage patterns that we observed.</p>
+<p>useful shortcut methods :</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">fix</span><span class="o">.</span><span class="n">tag_exact</span><span class="p">(</span><span class="n">tag</span><span class="p">,</span> <span class="n">value</span><span class="p">)</span>
+<span class="n">fix</span><span class="o">.</span><span class="n">tag_iexact</span><span class="p">(</span><span class="n">tag</span><span class="p">,</span> <span class="n">value</span><span class="p">)</span>
+<span class="n">fix</span><span class="o">.</span><span class="n">tag_contains</span><span class="p">(</span><span class="n">tag</span><span class="p">,</span> <span class="n">value</span><span class="p">)</span>
+<span class="n">fix</span><span class="o">.</span><span class="n">tag_icontains</span><span class="p">(</span><span class="n">tag</span><span class="p">,</span> <span class="n">value</span><span class="p">)</span>
+<span class="n">fix</span><span class="o">.</span><span class="n">tag_match_regex</span><span class="p">(</span><span class="n">tag</span><span class="p">,</span> <span class="n">value</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>Note : the tag_* methods don’t support repeating groups</p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="pyfixmsg.fixmessage.FixMessage.FragmentType">
+<span class="sig-name descname"><span class="pre">FragmentType</span></span><a class="headerlink" href="#pyfixmsg.fixmessage.FixMessage.FragmentType" title="Link to this definition"></a></dt>
+<dd><p>alias of <a class="reference internal" href="#pyfixmsg.fixmessage.FixFragment" title="pyfixmsg.fixmessage.FixFragment"><code class="xref py py-class docutils literal notranslate"><span class="pre">FixFragment</span></code></a></p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="pyfixmsg.fixmessage.FixMessage.__init__">
+<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/pyfixmsg/fixmessage.html#FixMessage.__init__"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pyfixmsg.fixmessage.FixMessage.__init__" title="Link to this definition"></a></dt>
+<dd><p>The constructor uses the <code class="docutils literal notranslate"><span class="pre">dict()</span></code> signature unmodified.
+You can set the following manually or through a factory function:</p>
+<blockquote>
+<div><ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">self.process</span></code> an opaque value (to store the process that received or processed the message,
+defaults to empty string).</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">self.separator</span></code> the default separator to use when parsing messages. Defaults to <code class="docutils literal notranslate"><span class="pre">';'</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">self.time</span></code> the time the message has been created or received. Defaults to <code class="docutils literal notranslate"><span class="pre">datetime.now(timezone.utc)</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">self.recipient</span></code> opaque value (to store for whom the message was intended)</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">self.direction</span></code> Whether the message was received (<code class="docutils literal notranslate"><span class="pre">0</span></code>), sent (<code class="docutils literal notranslate"><span class="pre">1</span></code>) or unknown (<code class="docutils literal notranslate"><span class="pre">None</span></code>)</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">self.typed_values</span></code> Whether the values in the message are typed. Defaults to <code class="docutils literal notranslate"><span class="pre">False</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">self.raw_message</span></code> If constructed by class method <code class="docutils literal notranslate"><span class="pre">from_buffer</span></code>, keep the original format</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">self.codec</span></code> Default <code class="xref py py-class docutils literal notranslate"><span class="pre">Codec</span></code> to use to parse message. Defaults
+to a naive codec that doesn’t support repeating groups</p></li>
+</ul>
+</div></blockquote>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="pyfixmsg.fixmessage.FixMessage.apply">
+<span class="sig-name descname"><span class="pre">apply</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">update</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/pyfixmsg/fixmessage.html#FixMessage.apply"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pyfixmsg.fixmessage.FixMessage.apply" title="Link to this definition"></a></dt>
+<dd><p>equivalent to <code class="xref py py-meth docutils literal notranslate"><span class="pre">update()</span></code> but if any value in the update dictionary
+is None and the tag is present in the current message, that tag is removed.
+Note: naive about repeating groups</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>update</strong> (<code class="docutils literal notranslate"><span class="pre">dict</span></code>) – map of values to update the state with.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="pyfixmsg.fixmessage.FixMessage.calculate_checksum">
+<span class="sig-name descname"><span class="pre">calculate_checksum</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/pyfixmsg/fixmessage.html#FixMessage.calculate_checksum"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pyfixmsg.fixmessage.FixMessage.calculate_checksum" title="Link to this definition"></a></dt>
+<dd><p>calculates the standard fix checksum</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="pyfixmsg.fixmessage.FixMessage.checksum">
+<span class="sig-name descname"><span class="pre">checksum</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">value</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/pyfixmsg/fixmessage.html#FixMessage.checksum"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pyfixmsg.fixmessage.FixMessage.checksum" title="Link to this definition"></a></dt>
+<dd><p>FIX checksum</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="pyfixmsg.fixmessage.FixMessage.copy">
+<span class="sig-name descname"><span class="pre">copy</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/pyfixmsg/fixmessage.html#FixMessage.copy"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pyfixmsg.fixmessage.FixMessage.copy" title="Link to this definition"></a></dt>
+<dd><p>Copy interface without using the copy module</p>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="pyfixmsg.fixmessage.FixMessage.fix">
+<em class="property"><span class="k"><span class="pre">property</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">fix</span></span><a class="headerlink" href="#pyfixmsg.fixmessage.FixMessage.fix" title="Link to this definition"></a></dt>
+<dd><p>Legacy compatibility, will be removed shortly</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="pyfixmsg.fixmessage.FixMessage.from_buffer">
+<em class="property"><span class="k"><span class="pre">classmethod</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">from_buffer</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">msg_buffer</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fix_codec</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/pyfixmsg/fixmessage.html#FixMessage.from_buffer"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pyfixmsg.fixmessage.FixMessage.from_buffer" title="Link to this definition"></a></dt>
+<dd><p>Create a FixMessage from a buffer and a codec</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>msg_buffer</strong> (<code class="docutils literal notranslate"><span class="pre">str</span></code>) – a buffer as a string</p></li>
+<li><p><strong>fix_codec</strong> (<code class="docutils literal notranslate"><span class="pre">Codec</span></code>) – an object with static encode() and decode() calls</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>a FixMessage object</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><code class="docutils literal notranslate"><span class="pre">FixMessage</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="pyfixmsg.fixmessage.FixMessage.from_wire">
+<span class="sig-name descname"><span class="pre">from_wire</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">msg</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">codec</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/pyfixmsg/fixmessage.html#FixMessage.from_wire"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pyfixmsg.fixmessage.FixMessage.from_wire" title="Link to this definition"></a></dt>
+<dd><p>Extract from a wire representation according to a codec</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="pyfixmsg.fixmessage.FixMessage.get_raw_message">
+<span class="sig-name descname"><span class="pre">get_raw_message</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/pyfixmsg/fixmessage.html#FixMessage.get_raw_message"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pyfixmsg.fixmessage.FixMessage.get_raw_message" title="Link to this definition"></a></dt>
+<dd><p>Return the original string from which the fix message was constructed</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="pyfixmsg.fixmessage.FixMessage.load_fix">
+<span class="sig-name descname"><span class="pre">load_fix</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">string</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">process</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">separator</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">';'</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/pyfixmsg/fixmessage.html#FixMessage.load_fix"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pyfixmsg.fixmessage.FixMessage.load_fix" title="Link to this definition"></a></dt>
+<dd><p>Parses a FIX message from a string using default codecs and separators.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>string</strong> (<code class="docutils literal notranslate"><span class="pre">bytes</span></code>) – the string containing the FIX message to be parsed</p></li>
+<li><p><strong>process</strong> (<code class="docutils literal notranslate"><span class="pre">unicode</span></code>) – Optional originator of the FIX message</p></li>
+<li><p><strong>separator</strong> (<code class="docutils literal notranslate"><span class="pre">unicode</span></code>) – Character delimiting “tag=val” pairs.
+Optional. By default this is a ‘;’ character.
+Specify <code class="docutils literal notranslate"><span class="pre">pyfixmsg.SEPARATOR</span></code> when parsing standard FIX.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>A parsed fix message</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><code class="docutils literal notranslate"><span class="pre">FixMessage</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="pyfixmsg.fixmessage.FixMessage.output_fix">
+<span class="sig-name descname"><span class="pre">output_fix</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">separator</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">';'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">calc_checksum</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">remove_length</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/pyfixmsg/fixmessage.html#FixMessage.output_fix"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pyfixmsg.fixmessage.FixMessage.output_fix" title="Link to this definition"></a></dt>
+<dd><p>ouputs itself as a vanilla FIX message. This forces the output to String fix
+but tries to reuse the spec from the current codec</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="pyfixmsg.fixmessage.FixMessage.set_len_and_chksum">
+<span class="sig-name descname"><span class="pre">set_len_and_chksum</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/pyfixmsg/fixmessage.html#FixMessage.set_len_and_chksum"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pyfixmsg.fixmessage.FixMessage.set_len_and_chksum" title="Link to this definition"></a></dt>
+<dd><p>Assign length and checksum based on current contents</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="pyfixmsg.fixmessage.FixMessage.set_or_delete">
+<span class="sig-name descname"><span class="pre">set_or_delete</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">tag</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">value</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/pyfixmsg/fixmessage.html#FixMessage.set_or_delete"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pyfixmsg.fixmessage.FixMessage.set_or_delete" title="Link to this definition"></a></dt>
+<dd><p>Sets the tag if value is neither None or the empty string. Deletes the tag otherwise.
+Only works on top-level tags (not inside repeating groups)</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="pyfixmsg.fixmessage.FixMessage.tag_contains">
+<span class="sig-name descname"><span class="pre">tag_contains</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">tag</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">value</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">case_insensitive</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/pyfixmsg/fixmessage.html#FixMessage.tag_contains"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pyfixmsg.fixmessage.FixMessage.tag_contains" title="Link to this definition"></a></dt>
+<dd><p>Returns True if self[tag] contains value. Returns False otherwise, or if the tag doesnt exist
+This is a string string comparison</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="pyfixmsg.fixmessage.FixMessage.tag_exact">
+<span class="sig-name descname"><span class="pre">tag_exact</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">tag</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">value</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">case_insensitive</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/pyfixmsg/fixmessage.html#FixMessage.tag_exact"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pyfixmsg.fixmessage.FixMessage.tag_exact" title="Link to this definition"></a></dt>
+<dd><p>Returns True if self[tag] has the exact value. Returns False if the tag doesnt exist or is not exact</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="pyfixmsg.fixmessage.FixMessage.tag_exact_dict">
+<span class="sig-name descname"><span class="pre">tag_exact_dict</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">dictionary</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/pyfixmsg/fixmessage.html#FixMessage.tag_exact_dict"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pyfixmsg.fixmessage.FixMessage.tag_exact_dict" title="Link to this definition"></a></dt>
+<dd><p>check that all the keys and values of the passed dict are present and identical in the fixmsg</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="pyfixmsg.fixmessage.FixMessage.tag_ge">
+<span class="sig-name descname"><span class="pre">tag_ge</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">tag</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">value</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/pyfixmsg/fixmessage.html#FixMessage.tag_ge"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pyfixmsg.fixmessage.FixMessage.tag_ge" title="Link to this definition"></a></dt>
+<dd><p>Test tag is greater or equal to value. Uses decimal comparison if possible. Returns False if tag absent</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="pyfixmsg.fixmessage.FixMessage.tag_gt">
+<span class="sig-name descname"><span class="pre">tag_gt</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">tag</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">value</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/pyfixmsg/fixmessage.html#FixMessage.tag_gt"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pyfixmsg.fixmessage.FixMessage.tag_gt" title="Link to this definition"></a></dt>
+<dd><p>Test tag is greater than value. Uses decimal comparison if possible. Returns False if tag absent</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="pyfixmsg.fixmessage.FixMessage.tag_icontains">
+<span class="sig-name descname"><span class="pre">tag_icontains</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">tag</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">value</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/pyfixmsg/fixmessage.html#FixMessage.tag_icontains"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pyfixmsg.fixmessage.FixMessage.tag_icontains" title="Link to this definition"></a></dt>
+<dd><p>case-insensitive version of tag_contains</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="pyfixmsg.fixmessage.FixMessage.tag_iexact">
+<span class="sig-name descname"><span class="pre">tag_iexact</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">tag</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">value</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/pyfixmsg/fixmessage.html#FixMessage.tag_iexact"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pyfixmsg.fixmessage.FixMessage.tag_iexact" title="Link to this definition"></a></dt>
+<dd><p>Returns True if self[tag] has the exact value (case insensitive).
+Returns False if the tag doesnt exist or is not exact</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="pyfixmsg.fixmessage.FixMessage.tag_in">
+<span class="sig-name descname"><span class="pre">tag_in</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">tag</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">values</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/pyfixmsg/fixmessage.html#FixMessage.tag_in"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pyfixmsg.fixmessage.FixMessage.tag_in" title="Link to this definition"></a></dt>
+<dd><p>returns True if self[tag] is in values, false otherwise or if the tag doesnt exist</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="pyfixmsg.fixmessage.FixMessage.tag_le">
+<span class="sig-name descname"><span class="pre">tag_le</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">tag</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">value</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/pyfixmsg/fixmessage.html#FixMessage.tag_le"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pyfixmsg.fixmessage.FixMessage.tag_le" title="Link to this definition"></a></dt>
+<dd><p>Test tag is smaller or equal value. Uses decimal comparison if possible. Returns False if tag absent</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="pyfixmsg.fixmessage.FixMessage.tag_lt">
+<span class="sig-name descname"><span class="pre">tag_lt</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">tag</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">value</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/pyfixmsg/fixmessage.html#FixMessage.tag_lt"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pyfixmsg.fixmessage.FixMessage.tag_lt" title="Link to this definition"></a></dt>
+<dd><p>Test tag is smaller than value. Uses decimal comparison if possible. Returns False if tag absent</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="pyfixmsg.fixmessage.FixMessage.tag_match_regex">
+<span class="sig-name descname"><span class="pre">tag_match_regex</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">tag</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">regex</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/pyfixmsg/fixmessage.html#FixMessage.tag_match_regex"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pyfixmsg.fixmessage.FixMessage.tag_match_regex" title="Link to this definition"></a></dt>
+<dd><p>returns True of self[tag] matches regex, false otherwise or if the tag doesnt exist</p>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="pyfixmsg.fixmessage.FixMessage.tags">
+<em class="property"><span class="k"><span class="pre">property</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">tags</span></span><a class="headerlink" href="#pyfixmsg.fixmessage.FixMessage.tags" title="Link to this definition"></a></dt>
+<dd><p>Note: this property is there to replace a self reference that existed before.</p>
+<p>Deprecated.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="pyfixmsg.fixmessage.FixMessage.to_wire">
+<span class="sig-name descname"><span class="pre">to_wire</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">codec</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/pyfixmsg/fixmessage.html#FixMessage.to_wire"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pyfixmsg.fixmessage.FixMessage.to_wire" title="Link to this definition"></a></dt>
+<dd><p>Return wire representation according to a codec</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="pyfixmsg.fixmessage.FixMessage.update_all">
+<span class="sig-name descname"><span class="pre">update_all</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">tag</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">value</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/pyfixmsg/fixmessage.html#FixMessage.update_all"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pyfixmsg.fixmessage.FixMessage.update_all" title="Link to this definition"></a></dt>
+<dd><p>this will force a tag (that already exists!) to a value at all appearances</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="pyfixmsg.fixmessage.FixFragment">
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">pyfixmsg.fixmessage.</span></span><span class="sig-name descname"><span class="pre">FixFragment</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/pyfixmsg/fixmessage.html#FixFragment"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pyfixmsg.fixmessage.FixFragment" title="Link to this definition"></a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">dict</span></code></p>
+<p>Type designed to hold a collection of fix tags and values.
+This type is used directly for the contents of repeating groups.
+Whole fix messages are parsed from their wire representation to
+instances of the <code class="xref py py-class docutils literal notranslate"><span class="pre">FixMessage</span></code> type which inherits from this type.</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="pyfixmsg.fixmessage.FixFragment.__init__">
+<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/pyfixmsg/fixmessage.html#FixFragment.__init__"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pyfixmsg.fixmessage.FixFragment.__init__" title="Link to this definition"></a></dt>
+<dd><p>FixFragment constructor.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="pyfixmsg.fixmessage.FixFragment.all_tags">
+<span class="sig-name descname"><span class="pre">all_tags</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/pyfixmsg/fixmessage.html#FixFragment.all_tags"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pyfixmsg.fixmessage.FixFragment.all_tags" title="Link to this definition"></a></dt>
+<dd><p>Returns a list of all the tag keys in this message,
+including flattened tags that are only present in repeating groups.
+The same tag will not appear twice in the list.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>A list of tag keys (usually strings or ints)</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><code class="docutils literal notranslate"><span class="pre">list</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="pyfixmsg.fixmessage.FixFragment.anywhere">
+<span class="sig-name descname"><span class="pre">anywhere</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">tag</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/pyfixmsg/fixmessage.html#FixFragment.anywhere"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pyfixmsg.fixmessage.FixFragment.anywhere" title="Link to this definition"></a></dt>
+<dd><p>returns true if the tag is in the message or anywhere inside any contained repeating group</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="pyfixmsg.fixmessage.FixFragment.find_all">
+<span class="sig-name descname"><span class="pre">find_all</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">tag</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/pyfixmsg/fixmessage.html#FixFragment.find_all"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pyfixmsg.fixmessage.FixFragment.find_all" title="Link to this definition"></a></dt>
+<dd><p>Generator.
+Find all instances of the tag in the message or inside repeating groups and returns the path to
+them one at a time.</p>
+<dl>
+<dt>Example, navigate all paths for a given tag:</dt><dd><div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="k">for</span> <span class="n">path</span> <span class="ow">in</span> <span class="n">msg</span><span class="o">.</span><span class="n">find_all</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">tag</span><span class="p">):</span>
+<span class="gp">... </span>  <span class="c1"># path here is a list of ints or str keys</span>
+<span class="gp">... </span>  <span class="n">path_msg</span> <span class="o">=</span> <span class="n">msg</span>
+<span class="gp">... </span>  <span class="k">for</span> <span class="n">key</span> <span class="ow">in</span> <span class="n">path</span><span class="p">:</span>
+<span class="gp">... </span>    <span class="n">path_msg</span> <span class="o">=</span> <span class="n">path_msg</span><span class="p">[</span><span class="n">key</span><span class="p">]</span>
+<span class="gp">... </span>    <span class="c1"># [...] do something at each level in the path</span>
+<span class="gp">... </span>  <span class="n">path_msg</span><span class="p">[</span><span class="n">tag</span><span class="p">]</span> <span class="o">=</span> <span class="c1"># [...] do something with the last level of the path</span>
+</pre></div>
+</div>
+</dd>
+</dl>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>a generator of paths where each path is a list of string or integer indices into the message</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>Generator of <code class="docutils literal notranslate"><span class="pre">list</span></code> of <code class="docutils literal notranslate"><span class="pre">int</span></code> or <code class="docutils literal notranslate"><span class="pre">str</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="pyfixmsg.fixmessage.FixFragment.from_dict">
+<em class="property"><span class="k"><span class="pre">classmethod</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">from_dict</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">tags_dict</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/pyfixmsg/fixmessage.html#FixFragment.from_dict"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pyfixmsg.fixmessage.FixFragment.from_dict" title="Link to this definition"></a></dt>
+<dd><p>Create a FixMessage from a dictionary.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>tags_dict</strong> (<code class="docutils literal notranslate"><span class="pre">dict</span></code> of <code class="docutils literal notranslate"><span class="pre">int</span></code> to <code class="docutils literal notranslate"><span class="pre">str</span></code>
+or <code class="docutils literal notranslate"><span class="pre">int</span></code> or <code class="docutils literal notranslate"><span class="pre">float</span></code> or <code class="docutils literal notranslate"><span class="pre">long</span></code>) – dictionary of FIX tags to values</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>a FixMessage object</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><code class="docutils literal notranslate"><span class="pre">FixMessage</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="pyfixmsg.fixmessage.FixFragment.length">
+<span class="sig-name descname"><span class="pre">length</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/pyfixmsg/fixmessage.html#FixFragment.length"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pyfixmsg.fixmessage.FixFragment.length" title="Link to this definition"></a></dt>
+<dd><p>Length of the body of the message in bytes</p>
+</dd></dl>
+
+</dd></dl>
+
+</section>
+<section id="repeating-groups">
+<h2>Repeating groups<a class="headerlink" href="#repeating-groups" title="Link to this heading"></a></h2>
+<dl class="py class">
+<dt class="sig sig-object py" id="pyfixmsg.RepeatingGroup">
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">pyfixmsg.</span></span><span class="sig-name descname"><span class="pre">RepeatingGroup</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/pyfixmsg.html#RepeatingGroup"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pyfixmsg.RepeatingGroup" title="Link to this definition"></a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">list</span></code></p>
+<p>Implementation of repeating groups for pyfixmsg.FixMessage.
+The repeating group will look like {opening_tag:[FixMessage,FixMessage]} in the fix message
+a repeating group behaves like a list. You can add two repeating groups, or append a FixMessage to one.</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="pyfixmsg.RepeatingGroup.__init__">
+<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/pyfixmsg.html#RepeatingGroup.__init__"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pyfixmsg.RepeatingGroup.__init__" title="Link to this definition"></a></dt>
+<dd><p>Maintains <code class="docutils literal notranslate"><span class="pre">list</span></code>’s signature unchanged.</p>
+<p>Sets
+* self.number_tag (the tag that contains the number of elements in the group)
+* self.first_tag (the first repeated tag)
+* self.standard (reserved)</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="pyfixmsg.RepeatingGroup.all_tags">
+<span class="sig-name descname"><span class="pre">all_tags</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/pyfixmsg.html#RepeatingGroup.all_tags"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pyfixmsg.RepeatingGroup.all_tags" title="Link to this definition"></a></dt>
+<dd><p>Returns a list of all the tag keys in any member of this repeating group,
+The same tag will not appear twice in the generated sequence.
+The count tag for the repeating group is <em>not</em> included, it is considered as part of the
+parent message.
+Order is not guaranteed.
+&#64;return: A list of tag keys (usually strings or ints)
+&#64;rtype: C{list}</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="pyfixmsg.RepeatingGroup.create_repeating_group">
+<em class="property"><span class="k"><span class="pre">classmethod</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">create_repeating_group</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">tag</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">standard</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">first_tag</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/pyfixmsg.html#RepeatingGroup.create_repeating_group"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pyfixmsg.RepeatingGroup.create_repeating_group" title="Link to this definition"></a></dt>
+<dd><p>creates a group with member. Can’t use __init__ as it would mean overriding the list __init__ which sounds
+dangerous</p>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="pyfixmsg.RepeatingGroup.entry_tag">
+<em class="property"><span class="k"><span class="pre">property</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">entry_tag</span></span><a class="headerlink" href="#pyfixmsg.RepeatingGroup.entry_tag" title="Link to this definition"></a></dt>
+<dd><p>returns the entry tag for the group and its value as a tuple</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="pyfixmsg.RepeatingGroup.find_all">
+<span class="sig-name descname"><span class="pre">find_all</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">tag</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/pyfixmsg.html#RepeatingGroup.find_all"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pyfixmsg.RepeatingGroup.find_all" title="Link to this definition"></a></dt>
+<dd><p>Generator.
+Find all instances of the tag in the message or inside repeating groups and returns the path to
+them one at a time.</p>
+<dl>
+<dt>Example, navigate all paths for a given tag:</dt><dd><div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="k">for</span> <span class="n">path</span> <span class="ow">in</span> <span class="n">msg</span><span class="o">.</span><span class="n">find_all</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">tag</span><span class="p">):</span>
+<span class="gp">... </span>  <span class="c1"># path here is a list of ints or str keys</span>
+<span class="gp">... </span>  <span class="n">path_msg</span> <span class="o">=</span> <span class="n">msg</span>
+<span class="gp">... </span>  <span class="k">for</span> <span class="n">key</span> <span class="ow">in</span> <span class="n">path</span><span class="p">:</span>
+<span class="gp">... </span>    <span class="n">path_msg</span> <span class="o">=</span> <span class="n">path_msg</span><span class="p">[</span><span class="n">key</span><span class="p">]</span>
+<span class="gp">... </span>    <span class="c1"># [...] do something at each level in the path</span>
+<span class="gp">... </span>  <span class="n">path_msg</span><span class="p">[</span><span class="n">tag</span><span class="p">]</span> <span class="o">=</span> <span class="c1"># [...] do something with the last level of the path</span>
+</pre></div>
+</div>
+</dd>
+</dl>
+<p>&#64;return: a generator of paths where each path is a list of string or integer indices into the message
+&#64;rtype: Generator of C{list} of C{int} or C{str}</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="pyfixmsg.RepeatingGroup.length">
+<span class="sig-name descname"><span class="pre">length</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/pyfixmsg.html#RepeatingGroup.length"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pyfixmsg.RepeatingGroup.length" title="Link to this definition"></a></dt>
+<dd><p>Length of the body of the message in bytes</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="pyfixmsg.RepeatingGroupFactory">
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">pyfixmsg.</span></span><span class="sig-name descname"><span class="pre">RepeatingGroupFactory</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">tag</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">standard</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">first_tag</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/pyfixmsg.html#RepeatingGroupFactory"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pyfixmsg.RepeatingGroupFactory" title="Link to this definition"></a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>An easy way to create a repeating group for a given tag, without having to define all the tags yourself, takes
+the standard ones</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="pyfixmsg.RepeatingGroupFactory.__init__">
+<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">tag</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">standard</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">first_tag</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/pyfixmsg.html#RepeatingGroupFactory.__init__"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pyfixmsg.RepeatingGroupFactory.__init__" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="pyfixmsg.RepeatingGroupFactory.get_r_group">
+<span class="sig-name descname"><span class="pre">get_r_group</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">fix_messages</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/pyfixmsg.html#RepeatingGroupFactory.get_r_group"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pyfixmsg.RepeatingGroupFactory.get_r_group" title="Link to this definition"></a></dt>
+<dd><p>factory method. I’m not familiar with the factory design pattern, it shows ;-)</p>
+</dd></dl>
+
+</dd></dl>
+
+</section>
+<section id="codec">
+<h2>Codec<a class="headerlink" href="#codec" title="Link to this heading"></a></h2>
+<dl class="py class">
+<dt class="sig sig-object py" id="pyfixmsg.codecs.stringfix.Codec">
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">pyfixmsg.codecs.stringfix.</span></span><span class="sig-name descname"><span class="pre">Codec</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">spec=None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">no_groups=False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fragment_class=&lt;class</span> <span class="pre">'dict'&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">decode_as=None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">decode_all_as_347=False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/pyfixmsg/codecs/stringfix.html#Codec"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pyfixmsg.codecs.stringfix.Codec" title="Link to this definition"></a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>FIX codec. Initialise with a <a class="reference internal" href="#pyfixmsg.reference.FixSpec" title="pyfixmsg.reference.FixSpec"><code class="xref py py-class docutils literal notranslate"><span class="pre">FixSpec</span></code></a> to support
+repeating groups.</p>
+<p>This class is used to transform the serialised FIX message into an instance of <code class="docutils literal notranslate"><span class="pre">fragment_class</span></code>, default <code class="docutils literal notranslate"><span class="pre">dict</span></code>
+Tags are assumed to be all of type <code class="docutils literal notranslate"><span class="pre">int</span></code>, repeating groups are lists of <code class="docutils literal notranslate"><span class="pre">fragment_class</span></code></p>
+<p>Values can either bytes or unicode or a mix thereof, depending on the constructor arguments.</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="pyfixmsg.codecs.stringfix.Codec.__init__">
+<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">spec=None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">no_groups=False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fragment_class=&lt;class</span> <span class="pre">'dict'&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">decode_as=None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">decode_all_as_347=False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/pyfixmsg/codecs/stringfix.html#Codec.__init__"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pyfixmsg.codecs.stringfix.Codec.__init__" title="Link to this definition"></a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>spec</strong> – the <a class="reference internal" href="#pyfixmsg.reference.FixSpec" title="pyfixmsg.reference.FixSpec"><code class="xref py py-class docutils literal notranslate"><span class="pre">FixSpec</span></code></a> instance to use to parse messages.
+If spec is not defined repeating groups will not be parsed correctly, and the logic to handle encoded
+tags will not be functional.</p></li>
+<li><p><strong>no_groups</strong> – set to <code class="docutils literal notranslate"><span class="pre">True</span></code> to ignore repeating groups</p></li>
+<li><p><strong>fragment_class</strong> – Which dict-like object to return when parsing messages. Also sets the type of
+members of repeating groups</p></li>
+<li><p><strong>decode_as</strong> – what encoding to decode all tags. Defaults to None, which returns the raw byte strings.
+setting to a non-None value makes both non-numerical tags and values to be unicode,
+using this value for decode.</p></li>
+<li><p><strong>decode_all_as_347</strong> – whether to trust tag 347 to decode all other tags or only the Encoded* ones.
+If set to False, use 347 normally for Encoded* tags, respect <code class="docutils literal notranslate"><span class="pre">decode_as</span></code> for all other tags. If 347 is
+not present on the message, the values are left encoded.</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="pyfixmsg.codecs.stringfix.Codec.parse">
+<span class="sig-name descname"><span class="pre">parse</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">buff</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">delimiter</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'='</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">separator</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'\x01'</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/pyfixmsg/codecs/stringfix.html#Codec.parse"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pyfixmsg.codecs.stringfix.Codec.parse" title="Link to this definition"></a></dt>
+<dd><p>Parse a FIX message. The FIX message is expected to be a bytestring and the output
+is a dictionary-like object which type is determined by the <code class="docutils literal notranslate"><span class="pre">fragment_class</span></code> constructor argument
+and which keys are <code class="docutils literal notranslate"><span class="pre">int</span></code> and values <code class="docutils literal notranslate"><span class="pre">unicode</span></code>. Note that if there is a non-int tag in the message,
+this will be stored as a key in the original format (i.e. bytestring)</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>buff</strong> (<code class="docutils literal notranslate"><span class="pre">bytestr</span></code> or <code class="docutils literal notranslate"><span class="pre">unicode</span></code>) – Buffer to parse</p></li>
+<li><p><strong>delimiter</strong> (<code class="docutils literal notranslate"><span class="pre">unicode</span></code>) – A character that separate key and values inside the FIX message. Generally ‘=’. Note the type:
+because of the way the buffer is tokenised, this needs to be unicode (or <code class="docutils literal notranslate"><span class="pre">str</span></code> in python 2.7*).</p></li>
+<li><p><strong>separator</strong> (<code class="docutils literal notranslate"><span class="pre">unicode</span></code>) – A character that separate key+value pairs inside the FIX message. Generally ‘’. See type
+observations above.</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="pyfixmsg.codecs.stringfix.Codec.serialise">
+<span class="sig-name descname"><span class="pre">serialise</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">msg</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">separator</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'\x01'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">delimiter</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'='</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">encoding</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/pyfixmsg/codecs/stringfix.html#Codec.serialise"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pyfixmsg.codecs.stringfix.Codec.serialise" title="Link to this definition"></a></dt>
+<dd><p>Serialise a message into a bytestring.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>msg</strong> (<code class="docutils literal notranslate"><span class="pre">dict</span></code>-like interface) – the message to serialse</p></li>
+<li><p><strong>delimiter</strong> – as in <code class="docutils literal notranslate"><span class="pre">parse()</span></code></p></li>
+<li><p><strong>separator</strong> – as in <code class="docutils literal notranslate"><span class="pre">parse()</span></code></p></li>
+<li><p><strong>encoding</strong> (<code class="docutils literal notranslate"><span class="pre">str</span></code>) – encoding mode</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+</section>
+<section id="fixtag">
+<h2>FixTag<a class="headerlink" href="#fixtag" title="Link to this heading"></a></h2>
+<dl class="py class">
+<dt class="sig sig-object py" id="pyfixmsg.reference.FixTag">
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">pyfixmsg.reference.</span></span><span class="sig-name descname"><span class="pre">FixTag</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">name</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tag</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tagtype</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">values</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">()</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/pyfixmsg/reference.html#FixTag"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pyfixmsg.reference.FixTag" title="Link to this definition"></a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>Fix tag representation. A fix tag has name, tag (number), type and valid values (enum)</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="pyfixmsg.reference.FixTag.__init__">
+<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">name</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tag</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tagtype</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">values</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">()</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/pyfixmsg/reference.html#FixTag.__init__"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pyfixmsg.reference.FixTag.__init__" title="Link to this definition"></a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>name</strong> (<code class="docutils literal notranslate"><span class="pre">str</span></code>) – Tag name</p></li>
+<li><p><strong>tag</strong> (<code class="docutils literal notranslate"><span class="pre">int</span></code>) – Tag number</p></li>
+<li><p><strong>tagtype</strong> (<code class="docutils literal notranslate"><span class="pre">str</span></code>) – Type as in quickfix’s XML reference documents</p></li>
+<li><p><strong>values</strong> (<code class="docutils literal notranslate"><span class="pre">tuple((str,</span> <span class="pre">str))</span></code>  with the first element of each tuple being the value of the enum,
+the second the name of the value.) – The valid enum values</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="pyfixmsg.reference.FixTag.add_enum_value">
+<span class="sig-name descname"><span class="pre">add_enum_value</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">name</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">value</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/pyfixmsg/reference.html#FixTag.add_enum_value"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pyfixmsg.reference.FixTag.add_enum_value" title="Link to this definition"></a></dt>
+<dd><p>Add a value to the tag’s enum values.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="pyfixmsg.reference.FixTag.del_enum_value">
+<span class="sig-name descname"><span class="pre">del_enum_value</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">name</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">value</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/pyfixmsg/reference.html#FixTag.del_enum_value"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pyfixmsg.reference.FixTag.del_enum_value" title="Link to this definition"></a></dt>
+<dd><p>Delete a value from the tag’s enum values.
+Specify name or value using keyword arguments. If specifying both, they must both match the known
+name and value otherwise ValueError is raised.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="pyfixmsg.reference.FixTag.enum_by_name">
+<span class="sig-name descname"><span class="pre">enum_by_name</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">name</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/pyfixmsg/reference.html#FixTag.enum_by_name"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pyfixmsg.reference.FixTag.enum_by_name" title="Link to this definition"></a></dt>
+<dd><p>Retrieve an enum value by name</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="pyfixmsg.reference.FixTag.enum_by_value">
+<span class="sig-name descname"><span class="pre">enum_by_value</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">value</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/pyfixmsg/reference.html#FixTag.enum_by_value"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pyfixmsg.reference.FixTag.enum_by_value" title="Link to this definition"></a></dt>
+<dd><p>Retrieve an enum value by value</p>
+</dd></dl>
+
+</dd></dl>
+
+</section>
+<section id="fixspec">
+<h2>FixSpec<a class="headerlink" href="#fixspec" title="Link to this heading"></a></h2>
+<dl class="py class">
+<dt class="sig sig-object py" id="pyfixmsg.reference.FixSpec">
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">pyfixmsg.reference.</span></span><span class="sig-name descname"><span class="pre">FixSpec</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">xml_file</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">eager</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/pyfixmsg/reference.html#FixSpec"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pyfixmsg.reference.FixSpec" title="Link to this definition"></a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>A python-friendly representation of a FIX spec.
+This class is built from an XML file sourced from Quickfix (<a class="reference external" href="http://www.quickfixengine.org/">http://www.quickfixengine.org/</a>).</p>
+<p>It contains the Message Types supported by the specification, as a map (FixSpec.msg_types) of
+message type value (‘D’, ‘6’, ‘8’, etc..) to MessageType class, and all the fields supported
+in the spec as a TagReference instance (FixSpec.tags) which can be accessed by tag name or number.</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="pyfixmsg.reference.FixSpec.__init__">
+<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">xml_file</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">eager</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/pyfixmsg/reference.html#FixSpec.__init__"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pyfixmsg.reference.FixSpec.__init__" title="Link to this definition"></a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>xml_file</strong> (<code class="docutils literal notranslate"><span class="pre">str</span></code>) – path to a quickfix specification xml file</p></li>
+<li><p><strong>eager</strong> (<code class="docutils literal notranslate"><span class="pre">bool</span></code>) – whether to eagerly populate tags maps for speedy lookup or only on first access</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="index.html" class="btn btn-neutral float-left" title="Pyfixmsg" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="example.html" class="btn btn-neutral float-right" title="Examples" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2025, wxcuop.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>
