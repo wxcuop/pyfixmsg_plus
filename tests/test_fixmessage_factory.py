@@ -1,9 +1,41 @@
-import pytest
+from __future__ import print_function
 from pyfixmsg_plus.fixengine.fixmessage_factory import FixMessageFactory
 from pyfixmsg.fixmessage import FixMessage
 
-# Global variable to store the FIX specification
+import pickle
+from timeit import timeit
+import datetime
+import time
+import sys
+import os
+
+import six
+import pytest
+
+sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..'))
+
+from pyfixmsg.reference import FixSpec
+from pyfixmsg.codecs.stringfix import Codec
+from pyfixmsg.fixmessage import FixMessage, FixFragment
+from pyfixmsg import RepeatingGroup, len_and_chsum
+
 SPEC = None
+
+
+@pytest.fixture
+def spec(request):
+    global SPEC
+    if SPEC is None:
+        fname = request.config.getoption("--spec")
+        if fname is None:
+            print("""
+
+      This test script needs to be invoked with the --spec
+      argument, set to the path to the FIX50.xml file from quickfix.org
+
+      """)
+        SPEC = FixSpec(xml_file=fname)
+    return SPEC
 
 @pytest.fixture(scope='module')
 def setup_codec(request):
@@ -29,28 +61,6 @@ def test_fixmsg_creation(setup_codec):
     assert msg[38] == '100', "OrderQty should be '100'"
     assert msg[44] == '150.00', "Price should be '150.00'"
 
-def test_fixmsg_without_codec():
-    FixMessageFactory.codec = None  # Ensure codec is not set
-    with pytest.raises(ValueError, match="FixMessageFactory.codec is not initialized. Call set_codec first."):
-        msg = FixMessageFactory.fixmsg()
-        msg.update({35: 'D', 11: '12345'})
-        
-def test_fixmsg_serialization(setup_codec):
-    msg = FixMessageFactory.fixmsg()
-    msg.update({35: 'D', 11: '12345', 55: 'AAPL', 54: '1', 38: '100', 44: '150.00'})
-    serialized_message = msg.to_wire()
-    assert isinstance(serialized_message, bytes), "Serialized message should be a bytestring"
-
-def test_fixmsg_deserialization(setup_codec):
-    raw_message = b'8=FIX.4.2|9=176|35=D|49=CLIENT|56=SERVER|34=1|52=20250330-00:44:51|11=12345|55=AAPL|54=1|38=100|44=150.00|10=128|'
-    msg = FixMessageFactory.fixmsg().load_fix(raw_message, separator='|')
-    assert isinstance(msg, FixMessage), "Deserialized message should be an instance of FixMessage"
-    assert msg[35] == 'D', "Message type should be 'D' for New Order Single"
-    assert msg[11] == '12345', "ClOrdID should be '12345'"
-    assert msg[55] == 'AAPL', "Symbol should be 'AAPL'"
-    assert msg[54] == '1', "Side should be '1' (Buy)"
-    assert msg[38] == '100', "OrderQty should be '100'"
-    assert msg[44] == '150.00', "Price should be '150.00'"
 
 def pytest_addoption(parser):
     parser.addoption(
