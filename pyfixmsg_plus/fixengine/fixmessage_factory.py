@@ -2,7 +2,6 @@ from pyfixmsg.fixmessage import FixMessage, FixFragment
 from pyfixmsg.reference import FixSpec
 from pyfixmsg.codecs.stringfix import Codec
 
-
 class FixMessageFactory:
     codec = None
     
@@ -33,3 +32,24 @@ class FixMessageFactory:
         returned = FixMessage(*args, **kwargs)
         returned.codec = FixMessageFactory.codec
         return returned
+
+    @staticmethod
+    def create_message(msg_type, sender, target, sequence_number, *args, **kwargs):
+        """
+        Factory function to create and return a FixMessage instance with a specific message type.
+
+        :param msg_type: The message type to set.
+        :type msg_type: str
+        :param sender: The sender to set.
+        :type sender: str
+        :param target: The target to set.
+        :type target: str
+        :param sequence_number: The sequence number to set.
+        :type sequence_number: int
+        """
+        fix_message = FixMessageFactory.fixmsg(*args, **kwargs)
+        fix_message[35] = msg_type  # 35 is the tag number for MsgType
+        fix_message[49] = sender  # 49 is the tag number for SenderCompID
+        fix_message[56] = target  # 56 is the tag number for TargetCompID
+        fix_message[34] = sequence_number  # 34 is the tag number for MsgSeqNum
+        return fix_message
