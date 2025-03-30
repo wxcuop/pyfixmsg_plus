@@ -33,6 +33,14 @@ jobs:
         pip install -r requirements.txt  # Ensure your requirements.txt includes Sphinx and other dependencies
         pip install sphinx sphinx-rtd-theme  # Example of installing a Sphinx theme
 
+    - name: Verify Makefile
+      run: |
+        cd sphinx  # Change to your docs directory if needed
+        if [ ! -f Makefile ]; then
+          echo "Makefile not found! Generating Makefile using sphinx-quickstart."
+          sphinx-quickstart --sep -p "Project Name" -a "Author" -v "1.0" --makefile --batchfile
+        fi
+
     - name: Build documentation
       run: |
         cd sphinx  # Change to your docs directory if needed
