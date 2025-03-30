@@ -93,6 +93,9 @@ class FixEngine:
         self.max_retries = int(self.config_manager.get('FIX', 'max_retries', '5'))
         self.retry_attempts = 0
 
+        # Set codec for FixMessageFactory
+        FixMessageFactory.set_codec('path_to_spec_file.xml')
+        
     def on_state_change(self, state_name):
         self.logger.info(f"State changed to: {state_name}")
 
@@ -139,7 +142,12 @@ class FixEngine:
             self.logger.error("Cannot logon: not connected.")
             return
         try:
-            logon_message = FixMessageFactory(self.config_manager).set_msg_type('A').set_sender(self.sender).set_target(self.target).set_sequence_number(self.message_store.get_next_outgoing_sequence_number()).build()
+            logon_message = FixMessageFactory.create_message(
+                'A',
+                self.sender,
+                self.target,
+                self.message_store.get_next_outgoing_sequence_number()
+            )
             await self.send_message(logon_message)
             await self.heartbeat.start()
         except Exception as e:
@@ -158,7 +166,7 @@ class FixEngine:
             self.logger.error("Max retries reached. Logon failed.")
 
     async def send_message(self, message):
-        fix_message = FixMessageFactory(self.config_manager).update_message(message).set_direction(1).set_time(datetime.utcnow()).set_recipient(self.target).build()
+        fix_message = FixMessageFactory.fixmsg().update_message(message).set_direction(1).set_time(datetime.utcnow()).set_recipient(self.target)
         if not fix_message.anywhere(52):
             fix_message.set_sending_time()
         fix_message.set_sequence_number(self.message_store.get_next_outgoing_sequence_number())
@@ -176,7 +184,12 @@ class FixEngine:
             await self.disconnect()
 
     async def send_reject_message(self, ref_seq_num, ref_tag_id, session_reject_reason, text):
-        reject_message = FixMessageFactory(self.config_manager).set_msg_type('3').set_sender(self.sender).set_target(self.target).set_sequence_number(self.message_store.get_next_outgoing_sequence_number()).build()
+        reject_message = FixMessageFactory.create_message(
+            '3',
+            self.sender,
+            self.target,
+            self.message_store.get_next_outgoing_sequence_number()
+        )
         await self.send_message(reject_message)
         self.message_store.set_incoming_sequence_number(ref_seq_num + 1)
         self.logger.info(f"Sent Reject message for sequence number {ref_seq_num} with reason {session_reject_reason}")
@@ -184,7 +197,7 @@ class FixEngine:
     async def handle_message(self, data):
         async with self.lock:
             try:
-                self.received_message = FixMessageFactory(self.config_manager).update_message(FixMessage().from_wire(data, codec=self.codec)).set_direction(0).set_recipient(self.sender).build()
+                self.received_message = FixMessageFactory.fixmsg().update_message(FixMessage().from_wire(data, codec=self.codec)).set_direction(0).set_recipient(self.sender)
             except Exception as e:
                 self.logger.error(f"Failed to parse message: {e}")
                 await self.send_reject_message(self.message_store.get_next_incoming_sequence_number(), 0, 99, "Failed to parse message")
@@ -228,7 +241,12 @@ class FixEngine:
         await self.network.disconnect()
 
     async def send_logout_message(self):
-        logout_message = FixMessageFactory(self.config_manager).set_msg_type('5').set_sender(self.sender).set_target(self.target).set_sequence_number(self.message_store.get_next_outgoing_sequence_number()).build()
+        logout_message = FixMessageFactory.create_message(
+            '5',
+            self.sender,
+            self.target,
+            self.message_store.get_next_outgoing_sequence_number()
+        )
         await self.send_message(logout_message)
         self.logger.info("Sent Logout message.")
 
