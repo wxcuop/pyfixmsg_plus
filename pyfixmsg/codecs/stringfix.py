@@ -261,7 +261,7 @@ class Codec(object):
             # Add this before the sort line
             # for x in tag_vals:
             #     print(f"Debug - Tag type: {type(x[0])}, Value: {x[0]}, Content: {x}")
-            tag_vals = [x for x in tag_vals if isinstance(x[0], int)] #filte rout non-int
+            #tag_vals = [x for x in tag_vals if isinstance(x[0], int)] #filter out non-int
 
             # Then modify the sort function to catch and print the error
             try:
