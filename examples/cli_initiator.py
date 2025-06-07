@@ -14,6 +14,11 @@ async def main():
     # Set SENDER and TARGET as needed
     config.set('FIX', 'sender', 'INITIATOR')
     config.set('FIX', 'target', 'ACCEPTOR')
+    
+    # Set host and port directly
+    config.set('FIX', 'host', '127.0.0.1')  # Directly set the host
+    config.set('FIX', 'port', '5000')       # Directly set the port
+
     # Create and connect the engine
     engine = FixEngine(config, DummyApplication())
     await engine.connect()
