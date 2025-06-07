@@ -1,3 +1,5 @@
+from .heartbeat import Heartbeat
+
 class HeartbeatBuilder:
     def __init__(self):
         self.send_message_callback = None
