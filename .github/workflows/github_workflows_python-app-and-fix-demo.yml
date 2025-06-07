@@ -1,0 +1,67 @@
+name: Python application + FIX Demo
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ "main", "master" ]
+  pull_request:
+    branches: [ "main", "master" ]
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python 3.11
+      uses: actions/setup-python@v5
+      with:
+        python-version: "3.11"
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt -U
+        pip install pytest pytest-timeout pytest-asyncio flake8
+
+    - name: Download FIX44 spec
+      run: |
+        curl https://raw.githubusercontent.com/quickfix/quickfix/master/spec/FIX44.xml -o FIX44.xml
+
+    - name: Lint with flake8
+      run: |
+        flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
+        flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
+
+    - name: Test with pytest
+      run: |
+        pytest
+
+    - name: Install this package
+      run: |
+        pip install .
+
+    - name: Run FIX Acceptor in background
+      run: |
+        python examples/cli_acceptor.py &
+        echo $! > acceptor_pid.txt
+        sleep 5  # Give the acceptor time to start
+
+    - name: Run FIX Initiator Demo
+      run: |
+        python examples/cli_initiator.py &
+        INITIATOR_PID=$!
+        sleep 15
+        kill $INITIATOR_PID
+
+    - name: Stop Acceptor
+      run: |
+        kill $(cat acceptor_pid.txt) || true
+
+    - name: Show workflow logs
+      run: |
+        cat acceptor_pid.txt || true
