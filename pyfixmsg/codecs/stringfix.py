@@ -254,26 +254,16 @@ class Codec(object):
         if self.spec is None:
             #  No spec, let's just get reasonable header order, and 10 at the end.
             tag_vals = list(msg.items())
-            #print("DEBUG: Full msg dictionary before sorting:", msg)
-            #print(tag_vals)
-            #tag_vals.sort(key=lambda x: HEADER_SORT_MAP.get(x[0], int(1e9 + x[0])))
-            #tag_vals.sort(key=lambda x: HEADER_SORT_MAP.get(x[0], int(1e9) + (int(x[0]) if isinstance(x[0], (int, str)) and str(x[0]).isdigit() else 0)))
-            # Add this before the sort line
-            # for x in tag_vals:
-            #     print(f"Debug - Tag type: {type(x[0])}, Value: {x[0]}, Content: {x}")
-            #tag_vals = [x for x in tag_vals if isinstance(x[0], int)] #filter out non-int
-
-            # Then modify the sort function to catch and print the error
             try:
                 tag_vals.sort(key=lambda x: HEADER_SORT_MAP.get(x[0], int(1e9 + x[0])))
             except TypeError as e:
-                print(f"Error occurred with x[0]: {x[0]}, type: {type(x[0])}")
-                print(f"tag_vals: {tag_vals} ") 
-                # for i, (tag, val) in enumerate(tag_vals):
-                #     print(f"Item {i}: tag={tag} (type={type(tag)}), val={val}")
-                # raise  # Re-raise the exception after debugging info
-
-            
+                # Find the problematic item
+                for item in tag_vals:
+                    try:
+                        _ = HEADER_SORT_MAP.get(item[0], int(1e9 + item[0]))
+                    except TypeError:
+                        print(f"Error occurred with item[0]: {item[0]}, type: {type(item[0])}")
+                print(f"tag_vals: {tag_vals}")
             return tag_vals
         else:
             return sort_values(msg, self.spec.msg_types[msg[35]])
