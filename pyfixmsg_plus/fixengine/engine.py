@@ -267,11 +267,11 @@ class FixEngine:
         self.logger.info("Sent Logout message.")
 
 # Example usage
-if __name__ == "__main__":
-    config_manager = ConfigManager()
-    application = MyApplication()  # Replace MyApplication with your concrete implementation
-    engine = FixEngine(config_manager, application)
-    asyncio.run(engine.connect())
-    # Example of setting sequence numbers
-    asyncio.run(engine.set_inbound_sequence_number(100))
-    asyncio.run(engine.set_outbound_sequence_number(200))
+# if __name__ == "__main__":
+#     config_manager = ConfigManager()
+#     application = MyApplication()  # Replace MyApplication with your concrete implementation
+#     engine = FixEngine(config_manager, application)
+#     asyncio.run(engine.connect())
+#     # Example of setting sequence numbers
+#     asyncio.run(engine.set_inbound_sequence_number(100))
+#     asyncio.run(engine.set_outbound_sequence_number(200))
