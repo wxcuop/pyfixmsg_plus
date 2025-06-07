@@ -1,12 +1,12 @@
 import configparser
 
-#Ensure there's only one instance of ConfigManager (Singleton).
+# Ensure there's only one instance of ConfigManager (Singleton).
 class ConfigManager:
     _instance = None
 
     def __new__(cls, *args, **kwargs):
         if not cls._instance:
-            cls._instance = super(ConfigManager, cls).__new__(cls, *args, **kwargs)
+            cls._instance = super().__new__(cls)
         return cls._instance
 
     def __init__(self, config_path='config.ini'):
@@ -17,14 +17,24 @@ class ConfigManager:
             self.initialized = True
 
     def load_config(self):
-        self.config.read(self.config_path)
+        try:
+            self.config.read(self.config_path)
+        except FileNotFoundError:
+            print(f"Warning: Configuration file '{self.config_path}' not found. Using default settings.")
 
     def save_config(self):
-        with open(self.config_path, 'w') as configfile:
-            self.config.write(configfile)
+        try:
+            with open(self.config_path, 'w') as configfile:
+                self.config.write(configfile)
+        except Exception as e:
+            print(f"Error saving configuration: {e}")
 
     def get(self, section, option, fallback=None):
-        return self.config.get(section, option, fallback=fallback)
+        try:
+            return self.config.get(section, option, fallback=fallback)
+        except (configparser.NoSectionError, configparser.NoOptionError):
+            print(f"Warning: Section '{section}' or option '{option}' not found. Returning fallback value.")
+            return fallback
 
     def set(self, section, option, value):
         if not self.config.has_section(section):
@@ -33,9 +43,15 @@ class ConfigManager:
 
     def delete(self, section, option=None):
         if option:
-            self.config.remove_option(section, option)
+            if self.config.has_section(section) and self.config.has_option(section, option):
+                self.config.remove_option(section, option)
+            else:
+                print(f"Warning: Section '{section}' or option '{option}' not found.")
         else:
-            self.config.remove_section(section)
+            if self.config.has_section(section):
+                self.config.remove_section(section)
+            else:
+                print(f"Warning: Section '{section}' not found.")
 
     def reset(self):
         self.config = configparser.ConfigParser()
