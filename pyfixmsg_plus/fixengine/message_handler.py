@@ -1,7 +1,7 @@
 from functools import wraps
 import asyncio
-from state_machine import StateMachine, Disconnected, LogonInProgress, LogoutInProgress, Active, Reconnecting
-from fixmessage_factory import FixMessageFactory
+from pyfixmsg_plus.fixengine.state_machine import StateMachine, Disconnected, LogonInProgress, LogoutInProgress, Active, Reconnecting
+from pyfixmsg_plus.fixengine.fixmessage_factory import FixMessageFactory
 
 # Define the logging decorator
 def logging_decorator(handler_func):
