@@ -28,9 +28,9 @@ from pyfixmsg_plus.fixengine.message_store_factory import MessageStoreFactory
 from pyfixmsg_plus.fixengine.state_machine import StateMachine, Disconnected, LogonInProgress, LogoutInProgress, Active, Reconnecting
 from pyfixmsg_plus.fixengine.scheduler import Scheduler
 from pyfixmsg.fixmessage import FixMessage
-from pyfixmsg.spec import FixSpec
-from pyfixmsg.codec import Codec
-from pyfixmsg.fragment import FixFragment
+from pyfixmsg.reference import FixSpec
+from pyfixmsg.codec.stringfix import Codec
+from pyfixmsg.fixmessage import FixFragment
 
 class FixEngine:
     def __init__(self, config_manager, application):
