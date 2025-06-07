@@ -7,23 +7,19 @@ class DummyApplication:
         print(f"Received message: {message}")
 
 async def main():
-    # Load config (adjust the path as needed)
     config = ConfigManager("pyfixmsg_plus/config.ini")
-    # Ensure mode is 'initiator'
     config.set('FIX', 'mode', 'initiator')
-    # Set SENDER and TARGET as needed
     config.set('FIX', 'sender', 'INITIATOR')
     config.set('FIX', 'target', 'ACCEPTOR')
-    
-    # Set host and port directly
-    config.set('FIX', 'host', '127.0.0.1')  # Directly set the host
-    config.set('FIX', 'port', '5000')       # Directly set the port
+    config.set('FIX', 'host', '127.0.0.1')
+    config.set('FIX', 'port', '5000')
+    config.set('FIX', 'use_tls', 'false')  # Temporarily disable TLS for debugging
 
-    # Create and connect the engine
     engine = FixEngine(config, DummyApplication())
+    print("Connecting as initiator to 127.0.0.1:5000...")
     await engine.connect()
+    print("Connected successfully!")
     await engine.logon()
-    # Keep running to demonstrate heartbeat
     while True:
         await asyncio.sleep(1)
 
