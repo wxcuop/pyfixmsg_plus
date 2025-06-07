@@ -6,7 +6,7 @@ from pyfixmsg_plus.fixengine.heartbeat_builder import HeartbeatBuilder
 from pyfixmsg_plus.fixengine.testrequest import TestRequest
 from pyfixmsg_plus.fixengine.network import Acceptor, Initiator
 from pyfixmsg_plus.fixengine.configmanager import ConfigManager
-from pyfixmsg_plus.fixengine.event_notifier import EventNotifier
+from pyfixmsg_plus.fixengine.events import EventNotifier
 from pyfixmsg_plus.fixengine.message_handler import (
     MessageProcessor, 
     LogonHandler, 
