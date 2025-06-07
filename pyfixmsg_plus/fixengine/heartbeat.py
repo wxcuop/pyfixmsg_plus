@@ -1,6 +1,6 @@
 import asyncio
 import logging
-from testrequest import TestRequest
+from pyfixmsg_plus.fixengine.testrequest import TestRequest
 
 class Heartbeat:
     def __init__(self, send_message_callback, config_manager, heartbeat_interval, state_machine, fix_engine):
