@@ -14,9 +14,14 @@ async def main():
     # Set SENDER and TARGET as needed
     config.set('FIX', 'sender', 'ACCEPTOR')
     config.set('FIX', 'target', 'INITIATOR')
+    
+    # Set host and port directly
+    config.set('FIX', 'host', '127.0.0.1')  # Directly set the host
+    config.set('FIX', 'port', '5000')       # Directly set the port
+
     # Create and start the engine (wait for initiator to connect)
     engine = FixEngine(config, DummyApplication())
-    await engine.network.start_accepting(engine.handle_incoming_connection)  # Updated to start_accepting
+    await engine.network.start_accepting(engine.handle_incoming_connection)
     # Keep running to demonstrate heartbeat
     while True:
         await asyncio.sleep(1)
