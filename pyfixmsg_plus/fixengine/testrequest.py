@@ -1,5 +1,5 @@
 from datetime import datetime
-from fixmessage_factory import FixMessageFactory
+from pyfixmsg_plus.fixengine.fixmessage_factory import FixMessageFactory
 
 class TestRequest:
     def __init__(self, send_message, config_manager):
