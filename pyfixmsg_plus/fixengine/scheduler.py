@@ -1,7 +1,7 @@
 import asyncio
 import json
 from datetime import datetime, timedelta
-from configmanager import ConfigManager
+from pyfixmsg_plus.fixengine.configmanager import ConfigManager
 
 class Scheduler:
     def __init__(self, config_manager, fix_engine):
