@@ -29,7 +29,7 @@ from pyfixmsg_plus.fixengine.state_machine import StateMachine, Disconnected, Lo
 from pyfixmsg_plus.fixengine.scheduler import Scheduler
 from pyfixmsg.fixmessage import FixMessage
 from pyfixmsg.reference import FixSpec
-from pyfixmsg.codec.stringfix import Codec
+from pyfixmsg.codecs.stringfix import Codec
 from pyfixmsg.fixmessage import FixFragment
 
 class FixEngine:
