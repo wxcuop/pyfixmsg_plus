@@ -50,9 +50,15 @@ class Acceptor(Network):
 
     async def start_accepting(self, incoming_connection_handler):
         async with self.lock:
-            self.server = await asyncio.start_server(incoming_connection_handler, self.host, self.port, ssl=ssl.create_default_context() if self.use_tls else None)
+            self.server = await asyncio.start_server(
+                incoming_connection_handler,
+                self.host,
+                self.port,
+                ssl=ssl.create_default_context() if self.use_tls else None
+            )
             self.logger.info(f"Listening on {self.host}:{self.port}")
-            await self.server.serve_forever()
+            async with self.server:
+                await self.server.serve_forever()
 
     async def handle_client(self, reader, writer):
         self.reader = reader
@@ -63,7 +69,7 @@ class Acceptor(Network):
 
     async def handle_message(self, data):
         """Override this method to handle messages"""
-        pass
+        self.logger.info(f"Received: {data}")
 
     async def disconnect(self):
         async with self.lock:
