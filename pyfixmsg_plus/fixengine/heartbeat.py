@@ -1,3 +1,5 @@
+import asyncio
+import logging
 from testrequest import TestRequest
 
 class Heartbeat:
