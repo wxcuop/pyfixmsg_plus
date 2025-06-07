@@ -1,7 +1,8 @@
 import asyncio
 import logging
 from datetime import datetime, timezone
-from pyfixmsg_plus.fixengine.heartbeat import Heartbeat, HeartbeatBuilder
+from pyfixmsg_plus.fixengine.heartbeat import Heartbeat
+from pyfixmsg_plus.fixengine.heartbeat_builder import HeartbeatBuilder
 from pyfixmsg_plus.fixengine.testrequest import TestRequest
 from pyfixmsg_plus.fixengine.network import Acceptor, Initiator
 from pyfixmsg_plus.fixengine.configmanager import ConfigManager
