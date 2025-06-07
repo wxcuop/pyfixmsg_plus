@@ -1,4 +1,4 @@
-from .heartbeat import Heartbeat
+from pyfixmsg_plus.fixengine.heartbeat import Heartbeat
 
 class HeartbeatBuilder:
     def __init__(self):
