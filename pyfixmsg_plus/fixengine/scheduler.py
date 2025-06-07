@@ -31,9 +31,9 @@ class Scheduler:
 
     async def run_scheduler(self):
         while True:
-            now = datetime.now().time()
+            now = datetime.now()
             for task in self.schedules:
-                task_time = datetime.strptime(task["time"], "%H:%M").time()
+                task_time = datetime.combine(now.date(), datetime.strptime(task["time"], "%H:%M").time())
                 if now >= task_time and (now - task_time) < timedelta(minutes=1):
                     action = getattr(self, task["action"], None)
                     if action:
