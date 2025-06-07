@@ -1,6 +1,6 @@
 import asyncio
 import logging
-from fixmessage_factory import FixMessageFactory
+from pyfixmsg_plus.fixengine.fixmessage_factory import FixMessageFactory
 
 class ResendHandler:
     def __init__(self, message_store, version, sender, target):
