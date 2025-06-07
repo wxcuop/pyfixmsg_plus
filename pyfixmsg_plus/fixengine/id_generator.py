@@ -83,7 +83,7 @@ class YMDClOrdIdGenerator(NumericClOrdIdGenerator):
     def encode(self, to_be_encoded):
         if to_be_encoded >= self.max_cl_ord_id:
             raise ValueError("Max ClOrdID exceeded")
-        cl_ord_id = super().encode(to_be_encoded)  # Fixed from tobe_encoded
+        cl_ord_id = super().encode(to_be_encoded)
         return f"{self.ymd_prefix}{cl_ord_id}"
 
 
@@ -100,7 +100,7 @@ class BMESeqGenerator(ClientOrderIdGenerator):
     def encode(self, to_be_encoded):
         if not isinstance(to_be_encoded, int):
             raise ValueError("Input should be an integer.")
-        return f"{self.id_prefix}{tobe_encoded:010d}"
+        return f"{self.id_prefix}{to_be_encoded:010d}"
 
     def decode(self, to_be_decoded):
         if not to_be_decoded or len(to_be_decoded) != 30:
@@ -166,7 +166,7 @@ class BranchSeqIdGenerator(ClientOrderIdGenerator):
             logging.error("Encoded id should be > 0")
             return ""
 
-        mapped_seq_no = self.get_mapped_seq_no(to_be_encoded)  # Fixed from tobe_encoded
+        mapped_seq_no = self.get_mapped_seq_no(to_be_encoded)
         if mapped_seq_no > self.end:
             logging.error("Id generator allocation ended, cannot allocate anymore")
             return ""
@@ -200,7 +200,7 @@ class ESPSeqGenerator(ClientOrderIdGenerator):
     def encode(self, to_be_encoded):
         if not isinstance(to_be_encoded, int):
             raise ValueError("Input should be an integer.")
-        return f"{self.id_prefix}{tobe_encoded:010d}"
+        return f"{self.id_prefix}{to_be_encoded:010d}"
 
     def decode(self, to_be_decoded):
         if not to_be_decoded or len(to_be_decoded) != 20:
@@ -226,7 +226,7 @@ class KSESeqGenerator(ClientOrderIdGenerator):
     def encode(self, to_be_encoded):
         if not isinstance(to_be_encoded, int):
             raise ValueError("Input should be an integer.")
-        return f"{self.id_prefix}{tobe_encoded:09d}"
+        return f"{self.id_prefix}{to_be_encoded:09d}"
 
     def decode(self, to_be_decoded):
         if not to_be_decoded or len(to_be_decoded) != self.PSE_SEQ_LENGTH:
@@ -259,7 +259,7 @@ class MonthClOrdIdGenerator(NumericClOrdIdGenerator):
     def encode(self, to_be_encoded):
         if to_be_encoded >= self.max_cl_ord_id:
             raise ValueError("Max ClOrdID exceeded")
-        cl_ord_id = super().encode(tobe_encoded)
+        cl_ord_id = super().encode(to_be_encoded)
         return f"{self.day_index}{cl_ord_id}"
 
 
@@ -425,15 +425,15 @@ class NyseBranchSeqGenerator(ClientOrderIdGenerator):
 
         return self.get_total_num_of_available_ids(self.min_, alpha * 10000 + num)
 
-    def encode(self, tobe_encoded):
-        if tobe_encoded > self.available_ids_:
+    def encode(self, to_be_encoded):
+        if to_be_encoded > self.available_ids_:
             return ""
 
-        tobe_encoded = self.get_nth_id(tobe_encoded)
+        to_be_encoded = self.get_nth_id(to_be_encoded)
         encoded = list(self.id_template_)
 
-        num = tobe_encoded % 10000
-        alpha = tobe_encoded // 10000
+        num = to_be_encoded % 10000
+        alpha = to_be_encoded // 10000
 
         for p in range(7, 3, -1):
             rem = num % 10
@@ -461,7 +461,7 @@ class OSESeqGenerator(ClientOrderIdGenerator):
     def encode(self, to_be_encoded):
         if not isinstance(to_be_encoded, int):
             raise ValueError("Input should be an integer.")
-        return f"{self.id_prefix}{tobe_encoded:010d}"
+        return f"{self.id_prefix}{to_be_encoded:010d}"
 
     def decode(self, to_be_decoded):
         if not to_be_decoded or len(to_be_decoded) != 20:
@@ -470,6 +470,7 @@ class OSESeqGenerator(ClientOrderIdGenerator):
             return int(to_be_decoded[10:])
         except ValueError:
             return -1
+
 
 class CHIXBranchSeqGenerator(NyseBranchSeqGenerator):
     """
