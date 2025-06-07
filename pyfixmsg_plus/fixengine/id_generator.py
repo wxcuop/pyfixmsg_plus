@@ -83,7 +83,7 @@ class YMDClOrdIdGenerator(NumericClOrdIdGenerator):
     def encode(self, to_be_encoded):
         if to_be_encoded >= self.max_cl_ord_id:
             raise ValueError("Max ClOrdID exceeded")
-        cl_ord_id = super().encode(tobe_encoded)
+        cl_ord_id = super().encode(to_be_encoded)  # Fixed from tobe_encoded
         return f"{self.ymd_prefix}{cl_ord_id}"
 
 
@@ -166,7 +166,7 @@ class BranchSeqIdGenerator(ClientOrderIdGenerator):
             logging.error("Encoded id should be > 0")
             return ""
 
-        mapped_seq_no = self.get_mapped_seq_no(tobe_encoded)
+        mapped_seq_no = self.get_mapped_seq_no(to_be_encoded)  # Fixed from tobe_encoded
         if mapped_seq_no > self.end:
             logging.error("Id generator allocation ended, cannot allocate anymore")
             return ""
