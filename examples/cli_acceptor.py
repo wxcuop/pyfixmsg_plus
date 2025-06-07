@@ -7,14 +7,13 @@ class DummyApplication:
         print(f"Received message: {message}")
 
 async def main():
-    # Load config (adjust the path as needed)
     config = ConfigManager("pyfixmsg_plus/config.ini")
     config.set('FIX', 'mode', 'acceptor')
     config.set('FIX', 'sender', 'ACCEPTOR')
     config.set('FIX', 'target', 'INITIATOR')
-    config.set('FIX', 'host', '127.0.0.1')
-    config.set('FIX', 'port', '5000')
-    config.set('FIX', 'use_tls', 'false')  # Temporarily disable TLS for debugging
+    config.set('FIX', 'host', '127.0.0.1')  # Set host directly
+    config.set('FIX', 'port', '5000')       # Set port directly
+    config.set('FIX', 'use_tls', 'false')  # Disable TLS for debugging
 
     engine = FixEngine(config, DummyApplication())
     print("Starting acceptor...")
