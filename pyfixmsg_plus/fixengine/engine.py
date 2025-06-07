@@ -71,7 +71,7 @@ class FixEngine:
         self.network = Acceptor(self.host, self.port, self.use_tls) if self.mode == 'acceptor' else Initiator(self.host, self.port, self.use_tls)
         
         self.event_notifier = EventNotifier()
-        self.message_processor = MessageProcessor(self.scheduler, self.state_machine, self.application)
+        self.message_processor = MessageProcessor(self.message_store, self.state_machine, self.application)
         
         # Register message handlers
         self.message_processor.register_handler('A', LogonHandler(self.message_store, self.state_machine, self.application))
