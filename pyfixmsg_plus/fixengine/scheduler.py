@@ -33,9 +33,12 @@ class Scheduler:
         while True:
             now = datetime.now()
             for task in self.schedules:
-                task_time = datetime.combine(now.date(), datetime.strptime(task["time"], "%H:%M").time())
-                if now >= task_time and (now - task_time) < timedelta(minutes=1):
-                    action = getattr(self, task["action"], None)
-                    if action:
-                        await action()
+                try:
+                    task_time = datetime.combine(now.date(), datetime.strptime(task["time"], "%H:%M").time())
+                    if now >= task_time and (now - task_time) < timedelta(minutes=1):
+                        action = getattr(self, task["action"], None)
+                        if action:
+                            await action()
+                except Exception as e:
+                    print(f"Error processing task {task}: {e}")
             await asyncio.sleep(60)
