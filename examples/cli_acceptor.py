@@ -16,7 +16,7 @@ async def main():
     config.set('FIX', 'target', 'INITIATOR')
     # Create and start the engine (wait for initiator to connect)
     engine = FixEngine(config, DummyApplication())
-    await engine.network.start_server(engine.handle_incoming_connection)
+    await engine.network.start_accepting(engine.handle_incoming_connection)  # Updated to start_accepting
     # Keep running to demonstrate heartbeat
     while True:
         await asyncio.sleep(1)
