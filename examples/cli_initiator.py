@@ -11,9 +11,9 @@ async def main():
     config.set('FIX', 'mode', 'initiator')
     config.set('FIX', 'sender', 'INITIATOR')
     config.set('FIX', 'target', 'ACCEPTOR')
-    config.set('FIX', 'host', '127.0.0.1')
-    config.set('FIX', 'port', '5000')
-    config.set('FIX', 'use_tls', 'false')  # Temporarily disable TLS for debugging
+    config.set('FIX', 'host', '127.0.0.1')  # Set host directly
+    config.set('FIX', 'port', '5000')       # Set port directly
+    config.set('FIX', 'use_tls', 'false')  # Disable TLS for debugging
 
     engine = FixEngine(config, DummyApplication())
     print("Connecting as initiator to 127.0.0.1:5000...")
