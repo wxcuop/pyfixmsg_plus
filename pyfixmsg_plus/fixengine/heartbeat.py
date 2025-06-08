@@ -20,6 +20,7 @@ class Heartbeat:
         self.running = True
         self.state_machine.on_event('logon')
         self.last_sent_time = self.last_received_time = asyncio.get_event_loop().time()
+        self.logger.info(f"Heartbeat started with interval: {self.heartbeat_interval} seconds.")
         while self.running:
             await asyncio.sleep(self.heartbeat_interval)
             await self.check_heartbeat()
@@ -27,7 +28,8 @@ class Heartbeat:
     async def stop(self):
         self.running = False
         self.state_machine.on_event('stop')
-        
+        self.logger.info("Heartbeat stopped.")
+
     async def check_heartbeat(self):
         current_time = asyncio.get_event_loop().time()
         if current_time - self.last_sent_time >= self.heartbeat_interval:
@@ -67,4 +69,5 @@ class Heartbeat:
     async def initiate_corrective_action(self):
         self.running = False
         self.logger.error("Connection lost. Corrective action initiated.")
+        self.state_machine.on_event('disconnect')
         await self.fix_engine.retry_connect()
