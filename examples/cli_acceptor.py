@@ -7,6 +7,7 @@ class DummyApplication:
         print(f"Received message: {message}")
 
 async def main():
+    # Configure the FIX engine for acceptor mode
     config = ConfigManager("pyfixmsg_plus/config.ini")
     config.set('FIX', 'mode', 'acceptor')
     config.set('FIX', 'sender', 'ACCEPTOR')
@@ -17,10 +18,13 @@ async def main():
 
     engine = FixEngine(config, DummyApplication())
     print("Starting acceptor...")
-    await engine.network.start_accepting(engine.handle_incoming_connection)
-    print("Acceptor is running on 127.0.0.1:5000")
-    while True:
-        await asyncio.sleep(1)
+    try:
+        await engine.network.start_accepting(engine.handle_incoming_connection)
+        print("Acceptor is running on 127.0.0.1:5000")
+        while True:
+            await asyncio.sleep(1)
+    except Exception as e:
+        print(f"Error starting acceptor: {e}")
 
 if __name__ == "__main__":
     asyncio.run(main())
