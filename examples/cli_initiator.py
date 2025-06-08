@@ -7,6 +7,7 @@ class DummyApplication:
         print(f"Received message: {message}")
 
 async def main():
+    # Configure the FIX engine for initiator mode
     config = ConfigManager("pyfixmsg_plus/config.ini")
     config.set('FIX', 'mode', 'initiator')
     config.set('FIX', 'sender', 'INITIATOR')
@@ -17,11 +18,15 @@ async def main():
 
     engine = FixEngine(config, DummyApplication())
     print("Connecting as initiator to 127.0.0.1:5000...")
-    await engine.connect()
-    print("Connected successfully!")
-    await engine.logon()
-    while True:
-        await asyncio.sleep(1)
+    try:
+        await engine.connect()
+        print("Connected successfully!")
+        await engine.logon()
+        print("Logon process completed!")
+        while True:
+            await asyncio.sleep(1)
+    except Exception as e:
+        print(f"Error encountered: {e}")
 
 if __name__ == "__main__":
     asyncio.run(main())
