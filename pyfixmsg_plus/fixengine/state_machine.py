@@ -9,9 +9,12 @@ class StateMachine:
     def __init__(self, initial_state):
         self.state = initial_state
         self.subscribers = []
+        self.logger = logging.getLogger('StateMachine')  # Adding logger for debugging
 
     def on_event(self, event):
+        self.logger.debug(f"Handling event: {event} in state: {self.state.name}")
         self.state = self.state.on_event(event)
+        self.logger.debug(f"State transitioned to: {self.state.name}")
         self.notify_subscribers()
 
     def subscribe(self, callback):
