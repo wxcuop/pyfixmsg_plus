@@ -1,3 +1,5 @@
+import logging  # Importing logging module
+
 class State:
     def __init__(self, name):
         self.name = name
