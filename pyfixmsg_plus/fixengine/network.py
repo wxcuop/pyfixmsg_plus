@@ -16,10 +16,17 @@ class Network:
 
     async def connect(self):
         async with self.lock:
-            if self.use_tls:
-                self.reader, self.writer = await asyncio.open_connection(self.host, self.port, ssl=ssl.create_default_context())
-            else:
-                self.reader, self.writer = await asyncio.open_connection(self.host, self.port)
+            ssl_context = ssl.create_default_context() if self.use_tls else None
+            transport, protocol = await asyncio.get_event_loop().create_connection(
+                lambda: asyncio.StreamReaderProtocol(asyncio.StreamReader()),
+                self.host,
+                self.port,
+                ssl=ssl_context,
+            )
+            self.reader = protocol._stream_reader
+            self.writer = asyncio.StreamWriter(
+                transport, protocol, self.reader, asyncio.get_event_loop()
+            )
             self.running = True
             self.logger.info(f"Connected to {self.host}:{self.port} with TLS={self.use_tls}")
 
@@ -33,7 +40,7 @@ class Network:
 
     async def send(self, message):
         async with self.lock:
-            self.writer.write(message)
+            self.writer.write(message.encode())
             await self.writer.drain()
             self.logger.info(f"Sent: {message}")
 
@@ -41,30 +48,35 @@ class Network:
         while self.running:
             data = await self.reader.read(4096)
             if data:
-                await handler(data)
+                await handler(data.decode())
 
 class Acceptor(Network):
     def __init__(self, host, port, use_tls=False):
         super().__init__(host, port, use_tls)
         self.server = None
 
+    async def set_transport(self, reader, writer):
+        """Set the transport layer for the client connection"""
+        self.reader = reader
+        self.writer = writer
+        self.client_address = writer.get_extra_info('peername')
+        self.logger.info(f"Transport set for client {self.client_address}")
+
     async def start_accepting(self, incoming_connection_handler):
         async with self.lock:
+            ssl_context = ssl.create_default_context() if self.use_tls else None
             self.server = await asyncio.start_server(
                 incoming_connection_handler,
                 self.host,
                 self.port,
-                ssl=ssl.create_default_context() if self.use_tls else None
+                ssl=ssl_context,
             )
             self.logger.info(f"Listening on {self.host}:{self.port}")
             async with self.server:
                 await self.server.serve_forever()
 
     async def handle_client(self, reader, writer):
-        self.reader = reader
-        self.writer = writer
-        self.client_address = writer.get_extra_info('peername')
-        self.logger.info(f"Accepted connection from {self.client_address}")
+        await self.set_transport(reader, writer)  # Call set_transport here
         await self.receive(self.handle_message)
 
     async def handle_message(self, data):
@@ -81,3 +93,38 @@ class Acceptor(Network):
 class Initiator(Network):
     def __init__(self, host, port, use_tls=False):
         super().__init__(host, port, use_tls)
+
+    async def set_transport(self, reader, writer):
+        """Set the transport layer for the server connection"""
+        self.reader = reader
+        self.writer = writer
+        self.logger.info("Transport set for server connection")
+
+    async def connect_with_logon(self, logon_message):
+        """Establish connection and send a logon message."""
+        await self.connect()
+        self.logger.info("Sending logon message...")
+        await self.send(logon_message)
+
+    async def reconnect(self, retry_interval=5, max_retries=3):
+        """Attempt to reconnect to the server."""
+        for attempt in range(max_retries):
+            try:
+                await self.connect()
+                self.logger.info(f"Reconnected to {self.host}:{self.port} on attempt {attempt + 1}")
+                return
+            except Exception as e:
+                self.logger.error(f"Reconnect attempt {attempt + 1} failed: {e}")
+                await asyncio.sleep(retry_interval)
+        self.logger.error("Max reconnect attempts reached. Giving up.")
+
+    async def handle_server_message(self, handler):
+        """Process incoming messages from the server."""
+        while self.running:
+            try:
+                data = await self.reader.read(4096)
+                if data:
+                    await handler(data.decode())
+            except Exception as e:
+                self.logger.error(f"Error receiving message: {e}")
+                break
