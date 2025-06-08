@@ -142,7 +142,7 @@ class FixEngine:
         try:
             self.state_machine.on_event('logon')
             self.logger.info("Accepted incoming connection.")
-            self.network.set_transport(reader, writer)
+            await self.network.set_transport(reader, writer)  # Ensure set_transport is awaited
             await self.logon()
             await self.receive_message()
         except Exception as e:
@@ -266,13 +266,3 @@ class FixEngine:
         })
         await self.send_message(logout_message)
         self.logger.info("Sent Logout message.")
-
-# Example usage
-# if __name__ == "__main__":
-#     config_manager = ConfigManager()
-#     application = MyApplication()  # Replace MyApplication with your concrete implementation
-#     engine = FixEngine(config_manager, application)
-#     asyncio.run(engine.connect())
-#     # Example of setting sequence numbers
-#     asyncio.run(engine.set_inbound_sequence_number(100))
-#     asyncio.run(engine.set_outbound_sequence_number(200))
