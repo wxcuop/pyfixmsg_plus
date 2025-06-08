@@ -26,7 +26,10 @@ async def logon(self):
 
 ## Heartbeat (35=0)
 
-Heartbeats are managed by the `HeartbeatHandler` class. Heartbeats are sent at regular intervals to ensure the session is alive.
+Heartbeats are managed by the `HeartbeatHandler` class, and are sent at regular intervals to ensure the session is alive. The heartbeat logic has been enhanced with the following features:
+- **Configurable Timeout**: A timeout value can be set for network operations, ensuring timely responses and handling delays effectively.
+- **Corrective Actions**: If connection issues occur (e.g., missed heartbeats), the `Heartbeat` class initiates corrective actions such as reconnecting.
+- **HeartbeatBuilder**: The `HeartbeatBuilder` class constructs the `Heartbeat` object with all required dependencies.
 
 ```python
 class HeartbeatHandler(MessageHandler):
@@ -128,3 +131,10 @@ class MessageProcessor:
         if handler:
             await handler.handle(message)
 ```
+
+---
+
+### **Added Features**
+- **Configurable Timeout**: Improves control over network delays in heartbeat and test request operations.
+- **Corrective Actions**: Ensures session resilience during connection issues.
+- **HeartbeatBuilder**: Simplifies the creation of heartbeat objects with necessary dependencies.
