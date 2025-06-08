@@ -15,6 +15,7 @@ class Network:
         self.logger.setLevel(logging.DEBUG)
 
     async def connect(self):
+        """Establish a connection to the server."""
         async with self.lock:
             ssl_context = ssl.create_default_context() if self.use_tls else None
             transport, protocol = await asyncio.get_event_loop().create_connection(
@@ -31,6 +32,7 @@ class Network:
             self.logger.info(f"Connected to {self.host}:{self.port} with TLS={self.use_tls}")
 
     async def disconnect(self):
+        """Close the connection."""
         async with self.lock:
             self.running = False
             if self.writer:
@@ -39,16 +41,22 @@ class Network:
             self.logger.info("Disconnected")
 
     async def send(self, message):
+        """Send a message to the connected peer."""
         async with self.lock:
             self.writer.write(message.encode())
             await self.writer.drain()
             self.logger.info(f"Sent: {message}")
 
     async def receive(self, handler):
+        """Receive and process messages from the connected peer."""
         while self.running:
-            data = await self.reader.read(4096)
-            if data:
-                await handler(data.decode())
+            try:
+                data = await self.reader.read(4096)
+                if data:
+                    await handler(data.decode())
+            except Exception as e:
+                self.logger.error(f"Error receiving message: {e}")
+                break
 
 class Acceptor(Network):
     def __init__(self, host, port, use_tls=False):
@@ -56,13 +64,14 @@ class Acceptor(Network):
         self.server = None
 
     async def set_transport(self, reader, writer):
-        """Set the transport layer for the client connection"""
+        """Set the transport layer for the client connection."""
         self.reader = reader
         self.writer = writer
         self.client_address = writer.get_extra_info('peername')
         self.logger.info(f"Transport set for client {self.client_address}")
 
     async def start_accepting(self, incoming_connection_handler):
+        """Start accepting incoming connections."""
         async with self.lock:
             ssl_context = ssl.create_default_context() if self.use_tls else None
             self.server = await asyncio.start_server(
@@ -76,14 +85,16 @@ class Acceptor(Network):
                 await self.server.serve_forever()
 
     async def handle_client(self, reader, writer):
-        await self.set_transport(reader, writer)  # Call set_transport here
+        """Handle an incoming client connection."""
+        await self.set_transport(reader, writer)
         await self.receive(self.handle_message)
 
     async def handle_message(self, data):
-        """Override this method to handle messages"""
+        """Override this method to handle incoming messages."""
         self.logger.info(f"Received: {data}")
 
     async def disconnect(self):
+        """Stop the server and disconnect all clients."""
         async with self.lock:
             if self.server:
                 self.server.close()
@@ -95,19 +106,19 @@ class Initiator(Network):
         super().__init__(host, port, use_tls)
 
     async def set_transport(self, reader, writer):
-        """Set the transport layer for the server connection"""
+        """Set the transport layer for the server connection."""
         self.reader = reader
         self.writer = writer
         self.logger.info("Transport set for server connection")
 
     async def connect_with_logon(self, logon_message):
-        """Establish connection and send a logon message."""
+        """Establish a connection and send a logon message."""
         await self.connect()
         self.logger.info("Sending logon message...")
         await self.send(logon_message)
 
     async def reconnect(self, retry_interval=5, max_retries=3):
-        """Attempt to reconnect to the server."""
+        """Attempt to reconnect to the server with retries."""
         for attempt in range(max_retries):
             try:
                 await self.connect()
