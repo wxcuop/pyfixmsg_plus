@@ -1,0 +1,54 @@
+name: Build and Run Pyfixmsg Example
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  build-install-run:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout Code
+      uses: actions/checkout@v2
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+        cache: 'pip'
+
+    - name: Install Dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+
+    - name: Build and Install Pyfixmsg_plus
+      run: |
+        python setup.py sdist bdist_wheel
+        pip install dist/*.whl
+
+    - name: Install this package
+      run: |
+        pip install .
+
+    - name: Download FIX44 spec
+      run: |
+        curl https://raw.githubusercontent.com/quickfix/quickfix/master/spec/FIX44.xml -o FIX44.xml
+
+    - name: Run tests
+      run: pytest -s --spec=FIX44.xml --timeout=90 -v
+
+    - name: Run Pyfixmsg Example and Capture Output
+      run: |
+        python examples/pyfixmsg_example.py FIX44.xml > pyfixmsg_example_output.log
+
+    - name: Upload Example Output Log
+      uses: actions/upload-artifact@v3
+      with:
+        name: pyfixmsg_example_output
+        path: pyfixmsg_example_output.log
