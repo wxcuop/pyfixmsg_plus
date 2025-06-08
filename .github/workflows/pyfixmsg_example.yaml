@@ -32,16 +32,16 @@ jobs:
       run: |
         pip install .
 
-    - name: Download FIX44 spec
+    - name: Download FIX42 spec
       run: |
-        curl https://raw.githubusercontent.com/quickfix/quickfix/master/spec/FIX44.xml -o FIX44.xml
+        curl https://raw.githubusercontent.com/quickfix/quickfix/master/spec/FIX42.xml -o FIX42.xml
 
     - name: Run tests
-      run: pytest -s --spec=FIX44.xml --timeout=90 -v
+      run: pytest -s --spec=FIX42.xml --timeout=90 -v
 
     - name: Run Pyfixmsg Example and Capture Output
       run: |
-        python examples/pyfixmsg_example.py FIX44.xml > pyfixmsg_example_output.log
+        python examples/pyfixmsg_example.py FIX42.xml > pyfixmsg_example_output.log
 
     - name: Upload Example Output Log
       uses: actions/upload-artifact@v4
