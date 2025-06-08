@@ -112,6 +112,12 @@ class FixEngine:
 
     def on_state_change(self, state_name):
         self.logger.info(f"State changed to: {state_name}")
+        if state_name == 'LOGON_IN_PROGRESS':
+            self.logger.debug("Logon process has started.")
+        elif state_name == 'ACTIVE':
+            self.logger.debug("Connection is now active.")
+        elif state_name == 'DISCONNECTED':
+            self.logger.debug("Connection has been disconnected.")
 
     async def connect(self):
         try:
