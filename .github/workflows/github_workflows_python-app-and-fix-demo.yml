@@ -55,7 +55,7 @@ jobs:
         python examples/cli_initiator.py > initiator_logs.txt 2>&1 &
         INITIATOR_PID=$!
         sleep 15
-        kill $INITIATOR_PID
+        kill $INITIATOR_PID || true
 
     - name: Stop Acceptor
       run: |
