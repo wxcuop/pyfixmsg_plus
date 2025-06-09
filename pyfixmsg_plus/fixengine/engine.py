@@ -72,7 +72,7 @@ class FixEngine:
                           .set_state_machine(self.state_machine)
                           .set_fix_engine(self)
                           .build())
-        self.test_request = TestRequest(self.send_message, self.config_manager)
+        self.test_request = TestRequest(self.send_message, self.config_manager, self.fixmsg) # Pass self.fixmsg
         self.session_id = f"{self.sender}-{self.target}-{self.host}:{self.port}" # More unique session ID
         self.network = Acceptor(self.host, self.port, self.use_tls) if self.mode == 'acceptor' else Initiator(self.host, self.port, self.use_tls)
 
