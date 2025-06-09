@@ -13,85 +13,103 @@ logger = logging.getLogger(__name__)
 class DummyApplication(Application):
     def __init__(self):
         self.engine = None 
-        super().__init__() 
+        if hasattr(super(), '__init__'):
+             super().__init__()
+        # self.logger = logging.getLogger(self.__class__.__name__)
+
 
     def set_engine(self, engine): 
         self.engine = engine
+        # self.logger.info("Engine set on Initiator DummyApplication.")
 
     async def onCreate(self, sessionID):
-        self.logger.info(f"[{sessionID}] Initiator App: onCreate")
+        # self.logger.info(f"[{sessionID}] Initiator App: onCreate")
+        pass
 
     async def onLogon(self, sessionID, message=None): 
-        self.logger.info(f"[{sessionID}] Initiator App: Logon successful.")
+        # self.logger.info(f"[{sessionID}] Initiator App: Logon successful.")
         if message and hasattr(message, 'to_wire'):
-            self.logger.info(f"Logon Message: {message.to_wire(pretty=True)}")
+            pass
+            # self.logger.info(f"Logon Message: {message.to_wire(pretty=True)}")
 
     async def onLogout(self, sessionID, message=None): 
-        self.logger.info(f"[{sessionID}] Initiator App: Logout.")
+        # self.logger.info(f"[{sessionID}] Initiator App: Logout.")
         if message and hasattr(message, 'to_wire'):
-            self.logger.info(f"Logout Message: {message.to_wire(pretty=True)}")
+            pass
+            # self.logger.info(f"Logout Message: {message.to_wire(pretty=True)}")
 
     async def toAdmin(self, message, sessionID):
-        self.logger.debug(f"[{sessionID}] Initiator App toAdmin: MsgType {message.get(35) if hasattr(message, 'get') else 'Unknown'}")
+        # self.logger.debug(f"[{sessionID}] Initiator App toAdmin: MsgType {message.get(35) if hasattr(message, 'get') else 'Unknown'}")
         return message 
 
     async def fromAdmin(self, message, sessionID):
-        self.logger.debug(f"[{sessionID}] Initiator App fromAdmin: MsgType {message.get(35) if hasattr(message, 'get') else 'Unknown'}")
+        # self.logger.debug(f"[{sessionID}] Initiator App fromAdmin: MsgType {message.get(35) if hasattr(message, 'get') else 'Unknown'}")
         return message 
 
     async def toApp(self, message, sessionID):
-        self.logger.debug(f"[{sessionID}] Initiator App toApp: MsgType {message.get(35) if hasattr(message, 'get') else 'Unknown'}")
+        # self.logger.debug(f"[{sessionID}] Initiator App toApp: MsgType {message.get(35) if hasattr(message, 'get') else 'Unknown'}")
         return message 
 
     async def fromApp(self, message, sessionID):
-        self.logger.debug(f"[{sessionID}] Initiator App fromApp: MsgType {message.get(35) if hasattr(message, 'get') else 'Unknown'}")
+        # self.logger.debug(f"[{sessionID}] Initiator App fromApp: MsgType {message.get(35) if hasattr(message, 'get') else 'Unknown'}")
         return message 
 
     async def onMessage(self, message, sessionID):
-        self.logger.info(f"[{sessionID}] Initiator App: Received message type {message.get(35) if hasattr(message, 'get') else 'Unknown'}: {message.to_wire(pretty=True) if hasattr(message, 'to_wire') else str(message)}")
+        msg_type = message.get(35) if hasattr(message, 'get') else "Unknown"
+        # self.logger.info(f"[{sessionID}] Initiator App: Received message type {msg_type}: {message.to_wire(pretty=True) if hasattr(message, 'to_wire') else str(message)}")
 
 
 async def main():
     script_dir = os.path.dirname(__file__)
     config_path = os.path.join(script_dir, 'config_initiator.ini') 
     
-    # When ConfigManager is instantiated here, it will use 'config_initiator.ini'
-    # due to the Singleton behavior, if this is the first instantiation in this process
-    # with this specific path, it will stick.
     config = ConfigManager(config_path) 
     
     app = DummyApplication()
     engine = FixEngine(config, app) 
-    # The FixEngine should ideally call app.set_engine(self)
-    # If not, this manual call is okay for the example.
     if hasattr(app, 'set_engine'):
         app.set_engine(engine) 
     
+    engine_task = None
     try:
         logger.info(f"Starting initiator engine (Sender: {engine.sender}, Target: {engine.target}) to connect to {engine.host}:{engine.port}...")
         
-        asyncio.create_task(engine.start()) 
+        engine_task = asyncio.create_task(engine.start()) 
         
-        logger.info("Initiator engine.start() called. Session establishment in progress.")
+        logger.info("Initiator engine.start() task created. Allowing time for connection attempt...")
         
+        # Give the engine a moment to attempt connection and change state
+        # This is a simple way; a more robust way might involve waiting for a specific state event
+        await asyncio.sleep(2) # Increased initial delay to 2 seconds
+
         sent_test_order = False
+        loop_count = 0
+        max_loops_disconnected = 5 # Exit if disconnected for ~5 seconds after initial wait
+
         while True: 
+            loop_count +=1
             if not engine or not hasattr(engine, 'state_machine'):
-                await asyncio.sleep(0.1) 
+                logger.warning("Engine or state_machine not available yet, sleeping...")
+                await asyncio.sleep(1) 
                 continue
 
             current_state = engine.state_machine.state.name
+            logger.debug(f"Main loop check: Engine state is {current_state}")
+
             if current_state == 'DISCONNECTED':
-                if hasattr(engine, 'retry_attempts') and hasattr(engine, 'max_retries') and \
-                   engine.max_retries > 0 and engine.retry_attempts >= engine.max_retries:
-                    logger.warning(f"Max retries ({engine.max_retries}) reached. Engine remains disconnected. Exiting example loop.")
+                if loop_count > max_loops_disconnected : # Only break if it's persistently disconnected after initial attempts
+                    logger.info(f"Engine is persistently DISCONNECTED after {loop_count} checks. Exiting example loop.")
+                    if hasattr(engine, 'retry_attempts') and hasattr(engine, 'max_retries') and \
+                       engine.max_retries > 0 and engine.retry_attempts >= engine.max_retries:
+                        logger.warning(f"Max retries ({engine.max_retries}) also reached.")
+                    break 
                 else:
-                    logger.info("Engine is disconnected. Exiting example loop.")
-                break 
+                    logger.info(f"Engine is DISCONNECTED (check {loop_count}/{max_loops_disconnected}). Will check again.")
+
 
             if current_state == 'ACTIVE' and not sent_test_order:
-                logger.info(f"Session is ACTIVE. Attempting to send a test NewOrderSingle in 3 seconds...")
-                await asyncio.sleep(3) 
+                logger.info(f"Session is ACTIVE. Attempting to send a test NewOrderSingle in 1 second...")
+                await asyncio.sleep(1) # Shorter delay once active
                 if engine.state_machine.state.name == 'ACTIVE': 
                     test_order = engine.fixmsg({
                         35: 'D',    
@@ -105,9 +123,21 @@ async def main():
                     logger.info(f"Sending test NewOrderSingle: {test_order.to_wire(pretty=True)}")
                     await engine.send_message(test_order)
                     sent_test_order = True 
+                    # After sending, let's wait a bit then initiate disconnect for the example
+                    await asyncio.sleep(5)
+                    logger.info("Test order sent. Initiating graceful disconnect.")
+                    await engine.disconnect(graceful=True) # This will eventually lead to DISCONNECTED state and loop exit
                 else:
                     logger.info(f"State changed from ACTIVE to {engine.state_machine.state.name} before sending test order.")
             
+            if engine_task and engine_task.done():
+                logger.info("Engine task has completed. Exiting main loop.")
+                try:
+                    engine_task.result() # To raise any exceptions from the engine task
+                except Exception as e_task:
+                    logger.error(f"Exception from engine task: {e_task}", exc_info=True)
+                break
+
             await asyncio.sleep(1)
 
         logger.info(f"Initiator example loop finished. Final engine state: {engine.state_machine.state.name if engine and hasattr(engine, 'state_machine') else 'UNKNOWN'}")
@@ -119,20 +149,29 @@ async def main():
     except Exception as e:
         logger.error(f"Error in initiator: {e}", exc_info=True)
     finally:
+        if engine_task and not engine_task.done():
+            logger.info("Cancelling engine task...")
+            engine_task.cancel()
+            try:
+                await engine_task
+            except asyncio.CancelledError:
+                logger.info("Engine task successfully cancelled.")
+            except Exception as e_task_cancel:
+                 logger.error(f"Exception while cancelling engine task: {e_task_cancel}", exc_info=True)
+
+
         if engine and hasattr(engine, 'state_machine') and engine.state_machine.state.name != 'DISCONNECTED':
-            logger.info("Ensuring initiator engine is disconnected...")
-            await engine.disconnect(graceful=True) 
+            logger.info("Ensuring initiator engine is disconnected (final check)...")
+            await engine.disconnect(graceful=False) # Force disconnect if still not done
+        
         logger.info("Initiator main function finished.")
 
 if __name__ == "__main__":
     script_dir_for_config = os.path.dirname(__file__)
     initiator_config_file = os.path.join(script_dir_for_config, 'config_initiator.ini')
     
-    # This ConfigManager instance is specifically for creating/updating the default config file.
-    # The Singleton pattern means it might be the same instance as used in main(),
-    # but its config_path will be set based on the first call with a path.
     if not os.path.exists(initiator_config_file):
-        default_cfg_writer = ConfigManager(initiator_config_file) # Explicitly pass path
+        default_cfg_writer = ConfigManager(initiator_config_file) 
         default_cfg_writer.set('FIX', 'mode', 'initiator')
         default_cfg_writer.set('FIX', 'sender', 'INITIATOR_CLIENT') 
         default_cfg_writer.set('FIX', 'target', 'ACCEPTOR_SERVER') 
@@ -145,11 +184,9 @@ if __name__ == "__main__":
         default_cfg_writer.set('FIX', 'max_retries', '3') 
         default_cfg_writer.set('FIX', 'state_file', os.path.join(script_dir_for_config, 'initiator_fix_state.db'))
         default_cfg_writer.set('FIX', 'reset_seq_num_on_logon', 'false')
-        default_cfg_writer.save_config() # CORRECTED METHOD NAME
+        default_cfg_writer.save_config() 
         logger.info(f"Created default initiator config: {initiator_config_file}")
 
-    # This ConfigManager is for reading the path to the DB file for cleanup.
-    # It will use the initiator_config_file path.
     db_path_reader = ConfigManager(initiator_config_file)
     db_file_init = db_path_reader.get('FIX', 'state_file', os.path.join(script_dir_for_config, 'initiator_fix_state.db'))
     if os.path.exists(db_file_init):
