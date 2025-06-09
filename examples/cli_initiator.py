@@ -1,10 +1,10 @@
 import asyncio
 import logging
 import os
-import datetime # Ensure this import is present
+import datetime 
 from pyfixmsg_plus.fixengine.configmanager import ConfigManager
 from pyfixmsg_plus.fixengine.engine import FixEngine
-from pyfixmsg_plus.application import Application # CORRECTED IMPORT
+from pyfixmsg_plus.application import Application 
 
 # Basic logging setup for the example
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(name)s - %(message)s')
@@ -12,42 +12,60 @@ logger = logging.getLogger(__name__)
 
 class DummyApplication(Application):
     def __init__(self):
-        self.engine = None # Will be set by FixEngine
+        self.engine = None 
+        super().__init__() 
 
-    async def onLogon(self, message, session_id):
-        logger.info(f"[{session_id}] Initiator App: Logon successful. Message: {message.to_wire(pretty=True)}")
-
-    async def onLogout(self, message, session_id):
-        logger.info(f"[{session_id}] Initiator App: Logout. Message: {message.to_wire(pretty=True)}")
-
-    async def onMessage(self, message, session_id):
-        logger.info(f"[{session_id}] Initiator App: Received message type {message.get(35)}: {message.to_wire(pretty=True)}")
-
-    # Method for the FixEngine to set itself on the application
-    def set_engine(self, engine):
+    def set_engine(self, engine): 
         self.engine = engine
 
+    async def onCreate(self, sessionID):
+        self.logger.info(f"[{sessionID}] Initiator App: onCreate")
+
+    async def onLogon(self, sessionID, message=None): 
+        self.logger.info(f"[{sessionID}] Initiator App: Logon successful.")
+        if message and hasattr(message, 'to_wire'):
+            self.logger.info(f"Logon Message: {message.to_wire(pretty=True)}")
+
+    async def onLogout(self, sessionID, message=None): 
+        self.logger.info(f"[{sessionID}] Initiator App: Logout.")
+        if message and hasattr(message, 'to_wire'):
+            self.logger.info(f"Logout Message: {message.to_wire(pretty=True)}")
+
+    async def toAdmin(self, message, sessionID):
+        self.logger.debug(f"[{sessionID}] Initiator App toAdmin: MsgType {message.get(35) if hasattr(message, 'get') else 'Unknown'}")
+        return message 
+
+    async def fromAdmin(self, message, sessionID):
+        self.logger.debug(f"[{sessionID}] Initiator App fromAdmin: MsgType {message.get(35) if hasattr(message, 'get') else 'Unknown'}")
+        return message 
+
+    async def toApp(self, message, sessionID):
+        self.logger.debug(f"[{sessionID}] Initiator App toApp: MsgType {message.get(35) if hasattr(message, 'get') else 'Unknown'}")
+        return message 
+
+    async def fromApp(self, message, sessionID):
+        self.logger.debug(f"[{sessionID}] Initiator App fromApp: MsgType {message.get(35) if hasattr(message, 'get') else 'Unknown'}")
+        return message 
+
+    async def onMessage(self, message, sessionID):
+        self.logger.info(f"[{sessionID}] Initiator App: Received message type {message.get(35) if hasattr(message, 'get') else 'Unknown'}: {message.to_wire(pretty=True) if hasattr(message, 'to_wire') else str(message)}")
+
+
 async def main():
-    # Determine the path to the config file relative to this script
     script_dir = os.path.dirname(__file__)
-    config_path = os.path.join(script_dir, 'config_initiator.ini') # Use a separate config for initiator
+    config_path = os.path.join(script_dir, 'config_initiator.ini') 
     
-    config = ConfigManager(config_path)
-    # Ensure required settings are in config_initiator.ini or set them here if needed
-    # Example values - these should ideally be in config_initiator.ini
-    # config.set('FIX', 'mode', 'initiator')
-    # config.set('FIX', 'sender', 'INITIATOR_CLIENT')
-    # config.set('FIX', 'target', 'ACCEPTOR_SERVER')
-    # config.set('FIX', 'host', '127.0.0.1')
-    # config.set('FIX', 'port', '5000') 
-    # config.set('FIX', 'heartbeat_interval', '30')
-    # config.set('FIX', 'spec_filename', 'FIX44.xml') 
-    # config.set('FIX', 'state_file', os.path.join(script_dir, 'initiator_fix_state.db'))
-
-
+    # When ConfigManager is instantiated here, it will use 'config_initiator.ini'
+    # due to the Singleton behavior, if this is the first instantiation in this process
+    # with this specific path, it will stick.
+    config = ConfigManager(config_path) 
+    
     app = DummyApplication()
-    engine = FixEngine(config, app)
-    app.set_engine(engine) # Allow app to access engine for sending messages
+    engine = FixEngine(config, app) 
+    # The FixEngine should ideally call app.set_engine(self)
+    # If not, this manual call is okay for the example.
+    if hasattr(app, 'set_engine'):
+        app.set_engine(engine) 
     
     try:
         logger.info(f"Starting initiator engine (Sender: {engine.sender}, Target: {engine.target}) to connect to {engine.host}:{engine.port}...")
@@ -57,10 +75,9 @@ async def main():
         logger.info("Initiator engine.start() called. Session establishment in progress.")
         
         sent_test_order = False
-        while True: # Main loop to keep alive and monitor
-            # Ensure engine and state_machine are initialized before accessing
+        while True: 
             if not engine or not hasattr(engine, 'state_machine'):
-                await asyncio.sleep(0.1) # Wait briefly if engine is not ready
+                await asyncio.sleep(0.1) 
                 continue
 
             current_state = engine.state_machine.state.name
@@ -70,7 +87,7 @@ async def main():
                     logger.warning(f"Max retries ({engine.max_retries}) reached. Engine remains disconnected. Exiting example loop.")
                 else:
                     logger.info("Engine is disconnected. Exiting example loop.")
-                break # Exit while loop if disconnected
+                break 
 
             if current_state == 'ACTIVE' and not sent_test_order:
                 logger.info(f"Session is ACTIVE. Attempting to send a test NewOrderSingle in 3 seconds...")
@@ -102,7 +119,6 @@ async def main():
     except Exception as e:
         logger.error(f"Error in initiator: {e}", exc_info=True)
     finally:
-        # Ensure this line (110 or adjusted) is exactly as follows:
         if engine and hasattr(engine, 'state_machine') and engine.state_machine.state.name != 'DISCONNECTED':
             logger.info("Ensuring initiator engine is disconnected...")
             await engine.disconnect(graceful=True) 
@@ -112,25 +128,30 @@ if __name__ == "__main__":
     script_dir_for_config = os.path.dirname(__file__)
     initiator_config_file = os.path.join(script_dir_for_config, 'config_initiator.ini')
     
+    # This ConfigManager instance is specifically for creating/updating the default config file.
+    # The Singleton pattern means it might be the same instance as used in main(),
+    # but its config_path will be set based on the first call with a path.
     if not os.path.exists(initiator_config_file):
-        default_cfg = ConfigManager(initiator_config_file) 
-        default_cfg.set('FIX', 'mode', 'initiator')
-        default_cfg.set('FIX', 'sender', 'INITIATOR_CLIENT') 
-        default_cfg.set('FIX', 'target', 'ACCEPTOR_SERVER') 
-        default_cfg.set('FIX', 'version', 'FIX.4.4')
-        default_cfg.set('FIX', 'spec_filename', 'FIX44.xml') 
-        default_cfg.set('FIX', 'host', '127.0.0.1')
-        default_cfg.set('FIX', 'port', '5000')
-        default_cfg.set('FIX', 'heartbeat_interval', '30')
-        default_cfg.set('FIX', 'retry_interval', '5')
-        default_cfg.set('FIX', 'max_retries', '3') # Set a value for max_retries
-        default_cfg.set('FIX', 'state_file', os.path.join(script_dir_for_config, 'initiator_fix_state.db'))
-        default_cfg.set('FIX', 'reset_seq_num_on_logon', 'false')
-        default_cfg.save() 
+        default_cfg_writer = ConfigManager(initiator_config_file) # Explicitly pass path
+        default_cfg_writer.set('FIX', 'mode', 'initiator')
+        default_cfg_writer.set('FIX', 'sender', 'INITIATOR_CLIENT') 
+        default_cfg_writer.set('FIX', 'target', 'ACCEPTOR_SERVER') 
+        default_cfg_writer.set('FIX', 'version', 'FIX.4.4')
+        default_cfg_writer.set('FIX', 'spec_filename', 'FIX44.xml') 
+        default_cfg_writer.set('FIX', 'host', '127.0.0.1')
+        default_cfg_writer.set('FIX', 'port', '5000')
+        default_cfg_writer.set('FIX', 'heartbeat_interval', '30')
+        default_cfg_writer.set('FIX', 'retry_interval', '5')
+        default_cfg_writer.set('FIX', 'max_retries', '3') 
+        default_cfg_writer.set('FIX', 'state_file', os.path.join(script_dir_for_config, 'initiator_fix_state.db'))
+        default_cfg_writer.set('FIX', 'reset_seq_num_on_logon', 'false')
+        default_cfg_writer.save_config() # CORRECTED METHOD NAME
         logger.info(f"Created default initiator config: {initiator_config_file}")
 
-    db_path_config_init = ConfigManager(initiator_config_file)
-    db_file_init = db_path_config_init.get('FIX', 'state_file', os.path.join(script_dir_for_config, 'initiator_fix_state.db'))
+    # This ConfigManager is for reading the path to the DB file for cleanup.
+    # It will use the initiator_config_file path.
+    db_path_reader = ConfigManager(initiator_config_file)
+    db_file_init = db_path_reader.get('FIX', 'state_file', os.path.join(script_dir_for_config, 'initiator_fix_state.db'))
     if os.path.exists(db_file_init):
         try:
             os.remove(db_file_init)
