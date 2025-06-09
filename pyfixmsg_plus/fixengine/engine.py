@@ -3,7 +3,7 @@ import logging
 from datetime import datetime, timezone
 from pyfixmsg_plus.fixengine.heartbeat import Heartbeat
 from pyfixmsg_plus.fixengine.heartbeat_builder import HeartbeatBuilder
-from pyfixmsg_plus.fixengine.testrequest import TestRequest
+from pyfixmsg_plus.fixengine.testrequest import TestRequest # Ensure this import is correct
 from pyfixmsg_plus.fixengine.network import Acceptor, Initiator
 from pyfixmsg_plus.fixengine.configmanager import ConfigManager
 from pyfixmsg_plus.fixengine.events import EventNotifier
@@ -27,12 +27,9 @@ from pyfixmsg_plus.fixengine.message_handler import (
 from pyfixmsg_plus.fixengine.message_store_factory import MessageStoreFactory
 from pyfixmsg_plus.fixengine.state_machine import StateMachine, Disconnected, LogonInProgress, LogoutInProgress, Active, Reconnecting
 from pyfixmsg_plus.fixengine.scheduler import Scheduler
-from pyfixmsg.fixmessage import FixMessage, FixFragment # Ensure FixFragment is imported
+from pyfixmsg.fixmessage import FixMessage, FixFragment
 from pyfixmsg.reference import FixSpec
 from pyfixmsg.codecs.stringfix import Codec
-# FixFragment was already imported via `from pyfixmsg.fixmessage import FixMessage, FixFragment`
-# but if it wasn't, it would need to be:
-# from pyfixmsg.fixmessage import FixFragment
 
 
 class FixEngine:
@@ -54,7 +51,6 @@ class FixEngine:
         # self.logger.setLevel(logging.DEBUG) # Set level based on config or globally
 
         db_path = self.config_manager.get('FIX', 'state_file', 'fix_state.db')
-        # Pass session identifiers directly to the factory
         self.message_store = MessageStoreFactory.get_message_store(
             'database',
             db_path,
@@ -65,15 +61,19 @@ class FixEngine:
 
         self.heartbeat_interval = int(self.config_manager.get('FIX', 'heartbeat_interval', '30'))
         self.lock = asyncio.Lock()
+        
+        # Instantiate TestRequest, passing self.fixmsg as the creator
+        self.test_request = TestRequest(self.send_message, self.config_manager, self.fixmsg)
+
         self.heartbeat = (HeartbeatBuilder()
                           .set_send_message_callback(self.send_message)
                           .set_config_manager(self.config_manager)
                           .set_heartbeat_interval(self.heartbeat_interval)
                           .set_state_machine(self.state_machine)
-                          .set_fix_engine(self)
+                          .set_fix_engine(self) # Pass self (FixEngine instance)
                           .build())
-        self.test_request = TestRequest(self.send_message, self.config_manager, self.fixmsg) # Pass self.fixmsg
-        self.session_id = f"{self.sender}-{self.target}-{self.host}:{self.port}" # More unique session ID
+        
+        self.session_id = f"{self.sender}-{self.target}-{self.host}:{self.port}"
         self.network = Acceptor(self.host, self.port, self.use_tls) if self.mode == 'acceptor' else Initiator(self.host, self.port, self.use_tls)
 
         self.event_notifier = EventNotifier()
@@ -95,7 +95,7 @@ class FixEngine:
         self.message_processor.register_handler('0', HeartbeatHandler(self.message_store, self.state_machine, self.application, self))
 
         self.scheduler = Scheduler(self.config_manager, self)
-        self.scheduler_task = None # Will be created in connect or run
+        self.scheduler_task = None
 
         self.retry_interval = int(self.config_manager.get('FIX', 'retry_interval', '5'))
         self.max_retries = int(self.config_manager.get('FIX', 'max_retries', '5'))
@@ -137,28 +137,23 @@ class FixEngine:
                 MDReqID='req123' # A top-level field
             )
         """
-        # Initialize the message with top-level fields and the MsgType
         initial_fields = {35: msg_type}
-        initial_fields.update(kwargs) # Add any other top-level fields
-        message = self.fixmsg(initial_fields) # Uses engine's codec
+        initial_fields.update(kwargs)
+        message = self.fixmsg(initial_fields)
 
         for num_in_group_tag, group_entries_data in group_data.items():
             if not isinstance(group_entries_data, list):
                 self.logger.error(f"Data for group {num_in_group_tag} must be a list of dictionaries.")
-                # Or raise an error: raise ValueError(f"Data for group {num_in_group_tag} must be a list.")
                 continue
 
             fragments_list = []
             for entry_data in group_entries_data:
                 if not isinstance(entry_data, dict):
                     self.logger.error(f"Entry in group {num_in_group_tag} must be a dictionary. Got: {type(entry_data)}")
-                    # Or raise an error
                     continue
-                # Create a FixFragment from the dictionary of fields for this group entry
                 fragment = FixFragment(entry_data)
                 fragments_list.append(fragment)
             
-            # Assign the list of FixFragment objects to the message using the NumInGroup tag
             message[num_in_group_tag] = fragments_list
             self.logger.debug(f"Added repeating group for tag {num_in_group_tag} with {len(fragments_list)} entries.")
 
@@ -168,16 +163,15 @@ class FixEngine:
         self.logger.info(f"STATE CHANGE ({self.session_id}): {state_name}")
         if state_name == 'ACTIVE':
             self.logger.info(f"Session {self.session_id} is now ACTIVE.")
-            self.retry_attempts = 0 # Reset retries on successful connection
+            self.retry_attempts = 0
         elif state_name == 'DISCONNECTED':
             self.logger.info(f"Session {self.session_id} is DISCONNECTED.")
             if self.heartbeat and self.heartbeat.is_running():
                  self.logger.debug("Stopping heartbeat task due to disconnect.")
-                 asyncio.create_task(self.heartbeat.stop()) # Ensure heartbeat stops
+                 asyncio.create_task(self.heartbeat.stop())
 
 
-    async def start(self): # Renamed from connect to start for clarity, or keep connect
-        """Starts the FIX engine (listens as acceptor or connects as initiator)."""
+    async def start(self):
         if not self.scheduler_task or self.scheduler_task.done():
             self.scheduler_task = asyncio.create_task(self.scheduler.run_scheduler())
             self.logger.info("Scheduler task started.")
@@ -188,7 +182,7 @@ class FixEngine:
                 self.state_machine.on_event('listening')
                 await self.network.start_accepting(self.handle_incoming_connection)
                 self.logger.info(f"Acceptor {self.session_id} has stopped listening.")
-            else: # Initiator mode
+            else:
                 self.logger.info(f"Initiator {self.session_id} starting to connect to {self.host}:{self.port}...")
                 self.state_machine.on_event('connecting')
                 await self.network.connect()
@@ -206,7 +200,7 @@ class FixEngine:
                 await self.retry_connect()
         finally:
             self.logger.info(f"FIX Engine {self.session_id} start/run attempt concluded.")
-            # Disconnect might be called if an unhandled exception bubbles up or loop ends
+
 
     async def retry_connect(self):
         if self.mode == 'acceptor': return
@@ -217,7 +211,7 @@ class FixEngine:
             backoff_time = self.retry_interval * (2 ** (self.retry_attempts - 1))
             self.logger.info(f"Retrying connection for {self.session_id} in {backoff_time}s (Attempt {self.retry_attempts}/{self.max_retries}).")
             await asyncio.sleep(backoff_time)
-            await self.start() # Retry the whole start sequence
+            await self.start()
         elif self.retry_attempts >= self.max_retries:
             self.logger.error(f"Max retries reached for {self.session_id}. Connection failed.")
             self.state_machine.on_event('disconnect')
@@ -233,7 +227,7 @@ class FixEngine:
         try:
             await self.network.set_transport(reader, writer)
             self.state_machine.on_event('tcp_connected')
-            self.retry_attempts = 0 # Reset retries for this new connection attempt by client
+            self.retry_attempts = 0
             self.logger.info(f"Transport set for {client_address}. Waiting for Logon...")
             await self.receive_message()
         except ConnectionResetError:
@@ -262,7 +256,7 @@ class FixEngine:
             self.logger.critical("CRITICAL: Acceptor should not call FixEngine.logon().")
             return
 
-        if self.state_machine.state.name not in ['LOGON_INITIATED', 'RECONNECTING']: # Allow logon after reconnecting state
+        if self.state_machine.state.name not in ['LOGON_INITIATED', 'RECONNECTING']:
             self.logger.warning(f"Cannot initiate logon for {self.session_id}: State is {self.state_machine.state.name}. Aborting logon.")
             return
 
@@ -272,14 +266,12 @@ class FixEngine:
 
             if reset_seq_num_flag_config:
                 self.logger.info(f"ResetSeqNumFlag is true for {self.session_id}. Resetting sequence numbers to 1.")
-                await self.reset_sequence_numbers() # Resets store's seq nums to 1
-                logon_message[141] = 'Y' # ResetSeqNumFlag=Y
-                # MsgSeqNum will be set to 1 by send_message due to this flag on Logon
+                await self.reset_sequence_numbers()
+                logon_message[141] = 'Y'
             else:
-                logon_message[141] = 'N' # ResetSeqNumFlag=N
+                logon_message[141] = 'N'
 
             logon_message.update({ 35: 'A', 108: self.heartbeat_interval })
-            # SenderCompID, TargetCompID, MsgSeqNum, SendingTime handled by send_message
 
             self.logger.info(f"Initiator {self.session_id} sending Logon (ResetSeqNumFlag={logon_message[141]}).")
             await self.send_message(logon_message)
@@ -293,7 +285,7 @@ class FixEngine:
 
 
     async def send_message(self, message: FixMessage):
-        if self.state_machine.state.name == 'DISCONNECTED' and not (message.get(35) == 'A' and self.mode == 'initiator'): # Allow sending Logon even if state is briefly disconnected during startup
+        if self.state_machine.state.name == 'DISCONNECTED' and not (message.get(35) == 'A' and self.mode == 'initiator'):
             self.logger.warning(f"Cannot send message (type {message.get(35)}) for {self.session_id}: Session is DISCONNECTED.")
             return
 
@@ -303,7 +295,7 @@ class FixEngine:
 
         if 34 not in message:
             if message.get(35) == 'A' and message.get(141) == 'Y':
-                message[34] = 1 # MsgSeqNum must be 1 if ResetSeqNumFlag=Y on Logon
+                message[34] = 1
             else:
                 message[34] = self.message_store.get_next_outgoing_sequence_number()
 
@@ -335,7 +327,7 @@ class FixEngine:
             return
         try:
             await self.network.receive(self.handle_message)
-        except Exception as e: # Catch-all, as network.receive should handle its specific errors
+        except Exception as e:
             self.logger.error(f"Unexpected error in FixEngine's receive_message for {self.session_id}: {e}", exc_info=True)
             await self.disconnect(graceful=False)
         finally:
@@ -367,7 +359,7 @@ class FixEngine:
             msg_type = parsed_message.get(35)
             received_seq_num_str = parsed_message.get(34)
             self.logger.info(f"Received ({self.session_id}): {msg_type} (Seq {received_seq_num_str})")
-            if self.logger.isEnabledFor(logging.DEBUG): # Avoid costly pretty print if not needed
+            if self.logger.isEnabledFor(logging.DEBUG):
                  self.logger.debug(f"Received Details ({self.session_id}): {parsed_message.to_wire(pretty=True)}")
 
             if not received_seq_num_str or not received_seq_num_str.isdigit():
@@ -379,16 +371,14 @@ class FixEngine:
 
             received_seq_num = int(received_seq_num_str)
 
-            # --- Sequence Number Processing ---
-            if msg_type not in ['A', '5'] and not (msg_type == '4' and parsed_message.get(123) == 'N'): # Exclude Logon, Logout, SeqReset-Reset
+            if msg_type not in ['A', '5'] and not (msg_type == '4' and parsed_message.get(123) == 'N'):
                 expected_seq_num = self.message_store.get_next_incoming_sequence_number()
 
                 if received_seq_num < expected_seq_num:
                     poss_dup_flag = parsed_message.get(43, 'N')
                     if poss_dup_flag == 'Y':
                         self.logger.info(f"PossDup {msg_type} (Seq {received_seq_num}) rcvd for {self.session_id} (expected {expected_seq_num}). App layer should handle.")
-                        # No automatic logout for PossDup=Y with lower seq num. Pass to app.
-                    else: # Not PossDup, but seq num is too low. This is a serious error.
+                    else:
                         self.logger.error(f"MsgSeqNum TOO LOW for {self.session_id}. Expected: {expected_seq_num}, Rcvd: {received_seq_num}. Not PossDup. Disconnecting.")
                         text = f"MsgSeqNum too low, expected {expected_seq_num} but received {received_seq_num}"
                         await self.send_logout_message(text=text)
@@ -398,21 +388,17 @@ class FixEngine:
                 elif received_seq_num > expected_seq_num:
                     self.logger.warning(f"MsgSeqNum TOO HIGH (Gap) for {self.session_id}. Expected: {expected_seq_num}, Rcvd: {received_seq_num}. Sending Resend Request.")
                     resend_req = self.fixmsg({
-                        35: '2', 7: expected_seq_num, 16: 0 # EndSeqNo=0 for all subsequent
+                        35: '2', 7: expected_seq_num, 16: 0
                     })
                     await self.send_message(resend_req)
-                    return # DO NOT process the gapped message. Wait for resend.
+                    return
 
-            # Store message (raw string)
             self.message_store.store_message(
-                self.version, parsed_message.get(49), parsed_message.get(56), # Use CompIDs from message for storage key
+                self.version, parsed_message.get(49), parsed_message.get(56),
                 received_seq_num,
                 data_str
             )
 
-            # Increment incoming sequence number for NON-Logon and NON-SequenceReset-Reset messages
-            # LogonHandler will call increment_incoming_sequence_number itself after validating Logon.
-            # SequenceResetHandler (for Reset mode) handles its own sequence update.
             if msg_type != 'A' and not (msg_type == '4' and parsed_message.get(123) == 'N'):
                 self.message_store.increment_incoming_sequence_number()
 
@@ -451,7 +437,7 @@ class FixEngine:
 
         if self.message_store and hasattr(self.message_store, 'close'):
             self.logger.debug(f"Closing message store for {self.session_id}.")
-            self.message_store.close() # Close the database connection
+            self.message_store.close()
 
         self.retry_attempts = 0
         if current_state != 'DISCONNECTED':
@@ -481,7 +467,7 @@ class FixEngine:
             self.logger.info(f"Cannot send Logout for {self.session_id}: Already disconnected.")
             return
 
-        if current_state == 'LOGOUT_IN_PROGRESS': # Avoid re-sending if already in process
+        if current_state == 'LOGOUT_IN_PROGRESS':
             self.logger.info(f"Cannot send Logout for {self.session_id}: Logout already in progress.")
             return
 
@@ -492,13 +478,10 @@ class FixEngine:
             if current_state not in ['DISCONNECTED', 'LOGOUT_IN_PROGRESS']:
                  self.state_machine.on_event('logout_sent')
 
-            await self.send_message(logout_msg) # This will set CompIDs, SeqNum, Time
+            await self.send_message(logout_msg)
             self.logger.info(f"Successfully sent Logout (Seq {logout_msg.get(34)}) for {self.session_id}.")
         except Exception as e:
             self.logger.error(f"Failed to send Logout for {self.session_id}: {e}", exc_info=True)
         finally:
-            # After attempting to send Logout, always proceed to full disconnect.
-            # disconnect() will handle ensuring the state becomes DISCONNECTED.
-            # The 'graceful=False' here ensures TCP is torn down quickly after our logout attempt.
-            if current_state != 'DISCONNECTED': # Check current_state again, as send_message might have disconnected on failure
+            if current_state != 'DISCONNECTED':
                  await self.disconnect(graceful=False)
