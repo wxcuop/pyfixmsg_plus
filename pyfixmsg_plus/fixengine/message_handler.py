@@ -467,14 +467,15 @@ class LogoutHandler(MessageHandler):
 class HeartbeatHandler(MessageHandler):
     @logging_decorator
     async def handle(self, message):
-        test_req_id = message.get(112) 
-        self.logger.debug(f"Received Heartbeat. TestReqID (112) in Heartbeat: {test_req_id}")
+        # Received a Heartbeat (35=0)
+        test_req_id_in_hb = message.get(112) # Check if this heartbeat is in response to a TestRequest
+        self.logger.debug(f"Received Heartbeat. TestReqID (112) in Heartbeat: {test_req_id_in_hb}")
         
         if self.engine.heartbeat:
-            self.engine.heartbeat.process_incoming_heartbeat(test_req_id)
+            # Call the centralized processing method in the Heartbeat class
+            self.engine.heartbeat.process_incoming_heartbeat(test_req_id_in_hb)
         else:
             self.logger.warning("Received Heartbeat, but FixEngine.heartbeat object is not available.")
-
 
 class MessageProcessor:
     def __init__(self, message_store, state_machine, application, engine): 
