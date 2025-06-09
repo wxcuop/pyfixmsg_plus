@@ -1,6 +1,7 @@
 import asyncio
 import logging
 import os
+import datetime # <--- ADD THIS IMPORT
 from pyfixmsg_plus.fixengine.configmanager import ConfigManager
 from pyfixmsg_plus.fixengine.engine import FixEngine
 from pyfixmsg_plus.fixengine.app import Application # Assuming your base Application class
@@ -71,7 +72,7 @@ async def main():
                 if engine.state_machine.state.name == 'ACTIVE': # Check again, state might have changed
                     test_order = engine.fixmsg({
                         35: 'D',    # NewOrderSingle
-                        11: f'TestOrd-{datetime.utcnow().strftime("%H%M%S%f")}', # ClOrdID
+                        11: f'TestOrd-{datetime.datetime.utcnow().strftime("%H%M%S%f")}', # ClOrdID
                         55: 'MSFT', # Symbol
                         54: '1',    # Side (Buy)
                         38: '100',  # OrderQty
@@ -91,7 +92,7 @@ async def main():
                     logger.info(f"State changed from ACTIVE to {engine.state_machine.state.name} before sending test order.")
 
 
-            elif current_state == 'DISCONNECTED' and engine.retry_attempts >= engine.max_retries and engine.max_retries > 0:
+            elif current_state == 'DISCONNECTED' and engine.retry_attempts >= engine.max_retries and engine.max_retries > 0 :
                 logger.warning(f"Max retries reached ({engine.max_retries}). Engine remains disconnected. Exiting example loop.")
                 break
             
@@ -106,42 +107,4 @@ async def main():
     except Exception as e:
         logger.error(f"Error in initiator: {e}", exc_info=True)
     finally:
-        if engine and engine.state_machine.state.name != 'DISCONNECTED':
-            logger.info("Ensuring initiator engine is disconnected...")
-            await engine.disconnect(graceful=True) 
-        logger.info("Initiator main function finished.")
-
-if __name__ == "__main__":
-    # Create a default config_initiator.ini if it doesn't exist for the example
-    script_dir_for_config = os.path.dirname(__file__)
-    initiator_config_file = os.path.join(script_dir_for_config, 'config_initiator.ini')
-    
-    if not os.path.exists(initiator_config_file):
-        default_cfg = ConfigManager(initiator_config_file) # This will create it if not present
-        default_cfg.set('FIX', 'mode', 'initiator')
-        default_cfg.set('FIX', 'sender', 'INITIATOR_CLIENT') # Example SenderCompID
-        default_cfg.set('FIX', 'target', 'ACCEPTOR_SERVER') # Example TargetCompID
-        default_cfg.set('FIX', 'version', 'FIX.4.4')
-        default_cfg.set('FIX', 'spec_filename', 'FIX44.xml') # Ensure this path is valid or it's in PYTHONPATH
-        default_cfg.set('FIX', 'host', '127.0.0.1')
-        default_cfg.set('FIX', 'port', '5000')
-        default_cfg.set('FIX', 'heartbeat_interval', '30')
-        default_cfg.set('FIX', 'retry_interval', '5')
-        default_cfg.set('FIX', 'max_retries', '3')
-        default_cfg.set('FIX', 'state_file', os.path.join(script_dir_for_config, 'initiator_fix_state.db'))
-        default_cfg.set('FIX', 'reset_seq_num_on_logon', 'false')
-        default_cfg.save() # Save the new default config
-        logger.info(f"Created default initiator config: {initiator_config_file}")
-
-    # Clean up previous db if it exists for a fresh run
-    # This uses the path from the potentially newly created config
-    db_path_config_init = ConfigManager(initiator_config_file)
-    db_file_init = db_path_config_init.get('FIX', 'state_file', os.path.join(script_dir_for_config, 'initiator_fix_state.db'))
-    if os.path.exists(db_file_init):
-        try:
-            os.remove(db_file_init)
-            logger.info(f"Removed previous initiator state file: {db_file_init}")
-        except OSError as e:
-            logger.error(f"Error removing initiator state file {db_file_init}: {e}")
-
-    asyncio.run(main())
+        if engine and
