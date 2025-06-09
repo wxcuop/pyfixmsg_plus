@@ -1,54 +1,81 @@
 import asyncio
 import logging
-from pyfixmsg_plus.fixengine.configmanager import ConfigManager
+import os
 from pyfixmsg_plus.fixengine.engine import FixEngine
+from pyfixmsg_plus.fixengine.configmanager import ConfigManager
+from pyfixmsg_plus.fixengine.app import Application # Assuming your base Application class
 
-# Basic logging setup for the example
+# Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(name)s - %(message)s')
 logger = logging.getLogger(__name__)
 
-class DummyApplication:
-    async def onMessage(self, message):
-        logger.info(f"DummyApp ACCEPTOR Received message: {message.to_wire(pretty=True) if hasattr(message, 'to_wire') else message}")
+class DummyApplication(Application):
+    async def onLogon(self, message, session_id):
+        logger.info(f"[{session_id}] Application: Logon successful. Message: {message.to_wire(pretty=True)}")
 
-    async def onDisconnect(self, reason): # Optional: if your engine calls this
-        logger.info(f"DummyApp ACCEPTOR Disconnected: {reason}")
+    async def onLogout(self, message, session_id):
+        logger.info(f"[{session_id}] Application: Logout. Message: {message.to_wire(pretty=True)}")
+
+    async def onMessage(self, message, session_id):
+        logger.info(f"[{session_id}] Application: Received message type {message.get(35)}: {message.to_wire(pretty=True)}")
+        # Example: if it's a NewOrderSingle, send an ExecutionReport
+        if message.get(35) == 'D': # NewOrderSingle
+            exec_report = self.engine.fixmsg({ # Assuming self.engine is set by FixEngine on app
+                35: '8', # ExecutionReport
+                11: message.get(11), # ClOrdID
+                37: f"exec-{message.get(11)}", # OrderID
+                17: f"execid-{message.get(11)}", # ExecID
+                150: '0', # ExecType = New
+                39: '0', # OrdStatus = New
+                55: message.get(55), # Symbol
+                54: message.get(54), # Side
+                44: message.get(44) if 44 in message else 0, # Price
+                38: message.get(38), # OrderQty
+                14: 0, # CumQty
+                6: 0, # AvgPx
+                # Add other necessary fields
+            })
+            logger.info(f"[{session_id}] Application: Sending ExecutionReport for {message.get(11)}")
+            await self.engine.send_message(exec_report)
+
+
+    def set_engine(self, engine): # Add this method to your Application base or here
+        self.engine = engine
 
 
 async def main():
-    # Configure the FIX engine for acceptor mode
-    # Ensure pyfixmsg_plus/config.ini is present and configured correctly
-    # or provide a full path if it's elsewhere.
-    config = ConfigManager("pyfixmsg_plus/config.ini") 
-    config.set('FIX', 'mode', 'acceptor')
-    config.set('FIX', 'sender', 'ACCEPTOR') # This should match TargetCompID of initiator
-    config.set('FIX', 'target', 'INITIATOR') # This should match SenderCompID of initiator
-    config.set('FIX', 'host', '127.0.0.1')
-    config.set('FIX', 'port', '5000')
-    config.set('FIX', 'use_tls', 'false')
-    # Ensure heartbeat interval is set, e.g., in config.ini or here
-    config.set('FIX', 'heartbeat_interval', '30')
-
-
-    engine = FixEngine(config, DummyApplication())
+    logger.info("Starting acceptor engine...")
+    # Determine the path to the config file relative to this script
+    script_dir = os.path.dirname(__file__)
+    config_path = os.path.join(script_dir, 'config_acceptor.ini')
     
+    config = ConfigManager(config_path)
+    app = DummyApplication()
+    engine = FixEngine(config, app)
+    app.set_engine(engine) # Allow app to access engine for sending messages
+
     try:
-        logger.info("Starting acceptor engine...")
-        # engine.connect() in acceptor mode should start listening (e.g., by calling network.start_accepting)
-        # This call will block as long as the server is running (due to serve_forever).
-        await engine.connect() 
-        # The following lines will only be reached if engine.connect() (and thus start_accepting) returns,
-        # which usually means the server has been stopped.
-        logger.info("Acceptor engine has stopped listening.")
+        # Use engine.start() instead of engine.connect()
+        await engine.start()
     except KeyboardInterrupt:
-        logger.info("Acceptor shutting down due to KeyboardInterrupt...")
+        logger.info("Acceptor engine shutting down by user request (KeyboardInterrupt)...")
     except Exception as e:
         logger.error(f"Error in acceptor: {e}", exc_info=True)
     finally:
-        if hasattr(engine, 'disconnect') and engine.state_machine.state.name != 'DISCONNECTED':
-            logger.info("Ensuring acceptor engine is disconnected...")
+        if engine and engine.state_machine.state.name != 'DISCONNECTED':
+            logger.info("Ensuring engine is disconnected...")
             await engine.disconnect(graceful=True)
         logger.info("Acceptor main function finished.")
 
 if __name__ == "__main__":
+    # Clean up previous db if it exists for a fresh run
+    db_path_config = ConfigManager(os.path.join(os.path.dirname(__file__), 'config_acceptor.ini'))
+    db_file = db_path_config.get('FIX', 'state_file', 'acceptor_fix_state.db')
+    if os.path.exists(db_file):
+        try:
+            os.remove(db_file)
+            logger.info(f"Removed previous state file: {db_file}")
+        except OSError as e:
+            logger.error(f"Error removing state file {db_file}: {e}")
+            
     asyncio.run(main())
