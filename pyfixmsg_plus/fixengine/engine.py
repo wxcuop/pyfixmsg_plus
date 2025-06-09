@@ -51,9 +51,16 @@ class FixEngine:
         # self.logger.setLevel(logging.DEBUG) # Set level based on config or globally
 
         db_path = self.config_manager.get('FIX', 'state_file', 'fix_state.db')
-        self.message_store = MessageStoreFactory.get_message_store('database', db_path)
-        # Set session identifiers on the store so it can load the correct sequence numbers
-        self.message_store.set_session_identifiers(self.version, self.sender, self.target)
+        # Pass session identifiers directly to the factory
+        self.message_store = MessageStoreFactory.get_message_store(
+            'database', 
+            db_path,
+            beginstring=self.version,
+            sendercompid=self.sender,
+            targetcompid=self.target
+        )
+        # The following line is no longer needed as the factory passes identifiers to DatabaseMessageStore constructor
+        # self.message_store.set_session_identifiers(self.version, self.sender, self.target) 
         
         self.heartbeat_interval = int(self.config_manager.get('FIX', 'heartbeat_interval', '30'))
         self.lock = asyncio.Lock()
@@ -437,5 +444,5 @@ class FixEngine:
             # After attempting to send Logout, always proceed to full disconnect.
             # disconnect() will handle ensuring the state becomes DISCONNECTED.
             # The 'graceful=False' here ensures TCP is torn down quickly after our logout attempt.
-            if current_state != 'DISCONNECTED':
+            if current_state != 'DISCONNECTED': # Check current_state again, as send_message might have disconnected on failure
                  await self.disconnect(graceful=False)
