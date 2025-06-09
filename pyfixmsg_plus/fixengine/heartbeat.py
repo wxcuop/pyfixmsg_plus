@@ -1,142 +1,144 @@
 import asyncio
 import logging
-from pyfixmsg_plus.fixengine.testrequest import TestRequest
+from pyfixmsg_plus.fixengine.testrequest import TestRequest # Assuming TestRequest is in the same directory or path
 
 class Heartbeat:
-    def __init__(self, send_message_callback, config_manager, heartbeat_interval, state_machine, fix_engine, timeout=5):
-        """
-        Initializes the Heartbeat class.
-
-        Args:
-            send_message_callback (Callable): Callback to send messages.
-            config_manager (ConfigManager): Configuration manager for FIX settings.
-            heartbeat_interval (int): Interval between heartbeats in seconds.
-            state_machine (StateMachine): State machine for session state tracking.
-            fix_engine (FixEngine): FIX engine instance.
-            timeout (int, optional): Timeout for network operations in seconds. Defaults to 5 seconds.
-        """
+    def __init__(self, send_message_callback, config_manager, interval, state_machine, fix_engine): # fix_engine is available
         self.send_message_callback = send_message_callback
         self.config_manager = config_manager
-        self.heartbeat_interval = heartbeat_interval
+        self.interval = interval
         self.state_machine = state_machine
-        self.fix_engine = fix_engine
-        self.timeout = timeout  # Configurable timeout for network delays
-        self.logger = logging.getLogger('Heartbeat')
-        self.last_sent_time = None
-        self.last_received_time = None
-        self.test_request_id = 0
-        self.running = False
-        self.test_request = TestRequest(self.send_message_callback, self.config_manager)
+        self.fix_engine = fix_engine # Store fix_engine
+        self.logger = logging.getLogger(self.__class__.__name__)
+        self.heartbeat_task = None
+        self.test_request_task = None
+        self.last_sent_time = 0
+        self.last_received_time = 0
+        self.missed_heartbeats = 0
+        self.test_request_id = None # Store the ID of the last sent TestRequest
+
+        # Instantiate TestRequest correctly, passing the engine's fixmsg method
+        if self.fix_engine and hasattr(self.fix_engine, 'fixmsg'):
+            self.test_request_sender = TestRequest(
+                self.send_message_callback, 
+                self.config_manager, 
+                self.fix_engine.fixmsg  # Pass the engine's message factory
+            )
+        else:
+            self.logger.error("FixEngine or fix_engine.fixmsg not available to Heartbeat for TestRequest instantiation.")
+            self.test_request_sender = None
+
 
     async def start(self):
-        """
-        Starts the heartbeat process.
-        """
-        self.running = True
-        self.state_machine.on_event('logon')
-        self.last_sent_time = self.last_received_time = asyncio.get_event_loop().time()
-        self.logger.info(f"Heartbeat started with interval: {self.heartbeat_interval} seconds and timeout: {self.timeout} seconds.")
-        while self.running:
-            try:
-                await asyncio.sleep(self.heartbeat_interval)
-                await self.check_heartbeat()
-            except asyncio.TimeoutError:
-                self.logger.error(f"Heartbeat operation timed out after {self.timeout} seconds.")
-                await self.initiate_corrective_action()
-            except Exception as e:
-                self.logger.error(f"Unexpected error in heartbeat loop: {e}")
+        if not self.is_running():
+            self.last_sent_time = asyncio.get_event_loop().time()
+            self.last_received_time = asyncio.get_event_loop().time() # Initialize on start
+            self.missed_heartbeats = 0
+            self.heartbeat_task = asyncio.create_task(self._run_heartbeat_logic())
+            self.logger.info("Heartbeat mechanism started.")
+        else:
+            self.logger.info("Heartbeat mechanism already running.")
 
     async def stop(self):
-        """
-        Stops the heartbeat process.
-        """
-        self.running = False
-        self.state_machine.on_event('stop')
-        self.logger.info("Heartbeat stopped.")
+        if self.is_running():
+            self.heartbeat_task.cancel()
+            try:
+                await self.heartbeat_task
+            except asyncio.CancelledError:
+                self.logger.info("Heartbeat task cancelled.")
+            finally:
+                self.heartbeat_task = None
+        if self.test_request_task and not self.test_request_task.done():
+            self.test_request_task.cancel()
+            try:
+                await self.test_request_task
+            except asyncio.CancelledError:
+                self.logger.info("TestRequest task cancelled during heartbeat stop.")
+            finally:
+                self.test_request_task = None
+        self.logger.info("Heartbeat mechanism stopped.")
 
-    async def check_heartbeat(self):
-        """
-        Checks the heartbeat and triggers actions if necessary.
-        """
-        current_time = asyncio.get_event_loop().time()
-        if current_time - self.last_sent_time >= self.heartbeat_interval:
-            await self.send_heartbeat()
+    def is_running(self):
+        return self.heartbeat_task is not None and not self.heartbeat_task.done()
 
-        if current_time - self.last_received_time >= self.heartbeat_interval * 2:
-            await self.send_test_request()
-
-        if current_time - self.last_received_time >= self.heartbeat_interval * 3:
-            self.logger.error("Connection lost. Initiating corrective action.")
-            await self.initiate_corrective_action()
-
-    async def send_heartbeat(self):
-        """
-        Sends a heartbeat message.
-        """
-        heartbeat_message = {
-            '35': '0',  # Heartbeat
-        }
+    async def _run_heartbeat_logic(self):
         try:
-            await asyncio.wait_for(self.send_message_callback(heartbeat_message), timeout=self.timeout)
-            self.last_sent_time = asyncio.get_event_loop().time()
-            self.logger.info("Sent Heartbeat")
-        except asyncio.TimeoutError:
-            self.logger.error(f"Sending heartbeat timed out after {self.timeout} seconds.")
+            while True:
+                if self.state_machine.state.name != 'ACTIVE':
+                    self.logger.debug("Session not ACTIVE. Heartbeat logic paused.")
+                    await asyncio.sleep(self.interval / 2) # Check state more frequently when not active
+                    continue
+
+                now = asyncio.get_event_loop().time()
+                
+                # Check for sending heartbeat
+                if (now - self.last_sent_time) >= self.interval:
+                    hb_msg = self.fix_engine.fixmsg({35: '0'}) # Use engine.fixmsg
+                    if self.test_request_id: # If we are expecting a reply to a TestRequest
+                        hb_msg[112] = self.test_request_id # Include TestReqID in outgoing Heartbeat
+                        self.logger.info(f"Sending Heartbeat with TestReqID {self.test_request_id} (still awaiting response).")
+                    else:
+                        self.logger.debug("Sending regular Heartbeat.")
+                    await self.send_message_callback(hb_msg)
+                    self.last_sent_time = now
+
+                # Check for receiving heartbeat
+                # Max interval factor: e.g., 2.5 times the interval. Some use 1.2, some 1.5, some 2+.
+                # Let's use a factor slightly larger than 1, e.g., 1.2 or 1.5, for sending TestRequest
+                # And a larger factor for timeout, e.g., 2 to 2.5
+                test_request_threshold = self.interval * 1.2 # Threshold to send TestRequest
+                timeout_threshold = self.interval * 2.5    # Threshold to disconnect
+
+                if (now - self.last_received_time) > timeout_threshold:
+                    self.logger.error(f"No message received for too long (>{timeout_threshold:.2f}s). Disconnecting session.")
+                    await self.fix_engine.disconnect(graceful=False) # Access disconnect via fix_engine
+                    break # Exit heartbeat loop
+
+                if not self.test_request_id and (now - self.last_received_time) > test_request_threshold:
+                    if self.test_request_sender:
+                        self.logger.warning(f"No message received for >{test_request_threshold:.2f}s. Sending TestRequest.")
+                        self.test_request_id = await self.test_request_sender.send_test_request() # Store the ID
+                        self.logger.info(f"Sent TestRequest, ID: {self.test_request_id}")
+                        # After sending a TestRequest, we give some time for the Heartbeat response.
+                        # The check for timeout_threshold above will handle if no response comes at all.
+                    else:
+                        self.logger.error("Cannot send TestRequest: test_request_sender not initialized.")
+                
+                await asyncio.sleep(1)  # Check every second
+        except asyncio.CancelledError:
+            self.logger.info("Heartbeat logic task was cancelled.")
         except Exception as e:
-            self.logger.error(f"Failed to send heartbeat: {e}")
+            self.logger.error(f"Error in heartbeat logic: {e}", exc_info=True)
+            if self.fix_engine: # Attempt to disconnect if engine is available
+                await self.fix_engine.disconnect(graceful=False)
 
-    async def send_test_request(self):
-        """
-        Sends a test request message.
-        """
-        try:
-            test_req_id = await asyncio.wait_for(self.test_request.send_test_request(), timeout=self.timeout)
-            self.logger.info(f"Sent Test Request with TestReqID {test_req_id}")
-        except asyncio.TimeoutError:
-            self.logger.error(f"Sending test request timed out after {self.timeout} seconds.")
-        except Exception as e:
-            self.logger.error(f"Failed to send test request: {e}")
+    def set_remote_interval(self, remote_interval_seconds):
+        # This method might be called by LogonHandler if the counterparty specifies a HeartBtInt.
+        # The FIX standard suggests using the *sender's* HeartBtInt for sending heartbeats,
+        # and the *receiver's* HeartBtInt (from Logon) for monitoring incoming heartbeats.
+        # For simplicity, many engines use their own configured interval for sending,
+        # and use the received interval for monitoring.
+        # Here, self.interval is our sending interval. We can log the remote one.
+        self.logger.info(f"Counterparty HeartBtInt: {remote_interval_seconds}s. We will send every {self.interval}s.")
+        # If you need to adjust monitoring based on remote_interval, do it here.
+        # For now, our monitoring (timeout_threshold, test_request_threshold) is based on our self.interval.
 
-    async def receive_heartbeat(self, message):
-        """
-        Handles a received heartbeat message.
-
-        Args:
-            message (dict): The received heartbeat message.
-        """
-        self.last_received_time = asyncio.get_event_loop().time()
-        self.logger.info("Received Heartbeat")
-        self.logger.debug(f"Heartbeat message content: {message}")
-
-    async def receive_test_request(self, message):
-        """
-        Handles a received test request message.
-
-        Args:
-            message (dict): The received test request message.
-        """
-        heartbeat_message = {
-            '35': '0',  # Heartbeat
-            '112': message.get('112')  # TestReqID from Test Request
-        }
-        try:
-            await asyncio.wait_for(self.send_message_callback(heartbeat_message), timeout=self.timeout)
-            self.logger.info("Responded to Test Request with Heartbeat")
-        except asyncio.TimeoutError:
-            self.logger.error(f"Responding to test request timed out after {self.timeout} seconds.")
-        except Exception as e:
-            self.logger.error(f"Failed to respond to test request: {e}")
-
-    async def initiate_corrective_action(self):
-        """
-        Initiates corrective action when connection is lost.
-        """
-        self.running = False
-        self.logger.error("Connection lost. Corrective action initiated.")
-        self.state_machine.on_event('disconnect')
-        try:
-            await asyncio.wait_for(self.fix_engine.retry_connect(), timeout=self.timeout)
-        except asyncio.TimeoutError:
-            self.logger.error(f"Reconnection attempt timed out after {self.timeout} seconds.")
-        except Exception as e:
-            self.logger.error(f"Failed to reconnect: {e}")
+    def process_incoming_heartbeat(self, test_req_id_in_hb=None):
+        """Called by HeartbeatHandler when a Heartbeat is received."""
+        now = asyncio.get_event_loop().time()
+        self.logger.debug(f"Processing incoming Heartbeat. Current time: {now}, Last received: {self.last_received_time}")
+        self.last_received_time = now
+        self.missed_heartbeats = 0 # Reset counter
+        
+        if test_req_id_in_hb:
+            self.logger.debug(f"Incoming Heartbeat contains TestReqID: {test_req_id_in_hb}. Our pending TestReqID: {self.test_request_id}")
+            if self.test_request_id and test_req_id_in_hb == self.test_request_id:
+                self.logger.info(f"Heartbeat with TestReqID {test_req_id_in_hb} matches our pending TestRequest. Clearing pending TestRequest.")
+                self.test_request_id = None # Clear our pending TestRequest ID as it's been satisfied
+            elif self.test_request_id:
+                 self.logger.warning(f"Heartbeat TestReqID {test_req_id_in_hb} does not match our pending {self.test_request_id}.")
+            # else: no pending test_request_id from our side.
+        else: # Regular heartbeat, not in response to a TestRequest we sent
+            if self.test_request_id:
+                self.logger.debug(f"Received regular Heartbeat, but still awaiting response for TestReqID: {self.test_request_id}")
+            # else: regular heartbeat, no pending test request from our side.
