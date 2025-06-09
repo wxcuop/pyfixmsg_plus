@@ -3,7 +3,7 @@ import logging
 import os
 from pyfixmsg_plus.fixengine.engine import FixEngine
 from pyfixmsg_plus.fixengine.configmanager import ConfigManager
-from pyfixmsg_plus.fixengine.app import Application # Assuming your base Application class
+from pyfixmsg_plus.application import Application # CORRECTED IMPORT
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(name)s - %(message)s')
