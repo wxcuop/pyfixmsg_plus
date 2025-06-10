@@ -7,7 +7,13 @@ from pyfixmsg_plus.fixengine.engine import FixEngine
 from pyfixmsg_plus.application import Application 
 
 # Basic logging setup for the example
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(name)s - %(message)s')
+logging.basicConfig(
+    level=logging.DEBUG, # <--- Ensure this is DEBUG
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    # handlers=[
+    #     logging.StreamHandler() # To see logs in console if running locally
+    # ]
+)
 logger = logging.getLogger(__name__)
 
 class DummyApplication(Application):
