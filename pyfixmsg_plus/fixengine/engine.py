@@ -110,6 +110,7 @@ class FixEngine:
     def fixmsg(self, *args, **kwargs):
         message = FixMessage(*args, **kwargs)
         message.codec = self.codec
+        message[8] = self.version # <--- ADD BEGINSTRING HERE
         return message
 
     def create_message_with_repeating_group(self, msg_type: str, group_data: dict, **kwargs) -> FixMessage:
