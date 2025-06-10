@@ -105,6 +105,7 @@ class FixEngine:
 
         self.spec = FixSpec(self.spec_filename)
         self.codec = Codec(spec=self.spec, fragment_class=FixFragment)
+        self.incoming_buffer = b"" # Buffer for incoming data
 
     def fixmsg(self, *args, **kwargs):
         message = FixMessage(*args, **kwargs)
@@ -139,11 +140,13 @@ class FixEngine:
             if self.heartbeat and self.heartbeat.is_running():
                  self.logger.debug("Stopping heartbeat task due to disconnect.")
                  asyncio.create_task(self.heartbeat.stop())
+            self.incoming_buffer = b"" # Clear buffer on disconnect
 
     async def start(self):
         if not self.scheduler_task or self.scheduler_task.done():
             self.scheduler_task = asyncio.create_task(self.scheduler.run_scheduler())
             self.logger.info("Scheduler task started.")
+        self.incoming_buffer = b"" # Ensure buffer is clear on start
 
         try:
             if self.mode == 'acceptor':
@@ -192,6 +195,7 @@ class FixEngine:
         client_address_info = writer.get_extra_info('peername')
         client_address = f"{client_address_info[0]}:{client_address_info[1]}" if client_address_info else "unknown client"
         self.logger.info(f"Accepted connection from {client_address} for session {self.session_id}.")
+        self.incoming_buffer = b"" # Clear buffer for new connection
         try:
             await self.network.set_transport(reader, writer)
             self.state_machine.on_event('client_accepted_awaiting_logon') 
@@ -236,10 +240,12 @@ class FixEngine:
 
             if reset_seq_num_flag_config:
                 self.logger.info(f"ResetSeqNumFlag is true for {self.session_id}. Resetting sequence numbers to 1.")
-                await self.reset_sequence_numbers()
+                await self.reset_sequence_numbers() # This sets store's next out to 1, next in to 1
                 logon_message[141] = 'Y'
+                # SeqNum 34 will be set to 1 by send_message logic
             else:
                 logon_message[141] = 'N'
+                # SeqNum 34 will be get_next_outgoing_sequence_number by send_message
 
             logon_message.update({ 35: 'A', 108: self.heartbeat_interval })
 
@@ -256,7 +262,6 @@ class FixEngine:
 
     async def send_message(self, message: FixMessage):
         current_state_name = self.state_machine.state.name
-        # Allow sending Logon if in LOGON_IN_PROGRESS state
         can_send_logon = (message.get(35) == 'A' and self.mode == 'initiator' and current_state_name == "LOGON_IN_PROGRESS")
 
         if current_state_name == "DISCONNECTED" and not can_send_logon:
@@ -267,26 +272,44 @@ class FixEngine:
         message[56] = self.target
         message[52] = datetime.now(timezone.utc).strftime('%Y%m%d-%H:%M:%S.%f')[:-3]
 
+        is_reset_logon = message.get(35) == 'A' and message.get(141) == 'Y'
+
         if 34 not in message: 
-            if message.get(35) == 'A' and message.get(141) == 'Y': 
+            if is_reset_logon:
                 message[34] = 1
+                # Message store's outgoing seq num should have been reset by self.reset_sequence_numbers()
+                # and next outgoing would be 2 after this send.
             else:
                 message[34] = self.message_store.get_next_outgoing_sequence_number()
         
-        if message.get(35) == 'A' and message.get(141) == 'Y':
-            self.message_store.set_outgoing_sequence_number(1) 
-            message[34] = 1 
+        # If it's a ResetLogon, ensure message_store's next number is correctly set *before* incrementing
+        if is_reset_logon:
+             # reset_sequence_numbers in logon() should have set store's next outgoing to 1.
+             # So, get_next_outgoing_sequence_number for a ResetLogon (if 34 wasn't set) should yield 1.
+             # Then, after sending, it should become 2.
+             pass # Sequence number logic for ResetLogon is handled by reset_sequence_numbers and above block.
 
         wire_message = message.to_wire(codec=self.codec)
         try:
             await self.network.send(wire_message)
-            self.message_store.store_message(
+            self.message_store.store_message( # Store the message with its actual sequence number
                 self.version, self.sender, self.target,
                 message[34], 
                 wire_message.decode(errors='replace')
             )
-            if message.get(35) == 'A' and message.get(141) != 'Y': 
-                 self.message_store.increment_outgoing_sequence_number()
+            
+            # Increment outgoing sequence number in the store *after* successful send and store
+            # unless it was a ResetLogon (where reset_sequence_numbers handles setting it to 1, and it becomes 2 after this).
+            # Assumes get_next_outgoing_sequence_number() does NOT auto-increment.
+            if hasattr(self.message_store, 'increment_outgoing_sequence_number'):
+                if not is_reset_logon:
+                    self.message_store.increment_outgoing_sequence_number()
+                else: # For ResetLogon, after sending 1, next should be 2
+                    self.message_store.set_outgoing_sequence_number(2)
+
+            elif not is_reset_logon: # Fallback if no explicit increment, assume get_next did it or store manages it
+                 self.logger.debug("MessageStore does not have increment_outgoing_sequence_number. Assuming get_next or internal logic handles it.")
+
 
             self.logger.info(f"Sent ({self.session_id}): {message.get(35)} (SeqNum {message.get(34)})")
             if message.get(35) != '0' or self.logger.isEnabledFor(logging.DEBUG):
@@ -296,7 +319,7 @@ class FixEngine:
             self.logger.error(f"ConnectionResetError for {self.session_id} while sending (type {message.get(35)}, seq {message.get(34)}): {e}")
             self.state_machine.on_event('disconnect') 
             await self.disconnect(graceful=False) 
-        except Exception as e:
+        except Exception as e: # Catches the AttributeError if increment_outgoing_sequence_number is missing
             self.logger.error(f"Exception for {self.session_id} while sending (type {message.get(35)}, seq {message.get(34)}): {e}", exc_info=True)
             self.state_machine.on_event('disconnect') 
             await self.disconnect(graceful=False)
@@ -310,7 +333,7 @@ class FixEngine:
                 await self.disconnect(graceful=False) 
             return
         try:
-            await self.network.receive(self.handle_message) 
+            await self.network.receive(self.on_network_data) 
         except Exception as e:
             self.logger.error(f"Unexpected error in FixEngine's receive_message for {self.session_id}: {e}", exc_info=True)
             if self.state_machine.state.name != "DISCONNECTED":
@@ -318,6 +341,161 @@ class FixEngine:
                  await self.disconnect(graceful=False)
         finally:
             self.logger.info(f"FixEngine's receive_message loop for {self.session_id} has ended.")
+
+    async def on_network_data(self, data_bytes: bytes):
+        self.incoming_buffer += data_bytes
+        self.logger.debug(f"Received {len(data_bytes)} bytes. Buffer size: {len(self.incoming_buffer)}")
+        
+        while True:
+            # Attempt to find a complete FIX message using a more robust framing logic
+            # This is still simplified; a full implementation would use BeginString, then parse BodyLength.
+            try:
+                # Find '8=FIX...'
+                begin_string_index = self.incoming_buffer.find(b"8=FIX")
+                if begin_string_index == -1:
+                    self.logger.debug("No '8=FIX' found in buffer. Waiting for more data.")
+                    break # Need more data for a potential start of message
+
+                # Discard any data before the BeginString
+                if begin_string_index > 0:
+                    self.logger.warning(f"Discarding {begin_string_index} bytes of garbage data before '8=FIX': {self.incoming_buffer[:begin_string_index]}")
+                    self.incoming_buffer = self.incoming_buffer[begin_string_index:]
+
+                # Now that we have '8=FIX...', try to find BodyLength (9=...)
+                # SOH is byte 0x01
+                soh = b'\x01'
+                body_length_tag_index = self.incoming_buffer.find(soh + b"9=")
+                if body_length_tag_index == -1:
+                    self.logger.debug("Found '8=FIX' but no '9=' (BodyLength) yet. Buffer might be incomplete.")
+                    if len(self.incoming_buffer) > 4096: # Prevent excessive buffering
+                        self.logger.error("Buffer too large without BodyLength. Discarding buffer.")
+                        self.incoming_buffer = b""
+                    break 
+
+                # Extract BodyLength value
+                body_length_value_start = body_length_tag_index + len(soh + b"9=")
+                body_length_value_end = self.incoming_buffer.find(soh, body_length_value_start)
+                if body_length_value_end == -1:
+                    self.logger.debug("Found '9=' but no SOH after its value. Buffer might be incomplete.")
+                    if len(self.incoming_buffer) > 4096:
+                        self.logger.error("Buffer too large without SOH after BodyLength value. Discarding.")
+                        self.incoming_buffer = b""
+                    break
+                
+                body_length_str = self.incoming_buffer[body_length_value_start:body_length_value_end]
+                if not body_length_str.isdigit():
+                    self.logger.error(f"Invalid BodyLength value: '{body_length_str.decode(errors='replace')}'. Discarding buffer.")
+                    self.incoming_buffer = b"" # Corrupted message
+                    break
+                body_length = int(body_length_str)
+
+                # Calculate where the body ends and checksum begins
+                # The message part up to BodyLength field and its SOH is the "header part" for this calculation
+                body_starts_after_bodylength_field_soh = body_length_value_end + 1
+                
+                # Total length of message = (length of header part up to SOH after BodyLength) + BodyLength + Checksum (e.g., "10=XXX<SOH>")
+                checksum_field_len = 7 # "10=XXX<SOH>"
+                
+                message_end_index = body_starts_after_bodylength_field_soh + body_length + checksum_field_len
+                                
+                if len(self.incoming_buffer) < message_end_index:
+                    self.logger.debug(f"Buffer has {len(self.incoming_buffer)} bytes, need {message_end_index} for full message (BodyLength {body_length}). Waiting for more data.")
+                    break # Message is not yet complete
+
+                # We have a potential full message
+                full_fix_message_bytes = self.incoming_buffer[:message_end_index]
+                
+                # Validate checksum (simplified, pyfixmsg might do this internally on parse)
+                # Example: if not self.codec.verify_checksum(full_fix_message_bytes):
+                #    self.logger.error("Checksum validation failed. Discarding message.")
+                #    self.incoming_buffer = self.incoming_buffer[message_end_index:] # Consume and discard
+                #    continue
+
+                # Process this single extracted message
+                await self.process_single_fix_message(full_fix_message_bytes)
+                
+                # Consume the processed message from the buffer
+                self.incoming_buffer = self.incoming_buffer[message_end_index:]
+                if self.incoming_buffer:
+                    self.logger.debug(f"Processed one message. Remaining in buffer: {len(self.incoming_buffer)} bytes.")
+                else:
+                    self.logger.debug("Processed one message. Buffer is now empty.")
+
+            except Exception as e_frame:
+                self.logger.error(f"Error during message framing: {e_frame}", exc_info=True)
+                self.incoming_buffer = b"" # Clear buffer on framing error to prevent loops
+                break
+
+
+    async def process_single_fix_message(self, message_bytes: bytes):
+        full_fix_string = message_bytes.decode(errors='replace') # For logging and parsing
+        self.logger.debug(f"Attempting to parse full_fix_string: '{full_fix_string}'")
+        parsed_message = None
+        try:
+            parsed_message = self.fixmsg().from_wire(full_fix_string, codec=self.codec)
+        except Exception as e:
+            self.logger.error(f"PARSE ERROR ({self.session_id}): '{full_fix_string[:150]}...' Error: {e}", exc_info=True)
+            return 
+
+        if parsed_message is None:
+            self.logger.error(f"PARSING FAILED for full_fix_string: '{full_fix_string}'. from_wire returned None.")
+            return
+
+        async with self.lock: # Process one fully parsed message's logic at a time
+            msg_type = parsed_message.get(35)
+            received_seq_num_str = parsed_message.get(34)
+            self.logger.info(f"Received ({self.session_id}): {msg_type} (Seq {received_seq_num_str})")
+            if self.logger.isEnabledFor(logging.DEBUG):
+                self.logger.debug(f"Received Details ({self.session_id}): {parsed_message.to_wire(pretty=True)}")
+
+            if not received_seq_num_str or not received_seq_num_str.isdigit():
+                reason = f"Invalid or missing MsgSeqNum (34) in msg from {parsed_message.get(49, 'UNKNOWN')}: '{received_seq_num_str}'"
+                self.logger.error(reason)
+                await self.send_logout_message(text=reason)
+                self.state_machine.on_event('disconnect')
+                # disconnect() will be called by send_logout_message if it fails, or by higher level error handling
+                return
+
+            received_seq_num = int(received_seq_num_str)
+
+            if msg_type not in ['A', '5'] and not (msg_type == '4' and parsed_message.get(123) == 'Y'): 
+                expected_seq_num = self.message_store.get_next_incoming_sequence_number()
+
+                if received_seq_num < expected_seq_num:
+                    poss_dup_flag = parsed_message.get(43) 
+                    if poss_dup_flag == 'Y':
+                        self.logger.info(f"PossDup {msg_type} (Seq {received_seq_num}) rcvd for {self.session_id} (expected {expected_seq_num}). App layer should handle.")
+                    else:
+                        text = f"MsgSeqNum too low, expected {expected_seq_num} but received {received_seq_num}"
+                        self.logger.error(f"{text} for {self.session_id}. Not PossDup. Sending Logout.")
+                        await self.send_logout_message(text=text)
+                        # send_logout_message will handle disconnect if needed
+                        return
+                elif received_seq_num > expected_seq_num:
+                    self.logger.warning(f"MsgSeqNum TOO HIGH (Gap) for {self.session_id}. Expected: {expected_seq_num}, Rcvd: {received_seq_num}. Sending Resend Request.")
+                    resend_req = self.fixmsg({ 35: '2', 7: expected_seq_num, 16: 0 }) 
+                    await self.send_message(resend_req)
+                    return 
+
+            self.message_store.store_message(
+                self.version, parsed_message.get(49), parsed_message.get(56),
+                received_seq_num,
+                full_fix_string 
+            )
+
+            # Sequence number incrementation logic:
+            # Logon (A): Handled by LogonHandler based on ResetSeqNumFlag.
+            # Logout (5): Processed regardless of seq num usually, then session ends.
+            # SequenceReset-Reset (4, GapFill=N): Sets next expected to NewSeqNo.
+            # SequenceReset-GapFill (4, GapFill=Y): Sets next expected to NewSeqNo.
+            # Others: Increment if seq num is as expected.
+            if msg_type not in ['A', '5'] and not (msg_type == '4'): # Simpler: if not A, 5, or 4
+                if received_seq_num == self.message_store.get_next_incoming_sequence_number(): # Only increment if it was expected
+                    self.message_store.increment_incoming_sequence_number()
+            # Specific handling for '4' (SequenceReset) is in SequenceResetHandler
+            # Specific handling for 'A' (Logon) is in LogonHandler for setting sequence numbers
+
+            await self.message_processor.process_message(parsed_message)
 
 
     async def send_reject_message(self, ref_seq_num, ref_tag_id, session_reject_reason, text, ref_msg_type=None):
@@ -331,80 +509,10 @@ class FixEngine:
         await self.send_message(reject_msg)
 
 
-    async def handle_message(self, data_bytes: bytes): 
-        data_str = data_bytes.decode(errors='replace') 
-        messages_str = data_str.split('\x018=') 
-        buffer = "" 
-        for msg_part in messages_str:
-            if not msg_part.strip():
-                continue
-            current_segment = ("8=" + msg_part if not buffer else msg_part)
-            if '\x0110=' in current_segment:
-                full_fix_string = buffer + current_segment
-                buffer = "" 
-                async with self.lock: 
-                    parsed_message = None
-                    try:
-                        parsed_message = self.fixmsg().from_wire(full_fix_string, codec=self.codec)
-                    except Exception as e:
-                        self.logger.error(f"PARSE ERROR ({self.session_id}): '{full_fix_string[:150]}...' Error: {e}", exc_info=True)
-                        return 
-
-                    msg_type = parsed_message.get(35)
-                    received_seq_num_str = parsed_message.get(34)
-                    self.logger.info(f"Received ({self.session_id}): {msg_type} (Seq {received_seq_num_str})")
-                    if self.logger.isEnabledFor(logging.DEBUG):
-                        self.logger.debug(f"Received Details ({self.session_id}): {parsed_message.to_wire(pretty=True)}")
-
-                    if not received_seq_num_str or not received_seq_num_str.isdigit():
-                        reason = f"Invalid or missing MsgSeqNum (34) in msg from {parsed_message.get(49, 'UNKNOWN')}: '{received_seq_num_str}'"
-                        self.logger.error(reason)
-                        await self.send_logout_message(text=reason)
-                        self.state_machine.on_event('disconnect')
-                        await self.disconnect(graceful=False)
-                        return
-
-                    received_seq_num = int(received_seq_num_str)
-
-                    if msg_type not in ['A', '5'] and not (msg_type == '4' and parsed_message.get(123) == 'Y'): 
-                        expected_seq_num = self.message_store.get_next_incoming_sequence_number()
-
-                        if received_seq_num < expected_seq_num:
-                            poss_dup_flag = parsed_message.get(43) 
-                            if poss_dup_flag == 'Y':
-                                self.logger.info(f"PossDup {msg_type} (Seq {received_seq_num}) rcvd for {self.session_id} (expected {expected_seq_num}). App layer should handle.")
-                            else:
-                                text = f"MsgSeqNum too low, expected {expected_seq_num} but received {received_seq_num}"
-                                self.logger.error(f"{text} for {self.session_id}. Not PossDup. Sending Logout.")
-                                await self.send_logout_message(text=text)
-                                self.state_machine.on_event('disconnect')
-                                await self.disconnect(graceful=False)
-                                return
-                        elif received_seq_num > expected_seq_num:
-                            self.logger.warning(f"MsgSeqNum TOO HIGH (Gap) for {self.session_id}. Expected: {expected_seq_num}, Rcvd: {received_seq_num}. Sending Resend Request.")
-                            resend_req = self.fixmsg({ 35: '2', 7: expected_seq_num, 16: 0 }) 
-                            await self.send_message(resend_req)
-                            return 
-
-                    self.message_store.store_message(
-                        self.version, parsed_message.get(49), parsed_message.get(56),
-                        received_seq_num,
-                        full_fix_string 
-                    )
-
-                    if msg_type != 'A' and not (msg_type == '4' and parsed_message.get(123) == 'Y'): 
-                        self.message_store.set_incoming_sequence_number(received_seq_num + 1)
-
-                    await self.message_processor.process_message(parsed_message)
-            else: 
-                buffer += current_segment
-                if buffer: 
-                    self.logger.debug(f"Buffering partial FIX message segment: {buffer[:100]}...")
-
-
     async def disconnect(self, graceful=True):
         current_state_name = self.state_machine.state.name
         self.logger.info(f"Disconnect requested for {self.session_id}. Graceful: {graceful}. Current state: {current_state_name}.")
+        self.incoming_buffer = b"" # Clear buffer on any disconnect call
 
         if current_state_name == "DISCONNECTED" and (not self.network or not self.network.running):
             self.logger.info(f"Session {self.session_id} already disconnected and network not running.")
@@ -452,16 +560,18 @@ class FixEngine:
     async def reset_sequence_numbers(self):
         self.logger.info(f"Resetting sequence numbers to 1 for {self.session_id} (both inbound and outbound).")
         if self.message_store:
-            self.message_store.reset_sequence_numbers()
+            self.message_store.reset_sequence_numbers() # This should set next_in = 1, next_out = 1
 
     async def set_inbound_sequence_number(self, seq_num: int):
         self.logger.info(f"Externally setting inbound sequence for {self.session_id} to {seq_num}.")
         if self.message_store:
+            # This method should set the *next expected* incoming sequence number.
             self.message_store.set_incoming_sequence_number(seq_num)
 
     async def set_outbound_sequence_number(self, seq_num: int):
         self.logger.info(f"Externally setting outbound sequence for {self.session_id} to {seq_num}.")
         if self.message_store:
+            # This method should set the *next* outgoing sequence number.
             self.message_store.set_outgoing_sequence_number(seq_num)
 
 
@@ -486,6 +596,12 @@ class FixEngine:
             self.logger.info(f"Successfully sent Logout (Seq {logout_msg.get(34)}) for {self.session_id}.")
         except Exception as e:
             self.logger.error(f"Failed to send Logout for {self.session_id}: {e}", exc_info=True)
-            if current_state_name != "DISCONNECTED":
-                 self.state_machine.on_event('disconnect') 
-                 await self.disconnect(graceful=False)
+            if current_state_name != "DISCONNECTED": # Ensure we don't try to disconnect again if already in process
+                 # The send_message exception handler would have already called disconnect.
+                 # This is more of a safeguard if send_message itself didn't trigger it.
+                 # However, send_message's except block *does* call self.state_machine.on_event('disconnect')
+                 # and await self.disconnect(graceful=False). So this might be redundant here.
+                 self.logger.debug(f"Ensuring disconnect due to send_logout_message failure (current state: {current_state_name}).")
+                 if self.state_machine.state.name != "DISCONNECTED": # Double check
+                    self.state_machine.on_event('disconnect') 
+                    await self.disconnect(graceful=False)
