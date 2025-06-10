@@ -44,6 +44,7 @@ class NetworkConnection(ABC):
         """Sets the reader and writer, typically for an accepted connection."""
         self.reader = reader
         self.writer = writer
+        self.logger.debug(f"Acceptor.set_transport: self.reader_id={id(self.reader)}, self.writer_id={id(self.writer)}")
         self.running = True
         peername = writer.get_extra_info('peername')
         self.logger.info(f"Transport set for {self.__class__.__name__}. Peer: {peername}")
@@ -70,6 +71,7 @@ class NetworkConnection(ABC):
 
     async def receive(self, handler):
         """Generic receive loop that passes data to a handler."""
+        self.logger.debug(f"Acceptor.receive attempting with self.reader_id={id(self.reader) if self.reader else 'None'}")
         if not self.reader or not self.running:
             self.logger.warning("Cannot receive: reader is not available or not running.")
             return
