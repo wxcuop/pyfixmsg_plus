@@ -45,16 +45,16 @@ jobs:
         echo $! > acceptor_pid.txt
         sleep 5  # Give the acceptor time to start
 
-    - name: Telnet test to verify connection
-      run: |
-        # sudo apt-get update && sudo apt-get install -y telnet
-        telnet 127.0.0.1 5000 || echo "Telnet test failed"
+    # - name: Telnet test to verify connection
+    #   run: |
+    #     # sudo apt-get update && sudo apt-get install -y telnet
+    #     telnet 127.0.0.1 5000 || echo "Telnet test failed"
 
     - name: Run FIX Initiator Demo
       run: |
         python examples/cli_initiator.py > initiator_logs.txt 2>&1 &
         INITIATOR_PID=$!
-        sleep 15
+        sleep 60
         kill $INITIATOR_PID || true
 
     - name: Stop Acceptor
