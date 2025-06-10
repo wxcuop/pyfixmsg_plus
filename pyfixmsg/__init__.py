@@ -237,28 +237,17 @@ def len_and_chsum(msg, group=False):
     type_spec_obj_for_current_level = None
     if not group:
         if codec_spec_obj and hasattr(msg, 'get'):
-            msg_type_tag_val = msg.get(35, msg.get('35', msg.get(b'35')))
-            if msg_type_tag_val and hasattr(codec_spec_obj, 'msg_types'):
-                type_spec_obj_for_current_level = codec_spec_obj.msg_types.get(str(msg_type_tag_val))
-    # If 'group' is True, type_spec_obj_for_current_level will be None here,
-    # but _calculate_length_and_get_ordered_byte_parts will receive the group's spec via recursion.
+            # Try to get MsgType, ensuring it's treated as a string for lookup in codec_spec_obj.msg_types
+            msg_type_val_from_msg = msg.get(35) # Prefer int key first
+            if msg_type_val_from_msg is None: msg_type_val_from_msg = msg.get('35')
+            if msg_type_val_from_msg is None: msg_type_val_from_msg = msg.get(b'35')
 
+            if msg_type_val_from_msg is not None and hasattr(codec_spec_obj, 'msg_types'):
+                type_spec_obj_for_current_level = codec_spec_obj.msg_types.get(str(msg_type_val_from_msg))
+    
     if group:
-        # This is a fragment within a repeating group (msg is the FixFragment dict for the member).
-        # The `type_spec_obj_for_current_level` for a group member (FixFragment) is the group's own definition.
-        # This should be passed as `type_spec_obj` when `_calculate_length_and_get_ordered_byte_parts`
-        # is called recursively for group members.
-        # Here, `msg` is the group member dict. `type_spec_obj_for_current_level` might be None
-        # if this len_and_chsum is called directly on a fragment not via the main message path.
-        # The primary call for group members will be inside _calculate_length_and_get_ordered_byte_parts.
-        # This direct call path for group=True might need refinement if used independently.
-        # For now, assume it's part of the recursive calculation started from group=False.
-        
-        # If this is called directly for a group member (e.g. from RepeatingGroup.length),
-        # type_spec_obj_for_current_level might be None if the fragment doesn't carry enough context.
-        # The recursive calls within _calculate_length_and_get_ordered_byte_parts *do* pass the correct group_spec.
         fragment_len, fragment_ordered_parts = \
-            _calculate_length_and_get_ordered_byte_parts(msg, codec_spec_obj, type_spec_obj_for_current_level)
+            _calculate_length_and_get_ordered_byte_parts(msg, codec_spec_obj, type_spec_obj_for_current_level) # type_spec_obj_for_current_level might be None
         
         raw_chsum_for_fragment = 0
         for part_bytes in fragment_ordered_parts:
@@ -266,26 +255,25 @@ def len_and_chsum(msg, group=False):
         return fragment_len, raw_chsum_for_fragment
 
     # --- Processing for a top-level message (group=False) ---
-    tag_8_val = msg.get(8, msg.get('8', msg.get(b'8')))
+    tag_8_val = msg.get(8) # Prefer int key
+    if tag_8_val is None: tag_8_val = msg.get('8')
+    if tag_8_val is None: tag_8_val = msg.get(b'8')
+        
     tag_8_byte_part = b''
     if tag_8_val is not None:
         tag_8_byte_part = b'8' + equals_bytes + _encode_value_for_checksum(tag_8_val) + separator_bytes
     else:
-        # This would be an invalid FIX message.
-        # Consider raising an error or logging a warning.
-        # For now, proceed, but checksum will be based on available fields.
-        pass
+        pass # Invalid FIX message if Tag 8 is missing
 
     body_fields_dict = {}
     for tag_key, field_val in msg.items():
-        tag_as_int = -1 # Default for non-convertible
+        tag_as_int = -1 
         if isinstance(tag_key, int): tag_as_int = tag_key
         else:
             try: tag_as_int = int(str(tag_key))
             except ValueError: pass
 
         if tag_as_int in (8, 9, 10): continue
-        # Check original string/bytes keys as well
         if isinstance(tag_key, (str, bytes)) and tag_key in ('8','9','10',b'8',b'9',b'10'): continue
         
         body_fields_dict[tag_key] = field_val
@@ -298,13 +286,54 @@ def len_and_chsum(msg, group=False):
     tag_9_byte_part = b'9' + equals_bytes + str(calculated_body_length).encode('ascii') + separator_bytes
 
     all_checksum_string_parts = []
-    if tag_8_byte_part: # Only add if tag 8 was present
+    if tag_8_byte_part: 
         all_checksum_string_parts.append(tag_8_byte_part)
     all_checksum_string_parts.append(tag_9_byte_part)
     all_checksum_string_parts.extend(ordered_body_byte_parts)
 
     final_string_for_checksum = b''.join(all_checksum_string_parts)
     raw_checksum_value = STRSUM(final_string_for_checksum)
+
+    # ****** DEBUG PRINTS ******
+    # Get MsgType for logging, handling potential None
+    msg_type_for_log = "N/A"
+    msg_type_val_log = msg.get(35)
+    if msg_type_val_log is None: msg_type_val_log = msg.get('35')
+    if msg_type_val_log is None: msg_type_val_log = msg.get(b'35')
+    if msg_type_val_log is not None: msg_type_for_log = str(msg_type_val_log)
+
+    print(f"DEBUG pyfixmsg.len_and_chsum: ---- Initiator Calculation for MsgType {msg_type_for_log} ----")
+    # To avoid overly long prints for body_fields_dict if it contains complex objects:
+    # Convert values to simple string representations for logging if they are not basic types.
+    loggable_body_fields_dict = {}
+    for k, v in body_fields_dict.items():
+        if isinstance(v, (str, int, float, bytes, bool)) or v is None:
+            loggable_body_fields_dict[k] = v
+        elif isinstance(v, RepeatingGroup):
+            loggable_body_fields_dict[k] = f"<RepeatingGroup of {len(v)} items>"
+        else:
+            loggable_body_fields_dict[k] = f"<{type(v).__name__} object>"
+
+    print(f"DEBUG pyfixmsg.len_and_chsum: body_fields_dict passed to _calc: {loggable_body_fields_dict}")
+    print(f"DEBUG pyfixmsg.len_and_chsum: ordered_body_byte_parts (length {len(ordered_body_byte_parts)} items):")
+    for i, part in enumerate(ordered_body_byte_parts):
+        # Represent part as string for logging, handling potential decoding errors
+        try:
+            part_repr = part.decode('utf-8', errors='replace')
+        except AttributeError: # If part is not bytes
+            part_repr = str(part)
+        print(f"DEBUG pyfixmsg.len_and_chsum:   part[{i}] (len {len(part)}): {part_repr[:100]}{'...' if len(part_repr) > 100 else ''}")
+    print(f"DEBUG pyfixmsg.len_and_chsum: calculated_body_length: {calculated_body_length}")
+    
+    # Represent final_string_for_checksum for logging
+    try:
+        final_string_repr = final_string_for_checksum.decode('utf-8', errors='replace')
+    except AttributeError:
+        final_string_repr = str(final_string_for_checksum)
+    print(f"DEBUG pyfixmsg.len_and_chsum: final_string_for_checksum (first 200 chars): {final_string_repr[:200]}{'...' if len(final_string_repr) > 200 else ''}")
+    print(f"DEBUG pyfixmsg.len_and_chsum: raw_checksum_value: {raw_checksum_value}")
+    print(f"DEBUG pyfixmsg.len_and_chsum: ---- End Initiator Calculation ----")
+    # ****** END DEBUG PRINTS ******
 
     return calculated_body_length, raw_checksum_value
 # --- END OF NEW CHECKSUM AND LENGTH CALCULATION LOGIC ---
