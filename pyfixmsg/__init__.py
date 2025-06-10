@@ -1,5 +1,5 @@
 '''
-TODO Write doc
+pyfixmsg main init
 '''
 import sys
 import itertools
@@ -50,8 +50,8 @@ class RepeatingGroup(list):
         """ addition of groups"""
         result = RepeatingGroupFactory(self.number_tag, self.standard,
                                        self.first_tag).get_r_group(*self)
-        for group in other:
-            result.append(group)
+        for group_member in other: # Changed 'group' to 'group_member' to avoid conflict if 'group' is passed to len_and_chsum
+            result.append(group_member)
         return result
 
     def find_all(self, tag):
@@ -72,9 +72,9 @@ class RepeatingGroup(list):
         @return: a generator of paths where each path is a list of string or integer indices into the message
         @rtype: Generator of C{list} of C{int} or C{str}
         """
-        for index, msg in enumerate(self):
-            if msg.anywhere(tag):
-                for path in msg.find_all(tag):
+        for index, msg_item in enumerate(self): # Changed 'msg' to 'msg_item'
+            if msg_item.anywhere(tag):
+                for path in msg_item.find_all(tag):
                     result = [index]
                     result.extend(path)
                     yield result
@@ -91,11 +91,12 @@ class RepeatingGroup(list):
         """
         return list(set(tag for tag in itertools.chain(*(frag.all_tags() for frag in self))))
 
-    def length(self):
+    def length(self): # This length is the FIX body length contribution, not list len()
         """
         Length of the body of the message in bytes
         """
-        return sum(len_and_chsum(member)[0] for member in self)
+        # Calls the global len_and_chsum for each member
+        return sum(len_and_chsum(member, group=True)[0] for member in self)
 
 
 class RepeatingGroupFactory(object):
@@ -115,58 +116,195 @@ class RepeatingGroupFactory(object):
             r_group.append(fixmsg)
         return r_group
 
+# --- NEW CHECKSUM AND LENGTH CALCULATION LOGIC ---
+SEPARATOR = '\x01'
+EQUALS_DELIMITER = '='
+
+# Minimal header sort map (expand as needed, or ensure full import from .reference)
+# Tags should be integers for keys here if tags in messages are primarily integers.
+_MINIMAL_HEADER_SORT_MAP = {
+    8: 1, 9: 2, 35: 3, 49: 4, 56: 5, 115: 5.1, 128: 5.2, # CompIDs
+    50: 5.3, 142: 5.4, 57: 5.5, 143: 5.6, # OnBehalfOf/DeliverTo
+    34: 6, 52: 7, 43: 8, 97: 9, 122: 10, # SeqNum, Time, PossDup etc.
+    # Add other header tags with their desired sort priority
+    # Standard header tags from pyfixmsg.reference (if available) would be better
+    112: 11, # TestReqID
+    108: 12, # HeartBtInt
+    141: 13, # ResetSeqNumFlag
+    # ... other common header tags
+}
+
+def _encode_value_for_checksum(val):
+    """Encodes a field value to bytes for checksum calculation."""
+    if isinstance(val, bytes):
+        return val
+    if isinstance(val, six.text_type):
+        return val.encode('UTF-8')
+    return str(val).encode('UTF-8')
+
+def _get_ordered_items_for_checksum(items_dict, codec_spec_obj, type_spec_obj):
+    """
+    Orders items from items_dict based on FIX spec or fallback.
+    Returns a list of (tag, value) tuples, ordered.
+    """
+    items_list = []
+    # Ensure all keys in items_dict are consistently comparable (e.g. int or str)
+    # For this function, we'll aim for integer tags where possible for sorting.
+    processed_items = {}
+    for k, v in items_dict.items():
+        try:
+            processed_items[int(str(k))] = v # Normalize to int key
+        except ValueError:
+            processed_items[k] = v # Keep original if not int-convertible (e.g. string for custom tags)
+    
+    items_list = list(processed_items.items())
+
+
+    if type_spec_obj and hasattr(type_spec_obj, 'sorting_key') and type_spec_obj.sorting_key:
+        spec_sorting_key_map = type_spec_obj.sorting_key
+        def sort_key_func(item_tuple):
+            tag = item_tuple[0]
+            comparable_tag = int(tag) if not isinstance(tag, int) else tag
+            return spec_sorting_key_map.get(comparable_tag, float('inf')) # Sort unknown tags to the end
+        items_list.sort(key=sort_key_func)
+    else:
+        def fallback_sort_key_func(item_tuple):
+            tag = item_tuple[0]
+            numeric_tag = int(tag) if not isinstance(tag, int) else tag
+            # Sort by header map, then by numeric tag value for non-header/unknown
+            return (_MINIMAL_HEADER_SORT_MAP.get(numeric_tag, float('inf')), numeric_tag)
+        items_list.sort(key=fallback_sort_key_func)
+    return items_list
+
+def _calculate_length_and_get_ordered_byte_parts(fragment_dict, codec_spec_obj, type_spec_obj):
+    """
+    Calculates body length for a FIX fragment (message body or group member)
+    and returns its fields as a list of ordered byte strings ("tag=value<SOH>").
+    """
+    current_fragment_length = 0
+    ordered_field_byte_strings = []
+
+    ordered_items = _get_ordered_items_for_checksum(fragment_dict, codec_spec_obj, type_spec_obj)
+
+    separator_bytes = SEPARATOR.encode('ascii')
+    equals_bytes = EQUALS_DELIMITER.encode('ascii')
+
+    for tag, value in ordered_items:
+        encoded_tag = str(tag).encode('ascii') # Tags are numbers from sorting
+        
+        if isinstance(value, RepeatingGroup):
+            num_in_group_tag_bytes = encoded_tag
+            num_in_group_count_bytes = _encode_value_for_checksum(len(value))
+
+            group_count_field_str = num_in_group_tag_bytes + equals_bytes + num_in_group_count_bytes + separator_bytes
+            current_fragment_length += len(group_count_field_str)
+            ordered_field_byte_strings.append(group_count_field_str)
+
+            group_spec_for_members = None
+            if type_spec_obj and hasattr(type_spec_obj, 'groups'):
+                comparable_tag_for_group_lookup = int(tag) # tag is already int from _get_ordered_items
+                group_spec_for_members = type_spec_obj.groups.get(comparable_tag_for_group_lookup)
+
+            for member_fragment_dict in value:
+                member_len, member_ordered_parts = \
+                    _calculate_length_and_get_ordered_byte_parts(member_fragment_dict,
+                                                                 codec_spec_obj,
+                                                                 group_spec_for_members)
+                current_fragment_length += member_len
+                ordered_field_byte_strings.extend(member_ordered_parts)
+        else:
+            encoded_value = _encode_value_for_checksum(value)
+            field_str = encoded_tag + equals_bytes + encoded_value + separator_bytes
+            current_fragment_length += len(field_str)
+            ordered_field_byte_strings.append(field_str)
+
+    return current_fragment_length, ordered_field_byte_strings
 
 def len_and_chsum(msg, group=False):
-    """Calculate length and checksum. Note that the checksum is not moduloed with 256 or formatted,
-    it's just the sum part of the checksum."""
-    count = 0
-    chsum_count = 0
-    for tag, value in list(msg.items()):
-        if not isinstance(tag, bytes):
-            tag = str(tag).encode('ascii')
-        if not isinstance(value, bytes) and not isinstance(value, RepeatingGroup):
-            if isinstance(value, six.text_type):
-                value = value.encode('UTF-8')
-            else:
-                value = str(value).encode('UTF-8')
-        if tag == b'8':
-            chsum_count += STRSUM(tag)
-            chsum_count += STRSUM(value)
-            chsum_count += 1
-            chsum_count += 61
-            continue
-        if tag in (b'9', b'10'):
-            continue
-        # For being consistent with fixmessage.py use RepeatingGroup. Both works anyway.
-        # if isinstance(value, list):
-        if isinstance(value, RepeatingGroup):
-            # repeating groups
-            g_tag = str(value.entry_tag[0]).encode('ascii')
-            g_val = str(value.entry_tag[1]).encode('UTF-8')
-            chsum_count += STRSUM(g_tag)
-            count += len(g_tag)
-            count += 1  # separator
-            chsum_count += 1  # separator
-            count += len(g_val)
-            chsum_count += STRSUM(g_val)
-            count += 1  # delimiter
-            chsum_count += 61  # delimiter
-            for member in value:
-                member_len, member_chsum = len_and_chsum(member, True)
-                count += member_len
-                chsum_count += member_chsum
-        else:
-            # normal tags
-            chsum_count += STRSUM(tag)
-            count += len(tag)
-            count += 1  # separator
-            chsum_count += 1  # separator
-            count += len(value)
-            chsum_count += STRSUM(value)
-            count += 1  # delimiter
-            chsum_count += 61  # delimiter
-            # no need to add delimiter here as it is counted in the fragment
+    """
+    Calculate BodyLength and raw checksum value for a FIX message or fragment,
+    respecting canonical FIX tag order for checksum calculation.
+    - msg: The FixMessage or FixFragment (dict-like).
+    - group: True if 'msg' is a member of a repeating group, False for top-level message.
+    Returns: (body_length_int, raw_checksum_value_int)
+    """
+    separator_bytes = SEPARATOR.encode('ascii')
+    equals_bytes = EQUALS_DELIMITER.encode('ascii')
+
+    msg_codec = getattr(msg, 'codec', None)
+    codec_spec_obj = getattr(msg_codec, 'spec', None) if msg_codec else None
+    
+    type_spec_obj_for_current_level = None
     if not group:
-        chsum_count += 119  # <SOH>9=
-        chsum_count += STRSUM(str(count).encode('ascii'))
-    return count, chsum_count
+        if codec_spec_obj and hasattr(msg, 'get'):
+            msg_type_tag_val = msg.get(35, msg.get('35', msg.get(b'35')))
+            if msg_type_tag_val and hasattr(codec_spec_obj, 'msg_types'):
+                type_spec_obj_for_current_level = codec_spec_obj.msg_types.get(str(msg_type_tag_val))
+    # If 'group' is True, type_spec_obj_for_current_level will be None here,
+    # but _calculate_length_and_get_ordered_byte_parts will receive the group's spec via recursion.
+
+    if group:
+        # This is a fragment within a repeating group (msg is the FixFragment dict for the member).
+        # The `type_spec_obj_for_current_level` for a group member (FixFragment) is the group's own definition.
+        # This should be passed as `type_spec_obj` when `_calculate_length_and_get_ordered_byte_parts`
+        # is called recursively for group members.
+        # Here, `msg` is the group member dict. `type_spec_obj_for_current_level` might be None
+        # if this len_and_chsum is called directly on a fragment not via the main message path.
+        # The primary call for group members will be inside _calculate_length_and_get_ordered_byte_parts.
+        # This direct call path for group=True might need refinement if used independently.
+        # For now, assume it's part of the recursive calculation started from group=False.
+        
+        # If this is called directly for a group member (e.g. from RepeatingGroup.length),
+        # type_spec_obj_for_current_level might be None if the fragment doesn't carry enough context.
+        # The recursive calls within _calculate_length_and_get_ordered_byte_parts *do* pass the correct group_spec.
+        fragment_len, fragment_ordered_parts = \
+            _calculate_length_and_get_ordered_byte_parts(msg, codec_spec_obj, type_spec_obj_for_current_level)
+        
+        raw_chsum_for_fragment = 0
+        for part_bytes in fragment_ordered_parts:
+            raw_chsum_for_fragment += STRSUM(part_bytes)
+        return fragment_len, raw_chsum_for_fragment
+
+    # --- Processing for a top-level message (group=False) ---
+    tag_8_val = msg.get(8, msg.get('8', msg.get(b'8')))
+    tag_8_byte_part = b''
+    if tag_8_val is not None:
+        tag_8_byte_part = b'8' + equals_bytes + _encode_value_for_checksum(tag_8_val) + separator_bytes
+    else:
+        # This would be an invalid FIX message.
+        # Consider raising an error or logging a warning.
+        # For now, proceed, but checksum will be based on available fields.
+        pass
+
+    body_fields_dict = {}
+    for tag_key, field_val in msg.items():
+        tag_as_int = -1 # Default for non-convertible
+        if isinstance(tag_key, int): tag_as_int = tag_key
+        else:
+            try: tag_as_int = int(str(tag_key))
+            except ValueError: pass
+
+        if tag_as_int in (8, 9, 10): continue
+        # Check original string/bytes keys as well
+        if isinstance(tag_key, (str, bytes)) and tag_key in ('8','9','10',b'8',b'9',b'10'): continue
+        
+        body_fields_dict[tag_key] = field_val
+
+    calculated_body_length, ordered_body_byte_parts = \
+        _calculate_length_and_get_ordered_byte_parts(body_fields_dict,
+                                                     codec_spec_obj,
+                                                     type_spec_obj_for_current_level)
+
+    tag_9_byte_part = b'9' + equals_bytes + str(calculated_body_length).encode('ascii') + separator_bytes
+
+    all_checksum_string_parts = []
+    if tag_8_byte_part: # Only add if tag 8 was present
+        all_checksum_string_parts.append(tag_8_byte_part)
+    all_checksum_string_parts.append(tag_9_byte_part)
+    all_checksum_string_parts.extend(ordered_body_byte_parts)
+
+    final_string_for_checksum = b''.join(all_checksum_string_parts)
+    raw_checksum_value = STRSUM(final_string_for_checksum)
+
+    return calculated_body_length, raw_checksum_value
+# --- END OF NEW CHECKSUM AND LENGTH CALCULATION LOGIC ---
