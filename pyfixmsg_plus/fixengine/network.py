@@ -1,320 +1,255 @@
 import asyncio
 import ssl
 import logging
+from abc import ABC, abstractmethod
 
-class Network:
-    def __init__(self, host, port, use_tls=False):
+class NetworkConnection(ABC):
+    def __init__(self, host, port, use_tls=False, certfile=None, keyfile=None):
         self.host = host
         self.port = port
         self.use_tls = use_tls
+        self.certfile = certfile
+        self.keyfile = keyfile
         self.reader = None
         self.writer = None
+        self.logger = logging.getLogger(self.__class__.__name__)
         self.running = False
-        self.lock = asyncio.Lock() # Lock for critical sections like connect/disconnect/send
-        self.logger = logging.getLogger(self.__class__.__name__) # Use class name for logger
-        # self.logger.setLevel(logging.DEBUG) # Level should be set by application's logging config
+        self.buffer_size = 8192 # Default buffer size for reading
 
+    def _create_ssl_context(self, server_side=False):
+        context = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH if server_side else ssl.Purpose.SERVER_AUTH)
+        if server_side:
+            if self.certfile and self.keyfile:
+                context.load_cert_chain(certfile=self.certfile, keyfile=self.keyfile)
+                self.logger.info(f"SSL context loaded with cert: {self.certfile}, key: {self.keyfile}")
+            else:
+                # This would typically raise an error or prevent TLS from being used
+                self.logger.warning("TLS enabled for server, but certfile or keyfile not provided. Using default context (if any).")
+        else: # Client side
+            # For client, certfile might be a CA bundle if server uses self-signed certs, or not needed if server has a trusted cert.
+            # keyfile is usually not needed for client unless doing mutual TLS.
+            if self.certfile: # e.g. CA bundle
+                 context.load_verify_locations(self.certfile)
+                 self.logger.info(f"SSL context client side, loaded verify locations: {self.certfile}")
+            context.check_hostname = True # Important for client to verify server hostname
+            # Depending on server cert, might need: context.verify_mode = ssl.CERT_NONE for self-signed without proper CA
+            # Or better: context.load_verify_locations(cafile='path/to/ca.pem')
+        return context
+
+    @abstractmethod
     async def connect(self):
-        """Establish a connection to the server."""
-        async with self.lock:
-            if self.running and self.writer: # Already connected
-                self.logger.info(f"Already connected to {self.host}:{self.port}.")
-                return
+        pass
 
-            self.logger.info(f"Attempting to connect to {self.host}:{self.port} with TLS={self.use_tls}...")
-            ssl_context = ssl.create_default_context() if self.use_tls else None
+    async def set_transport(self, reader, writer):
+        """Sets the reader and writer, typically for an accepted connection."""
+        self.reader = reader
+        self.writer = writer
+        self.running = True
+        peername = writer.get_extra_info('peername')
+        self.logger.info(f"Transport set for {self.__class__.__name__}. Peer: {peername}")
+
+
+    async def send(self, data: bytes):
+        if self.writer and self.running:
             try:
-                self.reader, self.writer = await asyncio.open_connection(
-                    self.host,
-                    self.port,
-                    ssl=ssl_context
-                )
-                self.running = True
-                self.logger.info(f"Successfully connected to {self.host}:{self.port}.")
-            except ConnectionRefusedError:
-                self.logger.error(f"Connection refused by {self.host}:{self.port}.")
-                self.running = False
-                self.reader = None
-                self.writer = None
-                raise # Re-raise to allow caller to handle
-            except asyncio.TimeoutError:
-                self.logger.error(f"Connection attempt to {self.host}:{self.port} timed out.")
-                self.running = False
-                self.reader = None
-                self.writer = None
-                raise
-            except Exception as e:
-                self.logger.error(f"Failed to connect to {self.host}:{self.port}: {e}", exc_info=True)
-                self.running = False
-                self.reader = None
-                self.writer = None
-                raise # Re-raise for other connection errors
-
-    async def disconnect(self):
-        """Close the connection."""
-        async with self.lock:
-            if not self.running and not self.writer: # Already disconnected or never connected
-                self.logger.info("Disconnect called but not connected or already disconnected.")
-                return
-
-            self.running = False # Signal that we are no longer running/connected
-            if self.writer:
-                try:
-                    self.writer.close()
-                    await self.writer.wait_closed()
-                    self.logger.info("Connection writer closed.")
-                except Exception as e:
-                    self.logger.error(f"Error during writer close: {e}", exc_info=True)
-                finally:
-                    self.writer = None # Clear writer
-            self.reader = None # Clear reader as well, as connection is gone
-            self.logger.info(f"Disconnected from {self.host}:{self.port}.")
-
-
-    async def send(self, message: bytes): # Ensure message is bytes
-        """Send a message to the connected peer."""
-        if not self.running or not self.writer:
-            self.logger.error("Cannot send: Not connected or writer is not available.")
-            # Consider raising an exception here if sending on a non-active connection is a critical error
-            # For example: raise ConnectionError("Not connected")
-            return
-
-        async with self.lock: # Protect write and drain operations
-            if not self.running or not self.writer: # Double check after acquiring lock
-                self.logger.warning("Send aborted: Connection became unavailable after acquiring lock.")
-                return
-            try:
-                self.writer.write(message)
+                self.writer.write(data)
                 await self.writer.drain()
-                # Log decoded message for readability, but be cautious with large messages or binary data
-                self.logger.debug(f"Sent: {message.decode(errors='replace')}") # Changed to debug
+                # self.logger.debug(f"Sent {len(data)} bytes: {data.decode(errors='replace')[:60]}...") # Too verbose for every send
             except ConnectionResetError:
-                self.logger.error("Connection reset by peer during send. Marking as disconnected.")
-                await self.disconnect() # Ensure state is updated
-                raise # Re-raise so caller knows send failed
+                self.logger.error("Connection reset by peer during send.")
+                await self.disconnect() # Ensure cleanup
+                raise # Re-raise to allow caller to handle
             except Exception as e:
-                self.logger.error(f"Error sending message: {e}", exc_info=True)
-                await self.disconnect() # Disconnect on other send errors too
+                self.logger.error(f"Error sending data: {e}", exc_info=True)
+                await self.disconnect() # Ensure cleanup
                 raise # Re-raise
+        else:
+            self.logger.warning("Cannot send data: writer is not available or not running.")
+            # raise ConnectionError("Cannot send data: writer is not available or not running.")
+
 
     async def receive(self, handler):
-        """Receive and process messages from the connected peer."""
-        if not self.running: # Initial check before loop
-            self.logger.warning("Receive loop called but not running.")
+        """Generic receive loop that passes data to a handler."""
+        if not self.reader or not self.running:
+            self.logger.warning("Cannot receive: reader is not available or not running.")
             return
 
         self.logger.info("Receive loop started.")
         try:
             while self.running:
-                if self.reader is None:
-                    self.logger.error("Reader is None. Cannot continue receiving. Marking as disconnected.")
-                    # This state should ideally be prevented by proper connect/disconnect logic
-                    await self.disconnect() # This will set self.running = False
-                    break # Exit the loop
-
-                try:
-                    # Using readuntil(SOH) might be more FIX-appropriate if messages are framed by SOH,
-                    # but generic read(4096) is also common for chunked reading.
-                    # For FIX, you typically read until you have a complete message based on BodyLength (9).
-                    # This simple read(4096) assumes the handler can deal with partial messages or reassemble them.
-                    data = await self.reader.read(4096)
-                except asyncio.IncompleteReadError: # Often means EOF or connection closed by peer
-                    self.logger.warning("Incomplete read, connection closed by peer.")
-                    await self.disconnect() # This will set self.running = False
+                if self.reader.at_eof():
+                    self.logger.info("EOF received, connection closed by peer.")
                     break
-                except ConnectionResetError:
-                    self.logger.warning("Connection reset by peer during read.")
-                    await self.disconnect() # This will set self.running = False
-                    break
-                except Exception as e: # Other read-related errors
-                    self.logger.error(f"Error during self.reader.read: {e}", exc_info=True)
-                    await self.disconnect() # This will set self.running = False
-                    break
-
-                if not data: # Connection closed by peer (EOF)
-                    self.logger.info("Connection closed by peer (EOF received).")
-                    await self.disconnect() # This will set self.running = False
-                    break
+                data = await self.reader.read(self.buffer_size)
                 
-                # If data is received, pass to handler
-                # self.logger.debug(f"Received raw data chunk (first 100 bytes): {data[:100]}")
-                try:
-                    await handler(data) # Pass raw bytes to handler; handler decodes/parses
-                except Exception as e_handler:
-                    self.logger.error(f"Error in message handler: {e_handler}", exc_info=True)
-                    # Decide if an error in the handler should stop the receive loop
-                    # For now, we'll continue, but this might need more sophisticated error handling.
+                # ****** Added diagnostic logging ******
+                self.logger.debug(f"{self.__class__.__name__} network layer read {len(data)} bytes: {data[:100]}") # Log first 100 bytes
+                # *************************************
 
-            # Loop exited, either self.running became false or a break occurred.
-        except Exception as e_outer:
-            # Catch-all for unexpected errors in the receive loop's structure itself
-            self.logger.critical(f"Critical unexpected error in receive loop structure: {e_outer}", exc_info=True)
-            if self.running: # If an error occurred but running is still somehow true
-                await self.disconnect()
+                if not data:
+                    self.logger.info("Connection closed by peer (EOF received, read returned no data).")
+                    break 
+                await handler(data) # Pass raw bytes to handler; handler decodes/parses
+        except ConnectionResetError:
+            self.logger.warning("Connection reset by peer during receive.")
+        except asyncio.CancelledError:
+             self.logger.info("Receive loop cancelled.")
+        except Exception as e:
+            self.logger.error(f"Error in receive loop: {e}", exc_info=True)
         finally:
             self.logger.info("Receive loop terminated.")
-            # Ensure disconnect is called if loop terminates and we were supposed to be running
-            # This is somewhat redundant if all paths inside the loop that set self.running=False also call disconnect.
-            # However, it's a safeguard.
-            if self.writer is not None or self.reader is not None: # If resources still appear to be held
-                 if not await self.is_really_disconnected(): # Check if disconnect logic truly ran
-                    self.logger.warning("Receive loop ended; ensuring final disconnect.")
-                    await self.disconnect()
+            # Ensure disconnect is called if loop terminates unexpectedly or due to EOF
+            # This might be redundant if caller (FixEngine) also ensures disconnect,
+            # but good for a clean network layer.
+            if self.running: # If still marked as running, means an abnormal exit
+                 self.logger.warning("Receive loop ended; ensuring final disconnect.")
+                 await self.disconnect()
 
 
-    async def is_really_disconnected(self):
-        """Helper to check if resources are released."""
-        return self.writer is None and self.reader is None and not self.running
+    async def disconnect(self):
+        if not self.running and not self.writer: # Already disconnected or never connected
+            self.logger.debug(f"{self.__class__.__name__} already disconnected or not connected.")
+            return
+
+        self.running = False
+        if self.writer:
+            try:
+                if not self.writer.is_closing():
+                    self.writer.close()
+                    await self.writer.wait_closed()
+                self.logger.info("Connection writer closed.")
+            except Exception as e:
+                self.logger.error(f"Error closing writer: {e}", exc_info=True)
+            finally:
+                self.writer = None
+        self.reader = None # Clear reader as well
+        self.logger.info(f"Disconnected from {self.host}:{self.port}.")
 
 
-class Acceptor(Network):
-    def __init__(self, host, port, use_tls=False):
-        super().__init__(host, port, use_tls)
-        self.server = None
-        # self.client_handlers = {} # To manage individual client connection tasks (if Acceptor manages multiple client objects)
+class Initiator(NetworkConnection):
+    async def connect(self):
+        if self.running:
+            self.logger.info("Initiator already connected or connect attempt in progress.")
+            return
 
-    # Method name changed from set_transport_for_client to set_transport
-    async def set_transport(self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter):
-        """
-        This method is called by FixEngine for a new client connection.
-        It configures this Acceptor instance's reader/writer to handle this specific client.
-        This model implies the FixEngine creates or uses one Acceptor network object per active client connection
-        if the Acceptor itself is not just a listener but also the handler.
-        """
-        async with self.lock: # Protect access to self.reader/writer
-            self.reader = reader
-            self.writer = writer
-            # Ensure client_address is available and log it safely
-            client_info = writer.get_extra_info('peername', 'Unknown peer')
-            self.client_address = client_info if isinstance(client_info, (str, tuple)) else str(client_info)
+        self.logger.info(f"Attempting to connect to {self.host}:{self.port} with TLS={self.use_tls}...")
+        ssl_context = self._create_ssl_context(server_side=False) if self.use_tls else None
+        try:
+            self.reader, self.writer = await asyncio.open_connection(
+                self.host, self.port, ssl=ssl_context
+            )
+            self.running = True
+            self.logger.info(f"Successfully connected to {self.host}:{self.port}.")
+        except ConnectionRefusedError:
+            self.logger.error(f"Connection refused by {self.host}:{self.port}.")
+            self.running = False # Ensure not marked as running
+            raise # Re-raise for FixEngine to handle
+        except ssl.SSLError as e:
+            self.logger.error(f"SSL Error connecting to {self.host}:{self.port}: {e}", exc_info=True)
+            self.running = False
+            raise
+        except Exception as e:
+            self.logger.error(f"Failed to connect to {self.host}:{self.port}: {e}", exc_info=True)
+            self.running = False
+            raise
 
-            self.running = True # Mark this specific connection as running
-            self.logger.info(f"Transport set for accepted client {self.client_address}. This Acceptor instance will now handle this client.")
 
+class Acceptor(NetworkConnection):
+    def __init__(self, host, port, use_tls=False, certfile=None, keyfile=None):
+        super().__init__(host, port, use_tls, certfile, keyfile)
+        self.server = None # To hold the asyncio server object
 
-    async def _handle_one_client(self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter, engine_message_handler):
-        """
-        Handles a single client connection.
-        This would typically involve creating a new session/handler context in FixEngine.
-        For this Network class, it means setting its own reader/writer to this client's
-        and then starting its receive loop.
-        """
-        # This approach makes the Acceptor instance handle one client at a time after accepting.
-        # A more advanced acceptor would spawn a new handler (and potentially new Network object) per client.
-        self.logger.info(f"Handling new connection from {writer.get_extra_info('peername')}.")
-        await self.set_transport(reader, writer) # Call the renamed method
-        
-        # The engine_message_handler is what FixEngine provides to process incoming FIX messages
-        # for this specific client connection.
-        await self.receive(engine_message_handler)
-        # When receive loop finishes (connection closed/error), this task for _handle_one_client ends.
+    async def connect(self):
+        # For Acceptor, 'connect' is more like 'start_listening'
+        # The actual reader/writer for a specific client connection is handled by start_accepting's callback
+        self.logger.warning("Acceptor.connect() called. Did you mean start_accepting(handler_coro_factory)?")
+        # This method is not typically used for an acceptor in this model.
+        # If it were to be used, it might imply a single client connection management,
+        # which is not the typical role of the main Acceptor class.
 
     async def start_accepting(self, per_client_fix_engine_handler_coro_factory):
         """
-        Start accepting incoming connections.
-        per_client_fix_engine_handler_coro_factory: A coroutine function that takes (reader, writer)
-                                                     and is called by FixEngine to set up a new session
-                                                     and return the actual message processing callback.
+        Starts listening for incoming connections.
+        For each connection, it calls the provided `per_client_fix_engine_handler_coro_factory`
+        which should be a coroutine factory that takes (reader, writer) and handles the FIX session.
         """
-        ssl_context = None
-        if self.use_tls:
-            ssl_context = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH)
-            # self.logger.info("TLS enabled. Configure certfile/keyfile for ssl_context if needed via FixEngine/Config.")
-            # Example: ssl_context.load_cert_chain(certfile='path/server.crt', keyfile='path/server.key')
+        if self.server is not None:
+            self.logger.info("Acceptor already listening.")
+            return
 
-
+        ssl_context = self._create_ssl_context(server_side=True) if self.use_tls else None
+        
         async def client_connected_cb(reader, writer):
-            # This callback is executed by asyncio.start_server for each new client.
-            # FixEngine should provide the 'per_client_fix_engine_handler_coro_factory'
-            # which will set up a session and provide the *actual* message handler for raw bytes.
-            await per_client_fix_engine_handler_coro_factory(reader, writer)
+            """Callback for each new client connection."""
+            # This Acceptor instance itself doesn't directly use this reader/writer.
+            # It delegates to a new handler (e.g., a new FixEngine instance or a dedicated session handler).
+            # The per_client_fix_engine_handler_coro_factory is responsible for managing this specific client.
+            self.logger.info(f"Client connected: {writer.get_extra_info('peername')}. Delegating to handler factory.")
+            try:
+                # The factory should create and run the handler for the client session
+                await per_client_fix_engine_handler_coro_factory(reader, writer)
+            except Exception as e:
+                self.logger.error(f"Unhandled exception in client_connected_cb for {writer.get_extra_info('peername')}: {e}", exc_info=True)
+            finally:
+                # Ensure client connection is closed if handler didn't do it or crashed
+                if writer and not writer.is_closing():
+                    self.logger.warning(f"Handler for {writer.get_extra_info('peername')} exited; ensuring writer is closed.")
+                    writer.close()
+                    try:
+                        await writer.wait_closed()
+                    except Exception: 
+                        pass # Ignore errors on final close attempt
 
-
-        self.server = await asyncio.start_server(
-            client_connected_cb, 
-            self.host,
-            self.port,
-            ssl=ssl_context
-        )
-        self.logger.info(f"Acceptor listening on {self.host}:{self.port} with TLS={self.use_tls}")
         try:
+            self.server = await asyncio.start_server(
+                client_connected_cb, self.host, self.port, ssl=ssl_context
+            )
+            addrs = ', '.join(str(sock.getsockname()) for sock in self.server.sockets)
+            self.logger.info(f"Acceptor listening on {addrs} with TLS={self.use_tls}")
+            self.running = True # Mark as running (listening)
             async with self.server:
                 await self.server.serve_forever()
         except asyncio.CancelledError:
-            self.logger.info("Acceptor server serve_forever task cancelled.")
+            self.logger.info("Acceptor serve_forever() cancelled.")
+        except Exception as e:
+            self.logger.error(f"Failed to start acceptor: {e}", exc_info=True)
+            self.running = False
         finally:
-            self.logger.info("Acceptor server has stopped serving.")
-
-
-    async def stop_accepting(self):
-        self.logger.info("Stopping acceptor server...")
+            self.logger.info("Acceptor has stopped listening.")
+            self.running = False
+            if self.server:
+                self.server.close()
+                await self.server.wait_closed()
+                self.server = None
+    
+    async def disconnect(self):
+        """Stops the acceptor server from listening for new connections."""
+        self.running = False # Stop accepting new connections
         if self.server:
+            self.logger.info("Closing acceptor server...")
             self.server.close()
             await self.server.wait_closed()
+            self.server = None
             self.logger.info("Acceptor server closed.")
-        # Note: This stops accepting NEW connections. Existing connections are managed by their tasks.
+        else:
+            self.logger.info("Acceptor server was not running or already closed.")
+        # Note: This stops new connections. Existing client connections
+        # are managed by their respective handlers (e.g., FixEngine instances spawned by the factory).
+        # The generic NetworkConnection.disconnect() is for a single reader/writer pair,
+        # which the main Acceptor class doesn't hold directly (it delegates).
+        # So, we override to control the listening server.
 
 
-class Initiator(Network):
-    def __init__(self, host, port, use_tls=False):
-        super().__init__(host, port, use_tls)
-
-    async def connect_and_logon(self, logon_message_bytes: bytes): # Renamed for clarity
-        """Establish a connection and send a logon message."""
-        await self.connect() # Base Network.connect() sets up self.reader/writer, self.running
-        # No need to check self.running here as self.connect() would raise if failed
-        self.logger.info("TCP Connected. Sending logon message...")
-        await self.send(logon_message_bytes) # self.send expects bytes
-        self.logger.info("Logon message sent.")
-
-    async def start_main_receive_loop(self, fix_engine_message_handler):
+    async def set_transport(self, reader, writer):
         """
-        Continuously receive and process messages from the server.
-        fix_engine_message_handler: An async callback from FixEngine to handle raw incoming bytes.
+        For an Acceptor that handles a single client connection (not the typical server model),
+        this method would set its reader/writer.
+        However, in the asyncio.start_server model, the main Acceptor delegates
+        reader/writer pairs to a callback. If this Acceptor instance is *also*
+        going to handle one specific client (e.g., after being passed reader/writer
+        from the callback), then this method is appropriate.
         """
-        if not self.running or not self.writer or not self.reader:
-            self.logger.error("Cannot start receiving: Not connected or streams not available.")
-            return False # Indicate failure to start
-
-        await self.receive(fix_engine_message_handler)
-        # self.receive will call self.disconnect() internally if the loop terminates.
-        return True # Indicates loop started (though it might have terminated immediately)
-
-    # Reconnect logic might be better placed in FixEngine to coordinate state,
-    # but can be a utility here.
-    async def attempt_reconnect_and_logon(self, logon_callback, retry_interval=5, max_retries=3):
-        """
-        Attempt to reconnect to the server with retries and resend logon.
-        logon_callback: An async function that returns the (fresh) logon message bytes.
-        """
-        for attempt in range(max_retries):
-            self.logger.info(f"Reconnect attempt {attempt + 1}/{max_retries}...")
-            try:
-                # Ensure we are fully disconnected before attempting to connect again
-                if self.running or self.writer or self.reader:
-                    await self.disconnect() 
-                
-                await self.connect() # Establishes connection, sets self.running
-                
-                logon_bytes = await logon_callback() # Get fresh logon message
-                await self.send(logon_bytes) # Send logon
-                
-                self.logger.info(f"Reconnected to {self.host}:{self.port} and resent logon on attempt {attempt + 1}.")
-                return True # Indicate success
-            except ConnectionRefusedError:
-                self.logger.warning(f"Reconnect attempt {attempt + 1} failed: Connection refused.")
-            except Exception as e:
-                self.logger.error(f"Reconnect attempt {attempt + 1} failed: {e}", exc_info=True)
-            
-            # If connect or send failed, disconnect should have been called internally by them if they manage state,
-            # but an explicit disconnect here ensures cleanup before retry.
-            if self.running or self.writer or self.reader: # If still somehow connected
-                 await self.disconnect()
-
-            if attempt + 1 < max_retries:
-                self.logger.info(f"Waiting {retry_interval}s before next reconnect attempt.")
-                await asyncio.sleep(retry_interval)
-            else:
-                self.logger.error("Max reconnect attempts reached. Giving up.")
-                return False
-        return False # Should not be reached if max_retries > 0
+        await super().set_transport(reader, writer)
+        # If this Acceptor instance is now dedicated to this client,
+        # its receive loop would use self.reader and self.writer.
+        # This is what happens if FixEngine is used as the client_connected_cb directly.
