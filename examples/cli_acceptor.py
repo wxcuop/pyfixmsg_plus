@@ -13,7 +13,7 @@ logging.basicConfig(
     #     logging.StreamHandler() # To see logs in console if running locally
     # ]
 )
-
+logger = logging.getLogger(__name__)
 class DummyApplication(Application):
     def __init__(self):
         self.engine = None
