@@ -171,24 +171,23 @@ class Acceptor(Network):
     def __init__(self, host, port, use_tls=False):
         super().__init__(host, port, use_tls)
         self.server = None
-        self.client_handlers = {} # To manage individual client connection tasks
+        # self.client_handlers = {} # To manage individual client connection tasks (if Acceptor manages multiple client objects)
 
-    async def set_transport_for_client(self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter):
+    # Method name changed from set_transport_for_client to set_transport
+    async def set_transport(self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter):
         """
-        This method is intended to be called by the connection handler
-        for a *new* Network object representing a single client connection,
-        not on the Acceptor instance itself if it's just a listener.
-        Alternatively, the Acceptor manages multiple client Network objects.
-
-        For simplicity, if FixEngine creates a new Network-like object per client,
-        that object would get its reader/writer set.
-        If this Acceptor instance is meant to BE the network layer for ONE accepted client at a time,
-        then this is fine.
+        This method is called by FixEngine for a new client connection.
+        It configures this Acceptor instance's reader/writer to handle this specific client.
+        This model implies the FixEngine creates or uses one Acceptor network object per active client connection
+        if the Acceptor itself is not just a listener but also the handler.
         """
         async with self.lock: # Protect access to self.reader/writer
             self.reader = reader
             self.writer = writer
-            self.client_address = writer.get_extra_info('peername')
+            # Ensure client_address is available and log it safely
+            client_info = writer.get_extra_info('peername', 'Unknown peer')
+            self.client_address = client_info if isinstance(client_info, (str, tuple)) else str(client_info)
+
             self.running = True # Mark this specific connection as running
             self.logger.info(f"Transport set for accepted client {self.client_address}. This Acceptor instance will now handle this client.")
 
@@ -202,8 +201,8 @@ class Acceptor(Network):
         """
         # This approach makes the Acceptor instance handle one client at a time after accepting.
         # A more advanced acceptor would spawn a new handler (and potentially new Network object) per client.
-        self.logger.info(f"Accepted new connection from {writer.get_extra_info('peername')}.")
-        await self.set_transport_for_client(reader, writer)
+        self.logger.info(f"Handling new connection from {writer.get_extra_info('peername')}.")
+        await self.set_transport(reader, writer) # Call the renamed method
         
         # The engine_message_handler is what FixEngine provides to process incoming FIX messages
         # for this specific client connection.
@@ -254,11 +253,6 @@ class Acceptor(Network):
             await self.server.wait_closed()
             self.logger.info("Acceptor server closed.")
         # Note: This stops accepting NEW connections. Existing connections are managed by their tasks.
-        # If this Acceptor instance was also handling a specific client (due to _handle_one_client model),
-        # that client's connection should also be gracefully disconnected if desired.
-        # However, the base `disconnect` is for an established connection, not the listening server.
-        # If the acceptor itself was also a client (not typical), then:
-        # await super().disconnect()
 
 
 class Initiator(Network):
