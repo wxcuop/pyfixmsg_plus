@@ -195,6 +195,7 @@ class FixEngine:
         client_address_info = writer.get_extra_info('peername')
         client_address = f"{client_address_info[0]}:{client_address_info[1]}" if client_address_info else "unknown client"
         self.logger.info(f"Accepted connection from {client_address} for session {self.session_id}.")
+        self.logger.debug(f"FixEngine.handle_incoming_connection: reader_id={id(reader)}, writer_id={id(writer)} for client {client_address}")
         self.incoming_buffer = b"" 
         try:
             await self.network.set_transport(reader, writer)
