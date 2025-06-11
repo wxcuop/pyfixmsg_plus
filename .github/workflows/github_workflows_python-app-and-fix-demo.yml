@@ -58,10 +58,19 @@ jobs:
     #     kill $INITIATOR_PID || true
     - name: Run FIX Initiator Demo
       run: |
+        echo "--- Contents of pyfixmsg/__init__.py before initiator run ---"
+        cat pyfixmsg/__init__.py  # Or the correct relative path from $PWD
+        echo "--- End of pyfixmsg/__init__.py contents ---"
         PYTHONPATH=$PWD python examples/cli_initiator.py > initiator_logs.txt 2>&1 &
         INITIATOR_PID=$!
-        sleep 60
+        sleep 60 # Keep this to allow the script to run and log
         kill $INITIATOR_PID || true
+    # - name: Run FIX Initiator Demo
+    #   run: |
+    #     PYTHONPATH=$PWD python examples/cli_initiator.py > initiator_logs.txt 2>&1 &
+    #     INITIATOR_PID=$!
+    #     sleep 60
+    #     kill $INITIATOR_PID || true
         
     - name: Stop Acceptor
       run: |
