@@ -1,3 +1,26 @@
+# At the beginning of examples/cli_initiator.py
+import sys
+import os # Add this import
+
+# Try to import pyfixmsg early to check its path
+try:
+    import pyfixmsg
+    pyfixmsg_path = os.path.abspath(pyfixmsg.__file__)
+    pyfixmsg_version = getattr(pyfixmsg, '__version__', 'N/A')
+except ImportError as e:
+    pyfixmsg_path = f"Error importing pyfixmsg: {e}"
+    pyfixmsg_version = "N/A"
+except AttributeError: # If pyfixmsg is a namespace package or __file__ is not set
+    pyfixmsg_path = "pyfixmsg.__file__ not found (possibly a namespace package or an issue)"
+    pyfixmsg_version = getattr(pyfixmsg, '__version__', 'N/A')
+
+
+print(f"DEBUG_INITIATOR_SCRIPT: Current working directory: {os.getcwd()}", flush=True)
+print(f"DEBUG_INITIATOR_SCRIPT: sys.path = {sys.path}", flush=True)
+print(f"DEBUG_INITIATOR_SCRIPT: pyfixmsg module loaded from: {pyfixmsg_path}", flush=True)
+print(f"DEBUG_INITIATOR_SCRIPT: pyfixmsg version (if defined): {pyfixmsg_version}", flush=True)
+
+
 import asyncio
 import logging
 import os
