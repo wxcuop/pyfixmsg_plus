@@ -50,13 +50,19 @@ jobs:
     #     # sudo apt-get update && sudo apt-get install -y telnet
     #     telnet 127.0.0.1 5000 || echo "Telnet test failed"
 
+    # - name: Run FIX Initiator Demo
+    #   run: |
+    #     python examples/cli_initiator.py > initiator_logs.txt 2>&1 &
+    #     INITIATOR_PID=$!
+    #     sleep 60
+    #     kill $INITIATOR_PID || true
     - name: Run FIX Initiator Demo
       run: |
-        python examples/cli_initiator.py > initiator_logs.txt 2>&1 &
+        PYTHONPATH=$PWD python examples/cli_initiator.py > initiator_logs.txt 2>&1 &
         INITIATOR_PID=$!
         sleep 60
         kill $INITIATOR_PID || true
-
+        
     - name: Stop Acceptor
       run: |
         kill $(cat acceptor_pid.txt) || true
