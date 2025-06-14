@@ -50,9 +50,9 @@ jobs:
 
     - name: Run QuickFIX/J acceptor in background
       run: |
-        java -jar org.quickfixj-2.3.2/quickfix-examples-executor-2.3.2.jar acceptor.cfg > quickfix_acceptor.log 2>&1 &
+        java -jar org.quickfixj-2.3.2/quickfixj-examples-executor-2.3.2.jar acceptor.cfg > quickfix_acceptor.log 2>&1 &
         echo $! > quickfix_acceptor_pid.txt
-        sleep 15  # Give the acceptor more time to start
+        sleep 15
         
     - name: Run pyfixmsg_plus Initiator Demo
       run: |
