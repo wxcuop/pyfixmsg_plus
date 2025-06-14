@@ -43,10 +43,8 @@ jobs:
       run: |
         wget https://github.com/quickfix-j/quickfixj/releases/download/QFJ_RELEASE_2_3_2/org.quickfixj-2.3.2-bin.zip
         unzip org.quickfixj-2.3.2-bin.zip
-        # Find the all-in-one jar (quickfixj-all-2.3.2.jar) in the lib directory
-        ls org.quickfixj-2.3.2/lib/
-        cp org.quickfixj-2.3.2/lib/quickfixj-all-2.3.2.jar .
-
+        cp org.quickfixj-2.3.2/quickfixj-all-2.3.2.jar .
+        
     - name: Download QuickFIX/J Acceptor config
       run: |
         wget -O acceptor.cfg https://raw.githubusercontent.com/quickfix-j/quickfixj/refs/heads/master/quickfixj-examples/executor/src/main/resources/quickfix/examples/executor/executor.cfg
