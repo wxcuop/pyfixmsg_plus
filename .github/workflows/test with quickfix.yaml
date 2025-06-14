@@ -1,4 +1,4 @@
-name: Quickfix + FIX Demo
+name: Python application + FIX Demo
 
 on: [workflow_dispatch]
 
@@ -39,36 +39,35 @@ jobs:
       run: |
         pip install . --force-reinstall --no-cache-dir
 
-    - name: Install QuickFIX acceptor
+    - name: Download QuickFIX/J Engine
       run: |
-        sudo apt-get update
-        sudo apt-get install -y quickfix
+        wget https://github.com/quickfix-j/quickfixj/releases/download/quickfixj-2.3.2/quickfixj-all-2.3.2.jar
 
-        # Copy sample config from the quickfix repo as quickfix.cfg
-        curl -O https://raw.githubusercontent.com/quickfix/quickfix/master/examples/executor/executor.cfg
-        mv executor.cfg quickfix.cfg
-
-    - name: Run QuickFIX acceptor in background
+    - name: Download QuickFIX/J Acceptor config
       run: |
-        # Start the QuickFIX executor (acceptor)
-        executor quickfix.cfg > quickfix_acceptor.log 2>&1 &
+        wget -O acceptor.cfg https://raw.githubusercontent.com/quickfix-j/quickfixj/refs/heads/master/quickfixj-examples/executor/src/main/resources/quickfix/examples/executor/executor.cfg
+
+    - name: Run QuickFIX/J acceptor in background
+      run: |
+        java -jar quickfixj-all-2.3.2.jar --acceptorFile=acceptor.cfg > quickfix_acceptor.log 2>&1 &
         echo $! > quickfix_acceptor_pid.txt
         sleep 5  # Give the acceptor time to start
 
     - name: Run pyfixmsg_plus Initiator Demo
       run: |
+        # Make sure your initiator connects to port 9880 and uses SenderCompID=BANZAI, TargetCompID=EXEC
         PYTHONPATH=$PWD python examples/cli_initiator.py > initiator_logs.txt 2>&1 &
         INITIATOR_PID=$!
         sleep 60
         kill $INITIATOR_PID || true
 
-    - name: Stop QuickFIX acceptor
+    - name: Stop QuickFIX/J acceptor
       run: |
         kill $(cat quickfix_acceptor_pid.txt) || true
 
-    - name: Show QuickFIX Acceptor log
+    - name: Show QuickFIX/J Acceptor log
       run: |
-        cat quickfix_acceptor.log || echo "No logs found for QuickFIX acceptor."
+        cat quickfix_acceptor.log || echo "No logs found for QuickFIX/J acceptor."
 
     - name: Show Initiator log
       run: |
