@@ -43,22 +43,17 @@ jobs:
       run: |
         wget https://github.com/quickfix-j/quickfixj/releases/download/QFJ_RELEASE_2_3_2/org.quickfixj-2.3.2-bin.zip
         unzip org.quickfixj-2.3.2-bin.zip
-        cp org.quickfixj-2.3.2/quickfixj-all-2.3.2.jar .
-        
+
     - name: Download QuickFIX/J Acceptor config
       run: |
         wget -O acceptor.cfg https://raw.githubusercontent.com/quickfix-j/quickfixj/refs/heads/master/quickfixj-examples/executor/src/main/resources/quickfix/examples/executor/executor.cfg
-        # No need to change port if you want to use 9880 (default for FIX.4.4)
-        # Ensure Sender/TargetCompID are correct if you want to override defaults:
-        # sed -i 's/^SenderCompID.*/SenderCompID=EXEC/' acceptor.cfg
-        # sed -i 's/^TargetCompID.*/TargetCompID=BANZAI/' acceptor.cfg
 
     - name: Run QuickFIX/J acceptor in background
       run: |
-        java -jar quickfixj-all-2.3.2.jar --acceptorFile=acceptor.cfg > quickfix_acceptor.log 2>&1 &
+        java -jar org.quickfixj-2.3.2/quickfix-examples-executor-2.3.2.jar acceptor.cfg > quickfix_acceptor.log 2>&1 &
         echo $! > quickfix_acceptor_pid.txt
         sleep 15  # Give the acceptor more time to start
-
+        
     - name: Run pyfixmsg_plus Initiator Demo
       run: |
         # Make sure your initiator connects to port 9880 and uses SenderCompID=BANZAI, TargetCompID=EXEC
