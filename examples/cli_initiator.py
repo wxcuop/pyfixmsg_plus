@@ -198,12 +198,18 @@ async def main():
 if __name__ == "__main__":
     script_dir_for_config = os.path.dirname(__file__)
     initiator_config_file = os.path.join(script_dir_for_config, 'config_initiator.ini')
+
+# [SESSION]
+# BeginString=FIX.4.4
+# SenderCompID=EXECUTOR
+# TargetCompID=CLIENT1
+# FileStorePath=store
     
     if not os.path.exists(initiator_config_file):
         default_cfg_writer = ConfigManager(initiator_config_file) 
         default_cfg_writer.set('FIX', 'mode', 'initiator')
-        default_cfg_writer.set('FIX', 'sender', 'INITIATOR_CLIENT') 
-        default_cfg_writer.set('FIX', 'target', 'ACCEPTOR_SERVER') 
+        default_cfg_writer.set('FIX', 'sender', 'CLIENT1') 
+        default_cfg_writer.set('FIX', 'target', 'EXECUTOR') 
         default_cfg_writer.set('FIX', 'version', 'FIX.4.4')
         default_cfg_writer.set('FIX', 'spec_filename', 'FIX44.xml') 
         default_cfg_writer.set('FIX', 'host', '127.0.0.1')
