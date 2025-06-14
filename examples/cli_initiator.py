@@ -199,21 +199,52 @@ if __name__ == "__main__":
     script_dir_for_config = os.path.dirname(__file__)
     initiator_config_file = os.path.join(script_dir_for_config, 'config_initiator.ini')
 
-# [SESSION]
+# [default]
+# FileStorePath=target/data/executor
+# ConnectionType=acceptor
+# StartTime=00:00:00
+# EndTime=00:00:00
+# HeartBtInt=30
+# ValidOrderTypes=1,2,F
+# SenderCompID=EXEC
+# TargetCompID=BANZAI
+# UseDataDictionary=Y
+# DefaultMarketPrice=12.30
+
+# [session]
+# BeginString=FIX.4.0
+# SocketAcceptPort=9876
+
+# [session]
+# BeginString=FIX.4.1
+# SocketAcceptPort=9877
+
+# [session]
+# BeginString=FIX.4.2
+# SocketAcceptPort=9878
+
+# [session]
+# BeginString=FIX.4.3
+# SocketAcceptPort=9879
+
+# [session]
 # BeginString=FIX.4.4
-# SenderCompID=EXECUTOR
-# TargetCompID=CLIENT1
-# FileStorePath=store
+# SocketAcceptPort=9880
+
+# [session]
+# BeginString=FIXT.1.1
+# DefaultApplVerID=FIX.5.0
+# SocketAcceptPort=9881
     
     if not os.path.exists(initiator_config_file):
         default_cfg_writer = ConfigManager(initiator_config_file) 
         default_cfg_writer.set('FIX', 'mode', 'initiator')
-        default_cfg_writer.set('FIX', 'sender', 'CLIENT1') 
-        default_cfg_writer.set('FIX', 'target', 'EXECUTOR') 
+        default_cfg_writer.set('FIX', 'sender', 'BANZAI') 
+        default_cfg_writer.set('FIX', 'target', 'EXEC') 
         default_cfg_writer.set('FIX', 'version', 'FIX.4.4')
         default_cfg_writer.set('FIX', 'spec_filename', 'FIX44.xml') 
         default_cfg_writer.set('FIX', 'host', '127.0.0.1')
-        default_cfg_writer.set('FIX', 'port', '5000')
+        default_cfg_writer.set('FIX', 'port', '9880')
         default_cfg_writer.set('FIX', 'heartbeat_interval', '30')
         default_cfg_writer.set('FIX', 'retry_interval', '5')
         default_cfg_writer.set('FIX', 'max_retries', '3') 
