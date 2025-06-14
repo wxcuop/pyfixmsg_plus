@@ -38,11 +38,13 @@ jobs:
     - name: Install this package
       run: |
         pip install . --force-reinstall --no-cache-dir
-
     - name: Download and unzip QuickFIX/J Engine
       run: |
         wget https://github.com/quickfix-j/quickfixj/releases/download/QFJ_RELEASE_2_3_2/org.quickfixj-2.3.2-bin.zip
         unzip org.quickfixj-2.3.2-bin.zip
+
+    - name: Copy FIX44.xml to working directory
+      run: cp org.quickfixj-2.3.2/etc/FIX44.xml .
 
     - name: Download QuickFIX/J Acceptor config
       run: |
