@@ -53,8 +53,7 @@ jobs:
 
     - name: Run QuickFIX/J acceptor in background
       run: |
-        # nohup java -jar org.quickfixj-2.3.2/quickfixj-examples-executor-2.3.2.jar acceptor.cfg > quickfix_acceptor.log 2>&1 &
-        (cat | java -jar org.quickfixj-2.3.2/quickfixj-examples-executor-2.3.2.jar acceptor.cfg > quickfix_acceptor.log 2>&1 &)
+        java -jar org.quickfixj-2.3.2/quickfixj-examples-executor-2.3.2.jar acceptor.cfg < <(sleep 9999) > quickfix_acceptor.log 2>&1 &
         echo $! > quickfix_acceptor_pid.txt
         sleep 15
         
