@@ -26,7 +26,9 @@ jobs:
     - name: Download FIX44 spec
       run: |
         curl https://raw.githubusercontent.com/quickfix/quickfix/master/spec/FIX44.xml -o FIX44.xml
-
+        
+    - name: Copy FIX44.xml to initiator working directory
+      run: cp FIX44.xml examples/
     # - name: Lint with flake8
     #   run: |
     #     flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
