@@ -250,6 +250,7 @@ if __name__ == "__main__":
         default_cfg_writer.set('FIX', 'max_retries', '3') 
         default_cfg_writer.set('FIX', 'state_file', os.path.join(script_dir_for_config, 'initiator_fix_state.db'))
         default_cfg_writer.set('FIX', 'reset_seq_num_on_logon', 'false')
+        default_cfg_writer.set('FIX', 'EncryptMethod', '0')
         default_cfg_writer.save_config() 
         logger.info(f"Created default initiator config: {initiator_config_file}")
 
