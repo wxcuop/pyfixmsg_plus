@@ -248,6 +248,8 @@ class FixEngine:
                 logon_message[141] = 'N'
 
             logon_message.update({ 35: 'A', 108: self.heartbeat_interval })
+            encrypt_method = int(self.config_manager.get('FIX', 'encryptmethod', '0'))
+            logon_message[98] = encrypt_method
 
             self.logger.info(f"Initiator {self.session_id} sending Logon (ResetSeqNumFlag={logon_message[141]}).")
             await self.send_message(logon_message) 
