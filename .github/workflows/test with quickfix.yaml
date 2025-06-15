@@ -26,9 +26,13 @@ jobs:
     - name: Download FIX44 spec
       run: |
         curl https://raw.githubusercontent.com/quickfix/quickfix/master/spec/FIX44.xml -o FIX44.xml
-        
+
     - name: Copy FIX44.xml to initiator working directory
       run: cp FIX44.xml examples/
+
+    - name: List examples/ directory
+      run: ls -l examples/
+
     # - name: Lint with flake8
     #   run: |
     #     flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
@@ -40,6 +44,7 @@ jobs:
     - name: Install this package
       run: |
         pip install . --force-reinstall --no-cache-dir
+
     - name: Download and unzip QuickFIX/J Engine
       run: |
         wget https://github.com/quickfix-j/quickfixj/releases/download/QFJ_RELEASE_2_3_2/org.quickfixj-2.3.2-bin.zip
@@ -52,13 +57,29 @@ jobs:
       run: |
         wget -O acceptor.cfg https://raw.githubusercontent.com/quickfix-j/quickfixj/refs/heads/master/quickfixj-examples/executor/src/main/resources/quickfix/examples/executor/executor.cfg
 
+    - name: Sanity check pyfixmsg can parse FIX44.xml
+      run: |
+        python -c "
+import sys
+from pyfixmsg.reference import FixSpec
+from pyfixmsg.codecs.stringfix import Codec
+from pyfixmsg.fixmessage import FixMessage, FixFragment
+
+spec = FixSpec('examples/FIX44.xml')
+codec = Codec(spec=spec, fragment_class=FixFragment)
+msg_str = '8=FIX.4.4\x019=65\x0135=A\x0134=1\x0149=EXEC\x0152=20250615-01:11:14.252\x0156=BANZAI\x0198=0\x01108=30\x0110=209\x01'
+msg = FixMessage().from_wire(msg_str, codec=codec)
+print('Sanity check parsed message:', msg)
+if msg is None:
+    sys.exit('ERROR: pyfixmsg failed to parse valid FIX44 logon message!')
+"
 
     - name: Run QuickFIX/J acceptor in background
       run: |
         java -jar org.quickfixj-2.3.2/quickfixj-examples-executor-2.3.2.jar acceptor.cfg < <(sleep 9999) > quickfix_acceptor.log 2>&1 &
         echo $! > quickfix_acceptor_pid.txt
         sleep 15
-        
+
     - name: Run pyfixmsg_plus Initiator Demo
       run: |
         # Make sure your initiator connects to port 9880 and uses SenderCompID=BANZAI, TargetCompID=EXEC
