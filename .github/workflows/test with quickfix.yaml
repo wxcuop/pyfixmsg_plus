@@ -50,9 +50,10 @@ jobs:
       run: |
         wget -O acceptor.cfg https://raw.githubusercontent.com/quickfix-j/quickfixj/refs/heads/master/quickfixj-examples/executor/src/main/resources/quickfix/examples/executor/executor.cfg
 
+
     - name: Run QuickFIX/J acceptor in background
       run: |
-        java -jar org.quickfixj-2.3.2/quickfixj-examples-executor-2.3.2.jar acceptor.cfg > quickfix_acceptor.log 2>&1 &
+        nohup java -jar org.quickfixj-2.3.2/quickfixj-examples-executor-2.3.2.jar acceptor.cfg > quickfix_acceptor.log 2>&1 &
         echo $! > quickfix_acceptor_pid.txt
         sleep 15
         
