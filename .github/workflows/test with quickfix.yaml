@@ -58,21 +58,20 @@ jobs:
         wget -O acceptor.cfg https://raw.githubusercontent.com/quickfix-j/quickfixj/refs/heads/master/quickfixj-examples/executor/src/main/resources/quickfix/examples/executor/executor.cfg
 
     - name: Sanity check pyfixmsg can parse FIX44.xml
+      shell: python
       run: |
-        python -c "
-import sys
-from pyfixmsg.reference import FixSpec
-from pyfixmsg.codecs.stringfix import Codec
-from pyfixmsg.fixmessage import FixMessage, FixFragment
+        import sys
+        from pyfixmsg.reference import FixSpec
+        from pyfixmsg.codecs.stringfix import Codec
+        from pyfixmsg.fixmessage import FixMessage, FixFragment
 
-spec = FixSpec('examples/FIX44.xml')
-codec = Codec(spec=spec, fragment_class=FixFragment)
-msg_str = '8=FIX.4.4\x019=65\x0135=A\x0134=1\x0149=EXEC\x0152=20250615-01:11:14.252\x0156=BANZAI\x0198=0\x01108=30\x0110=209\x01'
-msg = FixMessage().from_wire(msg_str, codec=codec)
-print('Sanity check parsed message:', msg)
-if msg is None:
-    sys.exit('ERROR: pyfixmsg failed to parse valid FIX44 logon message!')
-"
+        spec = FixSpec("examples/FIX44.xml")
+        codec = Codec(spec=spec, fragment_class=FixFragment)
+        msg_str = "8=FIX.4.4\x019=65\x0135=A\x0134=1\x0149=EXEC\x0152=20250615-01:11:14.252\x0156=BANZAI\x0198=0\x01108=30\x0110=209\x01"
+        msg = FixMessage().from_wire(msg_str, codec=codec)
+        print("Sanity check parsed message:", msg)
+        if msg is None:
+            sys.exit("ERROR: pyfixmsg failed to parse valid FIX44 logon message!")
 
     - name: Run QuickFIX/J acceptor in background
       run: |
