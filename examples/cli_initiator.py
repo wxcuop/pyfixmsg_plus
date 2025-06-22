@@ -149,7 +149,7 @@ async def main():
                         40: '1',    
                         44: '150.00' 
                     })
-                    logger.info(f"Sending test NewOrderSingle: {test_order.to_wire(pretty=True)}")
+                    logger.info(f"Sending test NewOrderSingle: {str(test_order)}")
                     await engine.send_message(test_order)
                     sent_test_order = True 
                     # After sending, let's wait a bit then initiate disconnect for the example
