@@ -420,10 +420,8 @@ class FixEngine:
         self.logger.debug(f"Attempting to parse full_fix_string: '{full_fix_string}'")
         parsed_message = None
         try:
-            msg_obj = self.fixmsg()
-            msg_obj.from_wire(full_fix_string, codec=self.codec)
-            parsed_message = msg_obj
-             
+            # pyfixmsg's from_wire should handle checksum validation if codec is set up for it
+            parsed_message = self.fixmsg().from_wire(full_fix_string, codec=self.codec) 
         except Exception as e:
             self.logger.error(f"PARSE ERROR ({self.session_id}): '{full_fix_string[:150]}...' Error: {e}", exc_info=True)
             # TODO: Consider sending reject if session is active and parse error is critical
