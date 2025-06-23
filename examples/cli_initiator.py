@@ -127,6 +127,9 @@ async def main():
             logger.debug(f"Main loop check: Engine state is {current_state}, sent_test_order={sent_test_order}")
 
             if current_state == 'DISCONNECTED':
+                if logoff_requested and not app.logoff_confirmed:
+                    logger.warning("Engine disconnected before receiving Logoff response from counterparty.")
+                    break
                 if loop_count > max_loops_disconnected:
                     logger.info(f"Engine is persistently DISCONNECTED after {loop_count} checks. Exiting example loop.")
                     if hasattr(engine, 'retry_attempts') and hasattr(engine, 'max_retries') and \
@@ -162,7 +165,7 @@ async def main():
                     await engine.send_message(logoff_msg)
                     logoff_requested = True
 
-            elif logoff_requested and not app.logoff_confirmed:
+            elif logoff_requested and not app.logoff_confirmed and current_state != 'DISCONNECTED': #Only wait for Logoff response if the engine is not already DISCONNECTED.
                 logger.info("Waiting for Logoff response from counterparty...")
                 await asyncio.sleep(1)
 
