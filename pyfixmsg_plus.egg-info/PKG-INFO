@@ -1,7 +1,0 @@
-Metadata-Version: 2.4
-Name: pyfixmsg_plus
-Version: 0.0.1
-License-File: LICENSE.md
-Requires-Dist: six>=1.12.0
-Dynamic: license-file
-Dynamic: requires-dist
