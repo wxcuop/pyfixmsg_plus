@@ -147,7 +147,8 @@ async def main():
                         54: '1',    
                         38: '100',  
                         40: '1',    
-                        44: '150.00' 
+                        44: '150.00',
+                        60: datetime.datetime.utcnow().strftime('%Y%m%d-%H:%M:%S.%f')[:-3]       
                     })
                     logger.info(f"Sending test NewOrderSingle: {str(test_order)}")
                     await engine.send_message(test_order)
