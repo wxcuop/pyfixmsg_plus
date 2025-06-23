@@ -294,46 +294,46 @@ def len_and_chsum(msg, group=False):
     final_string_for_checksum = b''.join(all_checksum_string_parts)
     raw_checksum_value = STRSUM(final_string_for_checksum)
 
-    # ****** DEBUG PRINTS ******
-    # Get MsgType for logging, handling potential None
-    msg_type_for_log = "N/A"
-    msg_type_val_log = msg.get(35)
-    if msg_type_val_log is None: msg_type_val_log = msg.get('35')
-    if msg_type_val_log is None: msg_type_val_log = msg.get(b'35')
-    if msg_type_val_log is not None: msg_type_for_log = str(msg_type_val_log)
+    # # ****** DEBUG PRINTS ******
+    # # Get MsgType for logging, handling potential None
+    # msg_type_for_log = "N/A"
+    # msg_type_val_log = msg.get(35)
+    # if msg_type_val_log is None: msg_type_val_log = msg.get('35')
+    # if msg_type_val_log is None: msg_type_val_log = msg.get(b'35')
+    # if msg_type_val_log is not None: msg_type_for_log = str(msg_type_val_log)
 
-    print(f"DEBUG pyfixmsg.len_and_chsum: ---- Initiator Calculation for MsgType {msg_type_for_log} ----")
-    # To avoid overly long prints for body_fields_dict if it contains complex objects:
-    # Convert values to simple string representations for logging if they are not basic types.
-    loggable_body_fields_dict = {}
-    for k, v in body_fields_dict.items():
-        if isinstance(v, (str, int, float, bytes, bool)) or v is None:
-            loggable_body_fields_dict[k] = v
-        elif isinstance(v, RepeatingGroup):
-            loggable_body_fields_dict[k] = f"<RepeatingGroup of {len(v)} items>"
-        else:
-            loggable_body_fields_dict[k] = f"<{type(v).__name__} object>"
+    # print(f"DEBUG pyfixmsg.len_and_chsum: ---- Initiator Calculation for MsgType {msg_type_for_log} ----")
+    # # To avoid overly long prints for body_fields_dict if it contains complex objects:
+    # # Convert values to simple string representations for logging if they are not basic types.
+    # loggable_body_fields_dict = {}
+    # for k, v in body_fields_dict.items():
+    #     if isinstance(v, (str, int, float, bytes, bool)) or v is None:
+    #         loggable_body_fields_dict[k] = v
+    #     elif isinstance(v, RepeatingGroup):
+    #         loggable_body_fields_dict[k] = f"<RepeatingGroup of {len(v)} items>"
+    #     else:
+    #         loggable_body_fields_dict[k] = f"<{type(v).__name__} object>"
 
-    print(f"DEBUG pyfixmsg.len_and_chsum: body_fields_dict passed to _calc: {loggable_body_fields_dict}")
-    print(f"DEBUG pyfixmsg.len_and_chsum: ordered_body_byte_parts (length {len(ordered_body_byte_parts)} items):")
-    for i, part in enumerate(ordered_body_byte_parts):
-        # Represent part as string for logging, handling potential decoding errors
-        try:
-            part_repr = part.decode('utf-8', errors='replace')
-        except AttributeError: # If part is not bytes
-            part_repr = str(part)
-        print(f"DEBUG pyfixmsg.len_and_chsum:   part[{i}] (len {len(part)}): {part_repr[:100]}{'...' if len(part_repr) > 100 else ''}")
-    print(f"DEBUG pyfixmsg.len_and_chsum: calculated_body_length: {calculated_body_length}")
+    # print(f"DEBUG pyfixmsg.len_and_chsum: body_fields_dict passed to _calc: {loggable_body_fields_dict}")
+    # print(f"DEBUG pyfixmsg.len_and_chsum: ordered_body_byte_parts (length {len(ordered_body_byte_parts)} items):")
+    # for i, part in enumerate(ordered_body_byte_parts):
+    #     # Represent part as string for logging, handling potential decoding errors
+    #     try:
+    #         part_repr = part.decode('utf-8', errors='replace')
+    #     except AttributeError: # If part is not bytes
+    #         part_repr = str(part)
+    #     print(f"DEBUG pyfixmsg.len_and_chsum:   part[{i}] (len {len(part)}): {part_repr[:100]}{'...' if len(part_repr) > 100 else ''}")
+    # print(f"DEBUG pyfixmsg.len_and_chsum: calculated_body_length: {calculated_body_length}")
     
-    # Represent final_string_for_checksum for logging
-    try:
-        final_string_repr = final_string_for_checksum.decode('utf-8', errors='replace')
-    except AttributeError:
-        final_string_repr = str(final_string_for_checksum)
-    print(f"DEBUG pyfixmsg.len_and_chsum: final_string_for_checksum (first 200 chars): {final_string_repr[:200]}{'...' if len(final_string_repr) > 200 else ''}")
-    print(f"DEBUG pyfixmsg.len_and_chsum: raw_checksum_value: {raw_checksum_value}")
-    print(f"DEBUG pyfixmsg.len_and_chsum: ---- End Initiator Calculation ----")
-    # ****** END DEBUG PRINTS ******
+    # # Represent final_string_for_checksum for logging
+    # try:
+    #     final_string_repr = final_string_for_checksum.decode('utf-8', errors='replace')
+    # except AttributeError:
+    #     final_string_repr = str(final_string_for_checksum)
+    # print(f"DEBUG pyfixmsg.len_and_chsum: final_string_for_checksum (first 200 chars): {final_string_repr[:200]}{'...' if len(final_string_repr) > 200 else ''}")
+    # print(f"DEBUG pyfixmsg.len_and_chsum: raw_checksum_value: {raw_checksum_value}")
+    # print(f"DEBUG pyfixmsg.len_and_chsum: ---- End Initiator Calculation ----")
+    # # ****** END DEBUG PRINTS ******
 
     return calculated_body_length, raw_checksum_value
 # --- END OF NEW CHECKSUM AND LENGTH CALCULATION LOGIC ---
