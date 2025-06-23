@@ -85,7 +85,7 @@ class DummyApplication(Application):
 
     async def onMessage(self, message, sessionID):
         msg_type = message.get(35) if hasattr(message, 'get') else "Unknown"
-        # self.logger.info(f"[{sessionID}] Initiator App: Received message type {msg_type}: {message.to_wire(pretty=True) if hasattr(message, 'to_wire') else str(message)}")
+        # self.logger.info(f"[{sessionID}] Initiator App: Received message type {msg_type}: {message.to_wire(pretty=True) if hasattr(message, 'to_wire') else str(message)} ")
 
 
 async def main():
