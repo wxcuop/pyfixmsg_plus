@@ -136,8 +136,8 @@ async def main():
 
 
             if current_state == 'ACTIVE' and not sent_test_order:
-                logger.info(f"Session is ACTIVE. Attempting to send a test NewOrderSingle in 1 second...")
-                await asyncio.sleep(1) # Shorter delay once active
+                logger.info(f"Session is ACTIVE. Attempting to send a test NewOrderSingle in 5 second...")
+                await asyncio.sleep(5) # Shorter delay once active
                 if engine.state_machine.state.name == 'ACTIVE': 
                     test_order = engine.fixmsg({
                         35: 'D',    
@@ -199,43 +199,6 @@ if __name__ == "__main__":
     script_dir_for_config = os.path.dirname(__file__)
     initiator_config_file = os.path.join(script_dir_for_config, 'config_initiator.ini')
 
-# [default]
-# FileStorePath=target/data/executor
-# ConnectionType=acceptor
-# StartTime=00:00:00
-# EndTime=00:00:00
-# HeartBtInt=30
-# ValidOrderTypes=1,2,F
-# SenderCompID=EXEC
-# TargetCompID=BANZAI
-# UseDataDictionary=Y
-# DefaultMarketPrice=12.30
-
-# [session]
-# BeginString=FIX.4.0
-# SocketAcceptPort=9876
-
-# [session]
-# BeginString=FIX.4.1
-# SocketAcceptPort=9877
-
-# [session]
-# BeginString=FIX.4.2
-# SocketAcceptPort=9878
-
-# [session]
-# BeginString=FIX.4.3
-# SocketAcceptPort=9879
-
-# [session]
-# BeginString=FIX.4.4
-# SocketAcceptPort=9880
-
-# [session]
-# BeginString=FIXT.1.1
-# DefaultApplVerID=FIX.5.0
-# SocketAcceptPort=9881
-    
     if not os.path.exists(initiator_config_file):
         default_cfg_writer = ConfigManager(initiator_config_file) 
         default_cfg_writer.set('FIX', 'mode', 'initiator')
