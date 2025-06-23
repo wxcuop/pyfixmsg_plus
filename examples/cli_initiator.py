@@ -116,20 +116,17 @@ async def main():
         logoff_requested = False
         logoff_confirmed = False
 
-        while True: 
-            loop_count +=1
+        while True:
+            loop_count += 1
             if not engine or not hasattr(engine, 'state_machine'):
                 logger.warning("Engine or state_machine not available yet, sleeping...")
-                await asyncio.sleep(1) 
+                await asyncio.sleep(1)
                 continue
 
             current_state = engine.state_machine.state.name
             logger.debug(f"Main loop check: Engine state is {current_state}, sent_test_order={sent_test_order}")
 
             if current_state == 'DISCONNECTED':
-                if logoff_requested and not app.logoff_confirmed:
-                    logger.warning("Engine disconnected before receiving Logoff response from counterparty.")
-                    break
                 if loop_count > max_loops_disconnected:
                     logger.info(f"Engine is persistently DISCONNECTED after {loop_count} checks. Exiting example loop.")
                     if hasattr(engine, 'retry_attempts') and hasattr(engine, 'max_retries') and \
@@ -161,15 +158,6 @@ async def main():
                     logger.info("Test order sent. Initiating FIX Logoff handshake via engine.request_logoff().")
                     await engine.request_logoff(timeout=10)
                     break
-
-            elif logoff_requested and not app.logoff_confirmed and current_state != 'DISCONNECTED': #Only wait for Logoff response if the engine is not already DISCONNECTED.
-                logger.info("Waiting for Logoff response from counterparty...")
-                await asyncio.sleep(1)
-
-            elif logoff_requested and app.logoff_confirmed:
-                logger.info("Logoff confirmed by counterparty. Disconnecting engine.")
-                await engine.disconnect(graceful=True)
-                break
 
             if engine_task and engine_task.done():
                 logger.info("Engine task has completed. Exiting main loop.")
