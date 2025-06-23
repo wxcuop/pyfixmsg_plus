@@ -200,37 +200,37 @@ class TestRequestHandler(MessageHandler):
 class ExecutionReportHandler(MessageHandler):
     @logging_decorator
     async def handle(self, message):
-        await self.application.onMessage(message)
+        await self.application.onMessage(message, self.engine.session_id)
 
 class NewOrderHandler(MessageHandler):
     @logging_decorator
     async def handle(self, message):
-        await self.application.onMessage(message)
+        await self.application.onMessage(message, self.engine.session_id)
 
 class CancelOrderHandler(MessageHandler):
     @logging_decorator
     async def handle(self, message):
-        await self.application.onMessage(message)
+        await self.application.onMessage(message, self.engine.session_id)
 
 class OrderCancelReplaceHandler(MessageHandler):
     @logging_decorator
     async def handle(self, message):
-        await self.application.onMessage(message)
+        await self.application.onMessage(message, self.engine.session_id)
 
 class OrderCancelRejectHandler(MessageHandler):
     @logging_decorator
     async def handle(self, message):
-        await self.application.onMessage(message)
+        await self.application.onMessage(message, self.engine.session_id)
 
 class NewOrderMultilegHandler(MessageHandler):
     @logging_decorator
     async def handle(self, message):
-        await self.application.onMessage(message)
+        await self.application.onMessage(message, self.engine.session_id)
 
 class MultilegOrderCancelReplaceHandler(MessageHandler):
     @logging_decorator
     async def handle(self, message):
-        await self.application.onMessage(message)
+        await self.application.onMessage(message, self.engine.session_id)
 
 class ResendRequestHandler(MessageHandler):
     @logging_decorator
