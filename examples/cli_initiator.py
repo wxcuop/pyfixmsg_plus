@@ -157,13 +157,10 @@ async def main():
                     logger.info(f"Sending test NewOrderSingle: {str(test_order)}")
                     await engine.send_message(test_order)
                     sent_test_order = True
-                    await asyncio.sleep(5) # Wait a bit to see if the order is processed
-
-                    # Initiate FIX Logoff handshake
-                    logger.info("Test order sent. Initiating FIX Logoff handshake.")
-                    logoff_msg = engine.fixmsg({35: '5'})
-                    await engine.send_message(logoff_msg)
-                    logoff_requested = True
+                    await asyncio.sleep(5)
+                    logger.info("Test order sent. Initiating FIX Logoff handshake via engine.request_logoff().")
+                    await engine.request_logoff(timeout=10)
+                    break
 
             elif logoff_requested and not app.logoff_confirmed and current_state != 'DISCONNECTED': #Only wait for Logoff response if the engine is not already DISCONNECTED.
                 logger.info("Waiting for Logoff response from counterparty...")

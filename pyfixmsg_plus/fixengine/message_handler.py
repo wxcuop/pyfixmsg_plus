@@ -390,6 +390,10 @@ class LogoutHandler(MessageHandler):
         await self.engine.disconnect(graceful=False) 
         self.logger.info("LogoutHandler initiated engine disconnect to ensure cleanup.")
 
+        # Notify logoff received if the method exists
+        if hasattr(self.engine, "notify_logoff_received"):
+            self.engine.notify_logoff_received()
+
 
 class HeartbeatHandler(MessageHandler):
     @logging_decorator

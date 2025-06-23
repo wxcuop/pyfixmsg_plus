@@ -604,3 +604,35 @@ class FixEngine:
                  if self.state_machine.state.name != "DISCONNECTED": 
                     self.state_machine.on_event('disconnect') 
                     await self.disconnect(graceful=False)
+
+    async def request_logoff(self, timeout: float = 10.0):
+        """
+        Initiate a FIX logoff handshake: send Logoff, wait for Logoff response, then disconnect.
+        """
+        self.logger.info(f"request_logoff() called for {self.session_id}")
+        # Only allow if session is ACTIVE or LOGOUT_IN_PROGRESS
+        if self.state_machine.state.name not in ("ACTIVE", "LOGOUT_IN_PROGRESS"):
+            self.logger.warning(f"Cannot request logoff: session state is {self.state_machine.state.name}")
+            return
+
+        # Set up a future to be set by the LogoutHandler
+        self._logoff_future = asyncio.get_event_loop().create_future()
+
+        # Send Logoff
+        await self.send_logout_message("Operator requested logout")
+
+        try:
+            await asyncio.wait_for(self._logoff_future, timeout=timeout)
+            self.logger.info(f"Logoff response received for {self.session_id}. Proceeding to disconnect.")
+        except asyncio.TimeoutError:
+            self.logger.warning(f"Timeout waiting for Logoff response for {self.session_id}. Forcing disconnect.")
+
+        await self.disconnect(graceful=False)
+
+    def notify_logoff_received(self):
+        """
+        Called by LogoutHandler when a Logoff is received from the counterparty.
+        """
+        if hasattr(self, "_logoff_future") and self._logoff_future and not self._logoff_future.done():
+            self._logoff_future.set_result(True)
+            self.logger.debug(f"notify_logoff_received: Logoff future set for {self.session_id}")
