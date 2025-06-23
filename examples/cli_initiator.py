@@ -122,40 +122,39 @@ async def main():
                 continue
 
             current_state = engine.state_machine.state.name
-            logger.debug(f"Main loop check: Engine state is {current_state}")
+            logger.debug(f"Main loop check: Engine state is {current_state}, sent_test_order={sent_test_order}")
 
             if current_state == 'DISCONNECTED':
-                if loop_count > max_loops_disconnected : # Only break if it's persistently disconnected after initial attempts
+                if loop_count > max_loops_disconnected:
                     logger.info(f"Engine is persistently DISCONNECTED after {loop_count} checks. Exiting example loop.")
                     if hasattr(engine, 'retry_attempts') and hasattr(engine, 'max_retries') and \
                        engine.max_retries > 0 and engine.retry_attempts >= engine.max_retries:
                         logger.warning(f"Max retries ({engine.max_retries}) also reached.")
-                    break 
+                    break
                 else:
                     logger.info(f"Engine is DISCONNECTED (check {loop_count}/{max_loops_disconnected}). Will check again.")
 
-
             if current_state == 'ACTIVE' and not sent_test_order:
-                logger.info(f"Session is ACTIVE. Attempting to send a test NewOrderSingle in 5 second...")
-                await asyncio.sleep(5) # Shorter delay once active
-                if engine.state_machine.state.name == 'ACTIVE': 
+                logger.info("Session is ACTIVE. Attempting to send a test NewOrderSingle in 1 second...")
+                await asyncio.sleep(1)
+                logger.info(f"State after sleep: {engine.state_machine.state.name}")
+                if engine.state_machine.state.name == 'ACTIVE':
                     test_order = engine.fixmsg({
-                        35: 'D',    
-                        11: f'TestOrd-{datetime.datetime.now(datetime.timezone.utc).strftime("%H%M%S%f")}', 
-                        55: 'MSFT', 
-                        54: '1',    
-                        38: '100',  
-                        40: '1',    
+                        35: 'D',
+                        11: f'TestOrd-{datetime.datetime.now(datetime.timezone.utc).strftime("%H%M%S%f")}',
+                        55: 'MSFT',
+                        54: '1',
+                        38: '100',
+                        40: '1',
                         44: '150.00',
-                        60: datetime.datetime.now(datetime.timezone.utc).strftime('%Y%m%d-%H:%M:%S.%f')[:-3]       
+                        60: datetime.datetime.now(datetime.timezone.utc).strftime('%Y%m%d-%H:%M:%S.%f')[:-3]
                     })
                     logger.info(f"Sending test NewOrderSingle: {str(test_order)}")
                     await engine.send_message(test_order)
-                    sent_test_order = True 
-                    # After sending, let's wait a bit then initiate disconnect for the example
+                    sent_test_order = True
                     await asyncio.sleep(5)
                     logger.info("Test order sent. Initiating graceful disconnect.")
-                    await engine.disconnect(graceful=True) # This will eventually lead to DISCONNECTED state and loop exit
+                    await engine.disconnect(graceful=True)
                 else:
                     logger.info(f"State changed from ACTIVE to {engine.state_machine.state.name} before sending test order.")
             
