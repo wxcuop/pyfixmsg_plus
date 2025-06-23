@@ -107,6 +107,9 @@ class FixEngine:
         self.codec = Codec(spec=self.spec, fragment_class=FixFragment)
         self.incoming_buffer = b"" 
 
+        self.resend_request_outstanding = False
+        self.resend_request_expected_seq = None
+
     def fixmsg(self, *args, **kwargs):
         message = FixMessage(*args, **kwargs)
         message.codec = self.codec
@@ -462,10 +465,24 @@ class FixEngine:
                         await self.send_logout_message(text=text)
                         return
                 elif received_seq_num > expected_seq_num:
-                    self.logger.warning(f"MsgSeqNum TOO HIGH (Gap) for {self.session_id}. Expected: {expected_seq_num}, Rcvd: {received_seq_num}. Sending Resend Request.")
-                    resend_req = self.fixmsg({ 35: '2', 7: expected_seq_num, 16: 0 }) 
-                    await self.send_message(resend_req)
-                    return 
+                    if not self.resend_request_outstanding or self.resend_request_expected_seq != expected_seq_num:
+                        self.logger.warning(f"MsgSeqNum TOO HIGH (Gap) for {self.session_id}. Expected: {expected_seq_num}, Rcvd: {received_seq_num}. Sending Resend Request.")
+                        resend_req = self.fixmsg({ 35: '2', 7: expected_seq_num, 16: 0 }) 
+                        await self.send_message(resend_req)
+                        self.resend_request_outstanding = True
+                        self.resend_request_expected_seq = expected_seq_num
+                    else:
+                        self.logger.debug(f"ResendRequest already outstanding for expected_seq_num={expected_seq_num}, not sending another.")
+                    return
+
+            # If we get here, the message is in sequence or a gap fill/sequence reset
+            # Clear the outstanding resend request if the gap is filled
+            if self.resend_request_outstanding:
+                expected_seq_num = self.message_store.get_next_incoming_sequence_number()
+                if received_seq_num == expected_seq_num:
+                    self.logger.debug("Gap filled, clearing resend_request_outstanding flag.")
+                    self.resend_request_outstanding = False
+                    self.resend_request_expected_seq = None
 
             self.message_store.store_message(
                 self.version, parsed_message.get(49), parsed_message.get(56),
