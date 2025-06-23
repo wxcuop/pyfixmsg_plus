@@ -1,5 +1,5 @@
 # At the beginning of examples/cli_initiator.py
-import sys
+# import sys
 import os # Add this import
 
 # Try to import pyfixmsg early to check its path
@@ -15,15 +15,14 @@ except AttributeError: # If pyfixmsg is a namespace package or __file__ is not s
     pyfixmsg_version = getattr(pyfixmsg, '__version__', 'N/A')
 
 
-print(f"DEBUG_INITIATOR_SCRIPT: Current working directory: {os.getcwd()}", flush=True)
-print(f"DEBUG_INITIATOR_SCRIPT: sys.path = {sys.path}", flush=True)
-print(f"DEBUG_INITIATOR_SCRIPT: pyfixmsg module loaded from: {pyfixmsg_path}", flush=True)
-print(f"DEBUG_INITIATOR_SCRIPT: pyfixmsg version (if defined): {pyfixmsg_version}", flush=True)
+# print(f"DEBUG_INITIATOR_SCRIPT: Current working directory: {os.getcwd()}", flush=True)
+# print(f"DEBUG_INITIATOR_SCRIPT: sys.path = {sys.path}", flush=True)
+# print(f"DEBUG_INITIATOR_SCRIPT: pyfixmsg module loaded from: {pyfixmsg_path}", flush=True)
+# print(f"DEBUG_INITIATOR_SCRIPT: pyfixmsg version (if defined): {pyfixmsg_version}", flush=True)
 
 
 import asyncio
 import logging
-import os
 import datetime 
 from pyfixmsg_plus.fixengine.configmanager import ConfigManager
 from pyfixmsg_plus.fixengine.engine import FixEngine
@@ -69,23 +68,23 @@ class DummyApplication(Application):
 
     async def toAdmin(self, message, sessionID):
         # self.logger.debug(f"[{sessionID}] Initiator App toAdmin: MsgType {message.get(35) if hasattr(message, 'get') else 'Unknown'}")
-        return message 
+        return message,sessionID 
 
     async def fromAdmin(self, message, sessionID):
         # self.logger.debug(f"[{sessionID}] Initiator App fromAdmin: MsgType {message.get(35) if hasattr(message, 'get') else 'Unknown'}")
-        return message 
+        return message,sessionID 
 
     async def toApp(self, message, sessionID):
         # self.logger.debug(f"[{sessionID}] Initiator App toApp: MsgType {message.get(35) if hasattr(message, 'get') else 'Unknown'}")
-        return message 
+        return message,sessionID 
 
     async def fromApp(self, message, sessionID):
         # self.logger.debug(f"[{sessionID}] Initiator App fromApp: MsgType {message.get(35) if hasattr(message, 'get') else 'Unknown'}")
-        return message 
+        return message,sessionID 
 
     async def onMessage(self, message, sessionID):
         msg_type = message.get(35) if hasattr(message, 'get') else "Unknown"
-        logger.info(f"[{sessionID}] Initiator App: Received message type {msg_type}: {message.to_wire() if hasattr(message, 'to_wire') else str(message)}")
+        logger.info(f"[{sessionID}] Initiator App: Received message type {msg_type}: {str(message)}")
 
 
 async def main():
