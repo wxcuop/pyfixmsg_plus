@@ -59,13 +59,13 @@ class DummyApplication(Application):
         # self.logger.info(f"[{sessionID}] Initiator App: Logon successful.")
         if message and hasattr(message, 'to_wire'):
             pass
-            # self.logger.info(f"Logon Message: {message.to_wire(pretty=True)}")
+            # self.logger.info(f"Logon Message: {message.to_wire()}")
 
     async def onLogout(self, sessionID, message=None): 
         # self.logger.info(f"[{sessionID}] Initiator App: Logout.")
         if message and hasattr(message, 'to_wire'):
             pass
-            # self.logger.info(f"Logout Message: {message.to_wire(pretty=True)}")
+            # self.logger.info(f"Logout Message: {message.to_wire()}")
 
     async def toAdmin(self, message, sessionID):
         # self.logger.debug(f"[{sessionID}] Initiator App toAdmin: MsgType {message.get(35) if hasattr(message, 'get') else 'Unknown'}")
@@ -85,7 +85,7 @@ class DummyApplication(Application):
 
     async def onMessage(self, message, sessionID):
         msg_type = message.get(35) if hasattr(message, 'get') else "Unknown"
-        logger.info(f"[{sessionID}] Initiator App: Received message type {msg_type}: {message.to_wire(pretty=True) if hasattr(message, 'to_wire') else str(message)}")
+        logger.info(f"[{sessionID}] Initiator App: Received message type {msg_type}: {message.to_wire() if hasattr(message, 'to_wire') else str(message)}")
 
 
 async def main():
@@ -142,13 +142,13 @@ async def main():
                 if engine.state_machine.state.name == 'ACTIVE': 
                     test_order = engine.fixmsg({
                         35: 'D',    
-                        11: f'TestOrd-{datetime.datetime.utcnow().strftime("%H%M%S%f")}', 
+                        11: f'TestOrd-{datetime.datetime.now(datetime.timezone.utc).strftime("%H%M%S%f")}', 
                         55: 'MSFT', 
                         54: '1',    
                         38: '100',  
                         40: '1',    
                         44: '150.00',
-                        60: datetime.datetime.utcnow().strftime('%Y%m%d-%H:%M:%S.%f')[:-3]       
+                        60: datetime.datetime.now(datetime.timezone.utc).strftime('%Y%m%d-%H:%M:%S.%f')[:-3]       
                     })
                     logger.info(f"Sending test NewOrderSingle: {str(test_order)}")
                     await engine.send_message(test_order)
