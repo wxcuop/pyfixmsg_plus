@@ -104,17 +104,41 @@ class SequenceResetHandler(MessageHandler):
             self.message_store.set_incoming_sequence_number(new_seq_no)
 ```
 
-## Logout (35=5)
+## Logout (35=5) and Logoff Handshake
 
-The `LogoutHandler` class handles logout messages, disconnecting the session and updating the state.
+The `LogoutHandler` class handles logout messages, and the logoff handshake is managed by the `FixEngine` to ensure protocol compliance and clean disconnects.
+
+### Logoff Handshake Flow
+
+1. **Application Initiates Logoff**  
+   The application calls:
+   ```python
+   await engine.request_logoff(timeout=10)
+   ```
+   This sends a FIX Logoff message and waits for the counterparty's Logoff response.
+
+2. **Engine Waits for Logoff Response**  
+   The engine sets up an internal future and waits for the `LogoutHandler` to notify when a Logoff is received from the counterparty.
+
+3. **Engine Disconnects**  
+   Once the Logoff response is received (or a timeout occurs), the engine disconnects the session and cleans up resources.  
+   `graceful=False` is used on disconnect because the handshake is already complete, so the connection is closed immediately.
 
 ```python
 class LogoutHandler(MessageHandler):
     @logging_decorator
     async def handle(self, message):
+        # Notify engine that logoff was received
+        self.engine.notify_logoff_received()
+        # Disconnect session
         self.state_machine.on_event('disconnect')
         await self.disconnect()
 ```
+
+**Key Points:**
+- The logoff handshake is encapsulated in the engine, not the application.
+- The application only needs to call `request_logoff()`.
+- The engine manages sending, waiting, and disconnecting for a robust and protocol-compliant session shutdown.
 
 ## Message Processing
 
@@ -138,3 +162,4 @@ class MessageProcessor:
 - **Configurable Timeout**: Improves control over network delays in heartbeat and test request operations.
 - **Corrective Actions**: Ensures session resilience during connection issues.
 - **HeartbeatBuilder**: Simplifies the creation of heartbeat objects with necessary dependencies.
+- **Encapsulated Logoff Handshake**: The engine manages the full logoff handshake, keeping application code clean and protocol-agnostic.
