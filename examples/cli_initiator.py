@@ -40,9 +40,10 @@ logger = logging.getLogger(__name__)
 
 class DummyApplication(Application):
     def __init__(self):
-        self.engine = None 
+        self.engine = None
+        self.logoff_confirmed = False
         if hasattr(super(), '__init__'):
-             super().__init__()
+            super().__init__()
         # self.logger = logging.getLogger(self.__class__.__name__)
 
 
@@ -60,11 +61,9 @@ class DummyApplication(Application):
             pass
             # self.logger.info(f"Logon Message: {message.to_wire()}")
 
-    async def onLogout(self, sessionID, message=None): 
-        # self.logger.info(f"[{sessionID}] Initiator App: Logout.")
-        if message and hasattr(message, 'to_wire'):
-            pass
-            # self.logger.info(f"Logout Message: {message.to_wire()}")
+    async def onLogout(self, sessionID, message=None):
+        logger.info(f"[{sessionID}] Initiator App: Received Logoff from counterparty.")
+        self.logoff_confirmed = True
 
     async def toAdmin(self, message, sessionID):
         # self.logger.debug(f"[{sessionID}] Initiator App toAdmin: MsgType {message.get(35) if hasattr(message, 'get') else 'Unknown'}")
@@ -114,6 +113,9 @@ async def main():
         loop_count = 0
         max_loops_disconnected = 5 # Exit if disconnected for ~5 seconds after initial wait
 
+        logoff_requested = False
+        logoff_confirmed = False
+
         while True: 
             loop_count +=1
             if not engine or not hasattr(engine, 'state_machine'):
@@ -152,12 +154,23 @@ async def main():
                     logger.info(f"Sending test NewOrderSingle: {str(test_order)}")
                     await engine.send_message(test_order)
                     sent_test_order = True
-                    await asyncio.sleep(5)
-                    logger.info("Test order sent. Initiating graceful disconnect.")
-                    await engine.disconnect(graceful=True)
-                else:
-                    logger.info(f"State changed from ACTIVE to {engine.state_machine.state.name} before sending test order.")
-            
+                    await asyncio.sleep(5) # Wait a bit to see if the order is processed
+
+                    # Initiate FIX Logoff handshake
+                    logger.info("Test order sent. Initiating FIX Logoff handshake.")
+                    logoff_msg = engine.fixmsg({35: '5'})
+                    await engine.send_message(logoff_msg)
+                    logoff_requested = True
+
+            elif logoff_requested and not app.logoff_confirmed:
+                logger.info("Waiting for Logoff response from counterparty...")
+                await asyncio.sleep(1)
+
+            elif logoff_requested and app.logoff_confirmed:
+                logger.info("Logoff confirmed by counterparty. Disconnecting engine.")
+                await engine.disconnect(graceful=True)
+                break
+
             if engine_task and engine_task.done():
                 logger.info("Engine task has completed. Exiting main loop.")
                 try:
