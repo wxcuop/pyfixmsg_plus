@@ -36,7 +36,13 @@ from pyfixmsg.codecs.stringfix import Codec
 
 
 class FixEngine:
-    def __init__(self, config_manager, application):
+    def __init__(
+        self,
+        config_manager,
+        application,
+        initial_incoming_seqnum=None,
+        initial_outgoing_seqnum=None
+    ):
         self.config_manager = config_manager
         self.application = application
         self.state_machine = StateMachine(Disconnected()) 
@@ -61,6 +67,12 @@ class FixEngine:
             sendercompid=self.sender,
             targetcompid=self.target
         )
+
+        # Set initial sequence numbers if provided
+        if initial_incoming_seqnum is not None:
+            self.message_store.set_incoming_sequence_number(initial_incoming_seqnum)
+        if initial_outgoing_seqnum is not None:
+            self.message_store.set_outgoing_sequence_number(initial_outgoing_seqnum)
 
         self.heartbeat_interval = int(self.config_manager.get('FIX', 'heartbeat_interval', '30'))
         self.lock = asyncio.Lock()
@@ -576,6 +588,12 @@ class FixEngine:
         self.logger.info(f"Externally setting outbound sequence for {self.session_id} to {seq_num}.")
         if self.message_store:
             self.message_store.set_outgoing_sequence_number(seq_num)
+
+    async def set_sequence_numbers(self, incoming_seqnum: int, outgoing_seqnum: int):
+        self.logger.info(f"Externally setting both inbound ({incoming_seqnum}) and outbound ({outgoing_seqnum}) sequence numbers for {self.session_id}.")
+        if self.message_store:
+            self.message_store.set_incoming_sequence_number(incoming_seqnum)
+            self.message_store.set_outgoing_sequence_number(outgoing_seqnum)
 
 
     async def send_logout_message(self, text: str = "Operator requested logout"):

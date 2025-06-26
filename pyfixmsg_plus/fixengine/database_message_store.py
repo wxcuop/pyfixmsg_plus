@@ -58,6 +58,18 @@ class DatabaseMessageStore:
             )
         ''')
         cursor.execute('''
+            CREATE TABLE IF NOT EXISTS messages_archive (
+                beginstring TEXT NOT NULL,
+                sendercompid TEXT NOT NULL, 
+                targetcompid TEXT NOT NULL, 
+                msgseqnum INTEGER NOT NULL,
+                message TEXT NOT NULL,
+                archived_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                original_timestamp DATETIME,
+                PRIMARY KEY (beginstring, sendercompid, targetcompid, msgseqnum, archived_at)
+            )
+        ''')
+        cursor.execute('''
             CREATE TABLE IF NOT EXISTS sessions (
                 beginstring TEXT NOT NULL,
                 sendercompid TEXT NOT NULL,
@@ -73,6 +85,21 @@ class DatabaseMessageStore:
     def store_message(self, beginstring, sendercompid, targetcompid, msgseqnum, message):
         try:
             cursor = self.conn.cursor()
+            # Check if a message with this seqnum already exists (i.e., possible overwrite)
+            cursor.execute('''
+                SELECT message, timestamp FROM messages WHERE beginstring = ? AND sendercompid = ? AND targetcompid = ? AND msgseqnum = ?
+            ''', (beginstring, sendercompid, targetcompid, msgseqnum))
+            existing = cursor.fetchone()
+            if existing:
+                self.logger.warning(
+                    f"Archiving and overwriting existing message for {sendercompid}->{targetcompid} Seq={msgseqnum} in DB. "
+                    "This usually happens when sequence numbers are reused (e.g., after a reset or resend)."
+                )
+                # Archive the old message
+                cursor.execute('''
+                    INSERT INTO messages_archive (beginstring, sendercompid, targetcompid, msgseqnum, message, original_timestamp)
+                    VALUES (?, ?, ?, ?, ?, ?)
+                ''', (beginstring, sendercompid, targetcompid, msgseqnum, existing[0], existing[1]))
             cursor.execute('''
                 INSERT OR REPLACE INTO messages (beginstring, sendercompid, targetcompid, msgseqnum, message)
                 VALUES (?, ?, ?, ?, ?)

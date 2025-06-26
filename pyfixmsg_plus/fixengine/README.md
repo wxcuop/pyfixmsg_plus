@@ -163,3 +163,52 @@ class MessageProcessor:
 - **Corrective Actions**: Ensures session resilience during connection issues.
 - **HeartbeatBuilder**: Simplifies the creation of heartbeat objects with necessary dependencies.
 - **Encapsulated Logoff Handshake**: The engine manages the full logoff handshake, keeping application code clean and protocol-agnostic.
+
+---
+
+## Setting Initial Sequence Numbers
+
+You can set the initial incoming and outgoing sequence numbers for a session in two ways:
+
+### 1. Via `FixEngine` Constructor
+
+Pass `initial_incoming_seqnum` and/or `initial_outgoing_seqnum` as keyword arguments when creating the engine:
+
+```python
+engine = FixEngine(
+    config_manager,
+    application,
+    initial_incoming_seqnum=100,    # Next expected incoming seqnum
+    initial_outgoing_seqnum=200     # Next outgoing seqnum to use
+)
+```
+
+This will set the sequence numbers before the session starts.
+
+---
+
+### 2. Via Setter Methods (before `engine.start()`)
+
+You can also set or reset the sequence numbers using the provided async setters before starting the engine:
+
+```python
+await engine.set_inbound_sequence_number(100)
+await engine.set_outbound_sequence_number(200)
+# Or set both at once:
+await engine.set_sequence_numbers(incoming_seqnum=100, outgoing_seqnum=200)
+```
+
+**Note:**  
+Always set sequence numbers before calling `await engine.start()` to ensure correct session state.
+
+---
+
+### When to Use Each Method
+
+- **Constructor:** Use for config-driven or one-time setup at engine creation.
+- **Setters:** Use for scripting, testing, or when you need to reset sequence numbers dynamically before session start.
+
+---
+
+**Do not** set sequence numbers directly on the message store from application code.  
+Always use the engine's API to ensure proper encapsulation and protocol compliance.
