@@ -1,8 +1,9 @@
 import pytest
+import pytest_asyncio
 import os
 from pyfixmsg_plus.fixengine.database_message_store import DatabaseMessageStore
 
-@pytest.fixture
+@pytest_asyncio.fixture
 async def db_store(tmp_path):
     db_path = os.path.join(tmp_path, "test.db")
     store = DatabaseMessageStore(db_path)
