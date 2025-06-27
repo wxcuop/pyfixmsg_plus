@@ -103,7 +103,7 @@ class DatabaseMessageStore:
                             break
                         except Exception as e:
                             if "UNIQUE constraint failed" in str(e):
-                                await asyncio.sleep(0)  # Yield to event loop, try again
+                                await asyncio.sleep(0.001)  # Sleep 1ms to get a new timestamp
                                 continue
                             else:
                                 raise
