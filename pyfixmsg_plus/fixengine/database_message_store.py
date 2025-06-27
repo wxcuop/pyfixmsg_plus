@@ -1,6 +1,7 @@
 import aiosqlite
 from datetime import datetime, UTC
 import logging
+import asyncio
 
 class DatabaseMessageStore:
     def __init__(self, db_path, beginstring=None, sendercompid=None, targetcompid=None):
@@ -64,7 +65,6 @@ class DatabaseMessageStore:
                     msgseqnum INTEGER NOT NULL,
                     message TEXT NOT NULL,
                     archived_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-                    original_timestamp DATETIME,
                     PRIMARY KEY (beginstring, sendercompid, targetcompid, msgseqnum, archived_at)
                 )
             ''')
@@ -93,12 +93,20 @@ class DatabaseMessageStore:
                         f"Archiving and overwriting existing message for {sendercompid}->{targetcompid} Seq={msgseqnum} in DB. "
                         "This usually happens when sequence numbers are reused (e.g., after a reset or resend)."
                     )
-                    # Use microsecond precision for archived_at to avoid UNIQUE constraint violation
-                    archived_at = datetime.now(UTC).strftime("%Y-%m-%d %H:%M:%S.%f")
-                    await cursor.execute('''
-                        INSERT INTO messages_archive (beginstring, sendercompid, targetcompid, msgseqnum, message, original_timestamp, archived_at)
-                        VALUES (?, ?, ?, ?, ?, ?, ?)
-                    ''', (beginstring, sendercompid, targetcompid, msgseqnum, existing[0], existing[1], archived_at))
+                    for _ in range(3):  # Try up to 3 times
+                        archived_at = datetime.now(UTC).strftime("%Y-%m-%d %H:%M:%S.%f")
+                        try:
+                            await cursor.execute('''
+                                INSERT INTO messages_archive (beginstring, sendercompid, targetcompid, msgseqnum, message, original_timestamp, archived_at)
+                                VALUES (?, ?, ?, ?, ?, ?, ?)
+                            ''', (beginstring, sendercompid, targetcompid, msgseqnum, existing[0], existing[1], archived_at))
+                            break
+                        except Exception as e:
+                            if "UNIQUE constraint failed" in str(e):
+                                await asyncio.sleep(0)  # Yield to event loop, try again
+                                continue
+                            else:
+                                raise
                 await cursor.execute('''
                     INSERT OR REPLACE INTO messages (beginstring, sendercompid, targetcompid, msgseqnum, message)
                     VALUES (?, ?, ?, ?, ?)
