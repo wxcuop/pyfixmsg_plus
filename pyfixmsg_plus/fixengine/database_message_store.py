@@ -2,6 +2,7 @@ import aiosqlite
 from datetime import datetime, UTC
 import logging
 import asyncio
+import random
 
 class DatabaseMessageStore:
     def __init__(self, db_path, beginstring=None, sendercompid=None, targetcompid=None):
@@ -93,7 +94,7 @@ class DatabaseMessageStore:
                         f"Archiving and overwriting existing message for {sendercompid}->{targetcompid} Seq={msgseqnum} in DB. "
                         "This usually happens when sequence numbers are reused (e.g., after a reset or resend)."
                     )
-                    for _ in range(3):  # Try up to 3 times
+                    for _ in range(10):  # Try up to 10 times
                         archived_at = datetime.now(UTC).strftime("%Y-%m-%d %H:%M:%S.%f")
                         try:
                             await cursor.execute('''
@@ -103,10 +104,17 @@ class DatabaseMessageStore:
                             break
                         except Exception as e:
                             if "UNIQUE constraint failed" in str(e):
-                                await asyncio.sleep(0.001)  # Sleep 1ms to get a new timestamp
+                                await asyncio.sleep(0.001)
                                 continue
                             else:
                                 raise
+                    else:
+                        # If all retries fail, append a random suffix to guarantee uniqueness
+                        archived_at = datetime.now(UTC).strftime("%Y-%m-%d %H:%M:%S.%f") + f"-{random.randint(1000,9999)}"
+                        await cursor.execute('''
+                            INSERT INTO messages_archive (beginstring, sendercompid, targetcompid, msgseqnum, message, original_timestamp, archived_at)
+                            VALUES (?, ?, ?, ?, ?, ?, ?)
+                        ''', (beginstring, sendercompid, targetcompid, msgseqnum, existing[0], existing[1], archived_at))
                 await cursor.execute('''
                     INSERT OR REPLACE INTO messages (beginstring, sendercompid, targetcompid, msgseqnum, message)
                     VALUES (?, ?, ?, ?, ?)
