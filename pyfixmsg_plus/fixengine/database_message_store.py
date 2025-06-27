@@ -93,10 +93,12 @@ class DatabaseMessageStore:
                         f"Archiving and overwriting existing message for {sendercompid}->{targetcompid} Seq={msgseqnum} in DB. "
                         "This usually happens when sequence numbers are reused (e.g., after a reset or resend)."
                     )
+                    # Use microsecond precision for archived_at to avoid UNIQUE constraint violation
+                    archived_at = datetime.now(UTC).strftime("%Y-%m-%d %H:%M:%S.%f")
                     await cursor.execute('''
-                        INSERT INTO messages_archive (beginstring, sendercompid, targetcompid, msgseqnum, message, original_timestamp)
-                        VALUES (?, ?, ?, ?, ?, ?)
-                    ''', (beginstring, sendercompid, targetcompid, msgseqnum, existing[0], existing[1]))
+                        INSERT INTO messages_archive (beginstring, sendercompid, targetcompid, msgseqnum, message, original_timestamp, archived_at)
+                        VALUES (?, ?, ?, ?, ?, ?, ?)
+                    ''', (beginstring, sendercompid, targetcompid, msgseqnum, existing[0], existing[1], archived_at))
                 await cursor.execute('''
                     INSERT OR REPLACE INTO messages (beginstring, sendercompid, targetcompid, msgseqnum, message)
                     VALUES (?, ?, ?, ?, ?)
