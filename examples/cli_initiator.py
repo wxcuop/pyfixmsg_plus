@@ -96,7 +96,11 @@ async def main():
     engine = FixEngine(config, app) 
     if hasattr(app, 'set_engine'):
         app.set_engine(engine) 
-    
+
+    # --- ADD THIS: Ensure async engine initialization ---
+    await engine.async_init()
+    # ----------------------------------------------------
+
     engine_task = None
     try:
         logger.info(f"Starting initiator engine (Sender: {engine.sender}, Target: {engine.target}) to connect to {engine.host}:{engine.port}...")

@@ -36,18 +36,11 @@ from pyfixmsg.codecs.stringfix import Codec
 
 
 class FixEngine:
-    def __init__(
-        self,
-        config_manager,
-        application,
-        initial_incoming_seqnum=None,
-        initial_outgoing_seqnum=None
-    ):
+    def __init__(self, config_manager, application, initial_incoming_seqnum=None, initial_outgoing_seqnum=None):
         self.config_manager = config_manager
         self.application = application
-        self.state_machine = StateMachine(Disconnected()) 
+        self.state_machine = StateMachine(Disconnected())
         self.state_machine.subscribe(self.on_state_change)
-        
         self.host = self.config_manager.get('FIX', 'host', '127.0.0.1')
         self.port = int(self.config_manager.get('FIX', 'port', '5000'))
         self.sender = self.config_manager.get('FIX', 'sender', 'SENDER')
@@ -56,28 +49,41 @@ class FixEngine:
         self.spec_filename = self.config_manager.get('FIX', 'spec_filename', 'FIX44.xml')
         self.use_tls = self.config_manager.get('FIX', 'use_tls', 'false').lower() == 'true'
         self.mode = self.config_manager.get('FIX', 'mode', 'initiator').lower()
-
         self.logger = logging.getLogger('FixEngine')
+        self.heartbeat_interval = int(self.config_manager.get('FIX', 'heartbeat_interval', '30'))
+        self.lock = asyncio.Lock()
+        self.test_request = TestRequest(self.send_message, self.config_manager, self.fixmsg)
+        self.session_id = f"{self.sender}-{self.target}-{self.host}:{self.port}"
+        self.network = Acceptor(self.host, self.port, self.use_tls) if self.mode == 'acceptor' else Initiator(self.host, self.port, self.use_tls)
+        self.event_notifier = EventNotifier()
+        self.scheduler = Scheduler(self.config_manager, self)
+        self.scheduler_task = None
+        self.retry_interval = int(self.config_manager.get('FIX', 'retry_interval', '5'))
+        self.max_retries = int(self.config_manager.get('FIX', 'max_retries', '5'))
+        self.retry_attempts = 0
+        self.spec = FixSpec(self.spec_filename)
+        self.codec = Codec(spec=self.spec, fragment_class=FixFragment)
+        self.incoming_buffer = b""
+        self.resend_request_outstanding = False
+        self.resend_request_expected_seq = None
+        self.initial_incoming_seqnum = initial_incoming_seqnum
+        self.initial_outgoing_seqnum = initial_outgoing_seqnum
+        self.message_store = None  # Will be set in async_init
 
+    async def async_init(self):
         db_path = self.config_manager.get('FIX', 'state_file', 'fix_state.db')
-        self.message_store = MessageStoreFactory.get_message_store(
+        self.message_store = await MessageStoreFactory.get_message_store(
             'database',
             db_path,
             beginstring=self.version,
             sendercompid=self.sender,
             targetcompid=self.target
         )
-
         # Set initial sequence numbers if provided
-        if initial_incoming_seqnum is not None:
-            self.message_store.set_incoming_sequence_number(initial_incoming_seqnum)
-        if initial_outgoing_seqnum is not None:
-            self.message_store.set_outgoing_sequence_number(initial_outgoing_seqnum)
-
-        self.heartbeat_interval = int(self.config_manager.get('FIX', 'heartbeat_interval', '30'))
-        self.lock = asyncio.Lock()
-        
-        self.test_request = TestRequest(self.send_message, self.config_manager, self.fixmsg)
+        if self.initial_incoming_seqnum is not None:
+            await self.message_store.set_incoming_sequence_number(self.initial_incoming_seqnum)
+        if self.initial_outgoing_seqnum is not None:
+            await self.message_store.set_outgoing_sequence_number(self.initial_outgoing_seqnum)
 
         self.heartbeat = (HeartbeatBuilder()
                           .set_send_message_callback(self.send_message)
@@ -86,13 +92,7 @@ class FixEngine:
                           .set_state_machine(self.state_machine)
                           .set_fix_engine(self)
                           .build())
-        
-        self.session_id = f"{self.sender}-{self.target}-{self.host}:{self.port}"
-        self.network = Acceptor(self.host, self.port, self.use_tls) if self.mode == 'acceptor' else Initiator(self.host, self.port, self.use_tls)
-
-        self.event_notifier = EventNotifier()
         self.message_processor = MessageProcessor(self.message_store, self.state_machine, self.application, self)
-
         self.message_processor.register_handler('A', LogonHandler(self.message_store, self.state_machine, self.application, self))
         self.message_processor.register_handler('1', TestRequestHandler(self.message_store, self.state_machine, self.application, self))
         self.message_processor.register_handler('8', ExecutionReportHandler(self.message_store, self.state_machine, self.application, self))
