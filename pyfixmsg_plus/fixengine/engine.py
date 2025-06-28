@@ -450,10 +450,12 @@ class FixEngine:
                     await self.message_store.increment_incoming_sequence_number()
                 else:
                     await self.message_store.set_incoming_sequence_number(received_seq_num + 1)
-                # --- NEW: Also set outgoing seqnum to 2 if ResetSeqNumFlag=Y ---
+                # --- PATCH: Also set outgoing seqnum to 2 if ResetSeqNumFlag=Y ---
                 if parsed_message.get(141) == 'Y':
                     if hasattr(self.message_store, 'set_outgoing_sequence_number'):
                         await self.message_store.set_outgoing_sequence_number(2)
+                    else:
+                        self.logger.warning("Message store does not support set_outgoing_sequence_number; outgoing seqnum may be incorrect after reset.")
             # -------------------------------------------------------
 
             # Sequence number updates are now primarily handled by individual message handlers (Logon, SequenceReset)
