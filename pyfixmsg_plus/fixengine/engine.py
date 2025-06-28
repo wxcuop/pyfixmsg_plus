@@ -294,6 +294,9 @@ class FixEngine:
         # --- FIX: Always set correct outgoing sequence number except for reset logon ---
         if message.get(35) == 'A' and is_reset_logon:
             message[34] = 1
+            # Immediately set the next outgoing sequence number to 2 for the next message
+            if hasattr(self.message_store, 'set_outgoing_sequence_number'):
+                await self.message_store.set_outgoing_sequence_number(2)
         else:
             for k in (34, '34'):
                 if k in message:
