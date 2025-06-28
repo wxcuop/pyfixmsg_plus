@@ -14,6 +14,7 @@ class DatabaseMessageStore:
         self.targetcompid = targetcompid
         self.incoming_seqnum = 1
         self.outgoing_seqnum = 1
+        self._seq_lock = asyncio.Lock()
 
     async def async_init(self):
         self.conn = await aiosqlite.connect(self.db_path)
@@ -256,10 +257,11 @@ if __name__ == "__main__":
         await store1.async_init()
         print(f"Initial: NextIn={store1.get_next_incoming_sequence_number()}, NextOut={store1.get_next_outgoing_sequence_number()}, IsNew={store1.is_new_session()}")
         
-        seq_to_send1 = store1.get_next_outgoing_sequence_number() # Should be 1
-        print(f"Seq to send1: {seq_to_send1}")
-        await store1.store_message('FIX.4.4', 'SENDER1', 'TARGET1', seq_to_send1, f"Message {seq_to_send1} from SENDER1")
-        await store1.increment_outgoing_sequence_number() # Increment after using 1, internal next becomes 2
+        async with store1._seq_lock:
+            seq_to_send1 = store1.get_next_outgoing_sequence_number() # Should be 1
+            print(f"Seq to send1: {seq_to_send1}")
+            await store1.store_message('FIX.4.4', 'SENDER1', 'TARGET1', seq_to_send1, f"Message {seq_to_send1} from SENDER1")
+            await store1.increment_outgoing_sequence_number() # Increment after using 1, internal next becomes 2
         print(f"After send 1: NextIn={store1.get_next_incoming_sequence_number()}, NextOut={store1.get_next_outgoing_sequence_number()}, CurrentOut={store1.get_current_outgoing_sequence_number()}")
         
         print(f"GetNextIn (doesn't increment): {store1.get_next_incoming_sequence_number()}") # Should be 1
@@ -272,10 +274,11 @@ if __name__ == "__main__":
         await store2.async_init()
         print(f"Loaded: NextIn={store2.get_next_incoming_sequence_number()}, NextOut={store2.get_next_outgoing_sequence_number()}, IsNew={store2.is_new_session()}")
         
-        seq_to_send2 = store2.get_next_outgoing_sequence_number() # Should be 2
-        print(f"Seq to send2: {seq_to_send2}")
-        await store2.store_message('FIX.4.4', 'SENDER1', 'TARGET1', seq_to_send2, f"Message {seq_to_send2} from SENDER1")
-        await store2.increment_outgoing_sequence_number() # Increment after using 2, internal next becomes 3
+        async with store2._seq_lock:
+            seq_to_send2 = store2.get_next_outgoing_sequence_number() # Should be 2
+            print(f"Seq to send2: {seq_to_send2}")
+            await store2.store_message('FIX.4.4', 'SENDER1', 'TARGET1', seq_to_send2, f"Message {seq_to_send2} from SENDER1")
+            await store2.increment_outgoing_sequence_number() # Increment after using 2, internal next becomes 3
         print(f"After send 2: NextOut={store2.get_next_outgoing_sequence_number()}, CurrentOut={store2.get_current_outgoing_sequence_number()}") # Should be 3, 2
         await store2.close()
 
@@ -296,10 +299,11 @@ if __name__ == "__main__":
         await store4_no_id.set_session_identifiers('FIX.4.2', 'SENDERX', 'TARGETX')
         print(f"ID Set: NextIn={store4_no_id.get_next_incoming_sequence_number()}, NextOut={store4_no_id.get_next_outgoing_sequence_number()}, IsNew={store4_no_id.is_new_session()}")
         
-        first_out_s4 = store4_no_id.get_next_outgoing_sequence_number()
-        await store4_no_id.store_message('FIX.4.2', 'SENDERX', 'TARGETX', first_out_s4, "Test S4")
-        await store4_no_id.increment_outgoing_sequence_number()
-        print(f"CurrentOut S4: {store4_no_id.get_current_outgoing_sequence_number()}")
+        async with store4_no_id._seq_lock:
+            first_out_s4 = store4_no_id.get_next_outgoing_sequence_number()
+            await store4_no_id.store_message('FIX.4.2', 'SENDERX', 'TARGETX', first_out_s4, "Test S4")
+            await store4_no_id.increment_outgoing_sequence_number()
+            print(f"CurrentOut S4: {store4_no_id.get_current_outgoing_sequence_number()}")
         await store4_no_id.close()
 
     asyncio.run(run_tests())
