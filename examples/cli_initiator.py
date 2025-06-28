@@ -141,31 +141,9 @@ async def main():
                     logger.info(f"Engine is DISCONNECTED (check {loop_count}/{max_loops_disconnected}). Will check again.")
 
             if current_state == 'ACTIVE' and not sent_test_order:
-                logger.info("Session is ACTIVE. Waiting 0.5s for outgoing sequence number update...")
+                logger.info("Session is ACTIVE. Waiting 0.5s for state stabilization...")
                 await asyncio.sleep(0.5)
-                # --- Wait until outgoing seqnum is 2 (after Logon with ResetSeqNumFlag=Y) ---
-                wait_loops = 0
-                while True:
-                    # Defensive: handle both sync and async get_next_outgoing_sequence_number
-                    get_seq = getattr(engine.message_store, "get_next_outgoing_sequence_number", None)
-                    if get_seq:
-                        if asyncio.iscoroutinefunction(get_seq):
-                            next_out_seq = await get_seq()
-                        else:
-                            next_out_seq = get_seq()
-                    else:
-                        next_out_seq = None
-                    logger.debug(f"Waiting for outgoing seqnum=2, current={next_out_seq}")
-                    if next_out_seq == 2:
-                        # Add a short sleep to ensure DB commit is visible before proceeding
-                        await asyncio.sleep(0.2)
-                        break
-                    wait_loops += 1
-                    if wait_loops > 50:  # Wait up to 5 seconds
-                        logger.warning("Timeout waiting for outgoing seqnum to become 2. Proceeding anyway.")
-                        break
-                    await asyncio.sleep(0.1)
-                # --------------------------------------------------------------------------
+                # No need to wait for outgoing seqnum to become 2; send order immediately.
                 logger.info("Attempting to send a test NewOrderSingle in 1 second...")
                 await asyncio.sleep(1)
                 logger.info(f"State after sleep: {engine.state_machine.state.name}")
