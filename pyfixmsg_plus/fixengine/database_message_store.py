@@ -65,6 +65,7 @@ class DatabaseMessageStore:
                     targetcompid TEXT NOT NULL, 
                     msgseqnum INTEGER NOT NULL,
                     message TEXT NOT NULL,
+                    original_timestamp DATETIME,
                     archived_at DATETIME DEFAULT CURRENT_TIMESTAMP,
                     PRIMARY KEY (beginstring, sendercompid, targetcompid, msgseqnum, archived_at)
                 )
