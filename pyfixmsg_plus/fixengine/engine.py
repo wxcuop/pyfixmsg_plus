@@ -295,44 +295,8 @@ class FixEngine:
         if not hasattr(self, "_just_sent_reset_logon"):
             self._just_sent_reset_logon = False
 
-        # Only increment outgoing seqnum for these types (FIX 4.4 session + application messages):
         increment_seqnum_types = {
-            # Session-level
-            'A',  # Logon
-            '5',  # Logout
-            '0',  # Heartbeat
-            '1',  # TestRequest
-            '3',  # Reject
-
-            # Application-level (most common)
-            '8',   # ExecutionReport
-            '9',   # OrderCancelReject
-            'D',   # NewOrderSingle
-            'F',   # OrderCancelRequest
-            'G',   # OrderCancelReplaceRequest
-            'H',   # OrderStatusRequest
-            'Q',   # Don't Know Trade (DK)
-            'AB',  # NewOrderMultileg
-            'AC',  # MultilegOrderCancelReplaceRequest
-            'AE',  # TradeCaptureReport
-            'AF',  # OrderMassStatusRequest
-            'AG',  # QuoteRequestReject
-            'AI',  # QuoteStatusReport
-            'AJ',  # QuoteResponse
-            'AL',  # QuoteCancel
-            'AN',  # QuoteRequest
-            'AR',  # TradeCaptureReportAck
-            'AS',  # AllocationReport
-            'AT',  # AllocationReportAck
-            'AU',  # ConfirmationAck
-            'AX',  # SettlementInstructionRequest
-            'AY',  # AssignmentReport
-            'AZ',  # CollateralRequest
-            'BA',  # CollateralAssignment
-            'BB',  # CollateralResponse
-            'BC',  # CollateralReport
-            'AD',  # TradeCaptureReportRequest
-            # ...add more as needed for your use case...
+            'A', '5', '0', '1', '3', '8', '9', 'D', 'F', 'G', 'H', 'Q', 'AB', 'AC', 'AE', 'AF', 'AG', 'AI', 'AJ', 'AL', 'AN', 'AR', 'AS', 'AT', 'AU', 'AX', 'AY', 'AZ', 'BA', 'BB', 'BC', 'AD',
         }
 
         if 34 not in message:
@@ -340,14 +304,14 @@ class FixEngine:
                 message[34] = 1
                 self._just_sent_reset_logon = True
             else:
+                # PATCH: Do NOT increment incoming seqnum here for reset logon!
                 if self._just_sent_reset_logon:
+                    # Only set outgoing to 2 for the next message, do not touch incoming
                     await self.message_store.set_outgoing_sequence_number(2)
                     self._just_sent_reset_logon = False
-                # Only increment for application/session messages
                 if message.get(35) in increment_seqnum_types:
                     message[34] = await self.message_store.get_and_increment_outgoing_sequence_number()
                 else:
-                    # For admin messages like ResendRequest (35=2), just use current seqnum, don't increment
                     message[34] = self.message_store.get_next_outgoing_sequence_number()
         # --- PATCH END ---
 
