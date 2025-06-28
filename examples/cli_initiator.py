@@ -157,6 +157,8 @@ async def main():
                         next_out_seq = None
                     logger.debug(f"Waiting for outgoing seqnum=2, current={next_out_seq}")
                     if next_out_seq == 2:
+                        # Add a short sleep to ensure DB commit is visible before proceeding
+                        await asyncio.sleep(0.2)
                         break
                     wait_loops += 1
                     if wait_loops > 50:  # Wait up to 5 seconds

@@ -699,6 +699,9 @@ class FixEngine:
         """
         Called by LogoutHandler when a Logoff is received from the counterparty.
         """
+        # Defensive: Only set the future if it exists and is not already done
         if hasattr(self, "_logoff_future") and self._logoff_future and not self._logoff_future.done():
             self._logoff_future.set_result(True)
             self.logger.debug(f"notify_logoff_received: Logoff future set for {self.session_id}")
+        else:
+            self.logger.debug(f"notify_logoff_received: No pending logoff future to set for {self.session_id}")
