@@ -291,29 +291,30 @@ class FixEngine:
 
         is_reset_logon = message.get(35) == 'A' and message.get(141) == 'Y'
 
-        # --- FIX: Always set correct outgoing sequence number except for reset logon ---
-        if message.get(35) == 'A' and is_reset_logon:
-            message[34] = 1
-            # Immediately set the next outgoing sequence number to 2 for the next message
-            if hasattr(self.message_store, 'set_outgoing_sequence_number'):
-                await self.message_store.set_outgoing_sequence_number(2)
-        else:
-            for k in (34, '34'):
-                if k in message:
-                    del message[k]
-            # Use atomic get-and-increment
-            message[34] = await self.message_store.get_and_increment_outgoing_sequence_number()
-        # -------------------------------------------------------------------------------
+        # --- PATCH START ---
+        if not hasattr(self, "_just_sent_reset_logon"):
+            self._just_sent_reset_logon = False
+
+        if 34 not in message:
+            if is_reset_logon:
+                message[34] = 1
+                self._just_sent_reset_logon = True
+            else:
+                if self._just_sent_reset_logon:
+                    await self.message_store.set_outgoing_sequence_number(2)
+                    self._just_sent_reset_logon = False
+                # Use and increment the outgoing seqnum for all non-logon messages
+                message[34] = await self.message_store.get_and_increment_outgoing_sequence_number()
+        # --- PATCH END ---
 
         wire_message = message.to_wire(codec=self.codec)
         try:
             await self.network.send(wire_message)
-            await self.message_store.store_message( 
+            self.message_store.store_message(
                 self.version, self.sender, self.target,
                 message[34],
                 wire_message.decode(errors='replace')
             )
-            # No need to call increment_outgoing_sequence_number here!
 
             self.logger.info(f"Sent ({self.session_id}): {message.get(35)} (SeqNum {message.get(34)})")
             if message.get(35) != '0' or self.logger.isEnabledFor(logging.DEBUG):
@@ -321,11 +322,11 @@ class FixEngine:
 
         except ConnectionResetError as e:
             self.logger.error(f"ConnectionResetError for {self.session_id} while sending (type {message.get(35)}, seq {message.get(34)}): {e}")
-            self.state_machine.on_event('disconnect') 
-            await self.disconnect(graceful=False) 
-        except Exception as e: 
+            self.state_machine.on_event('disconnect')
+            await self.disconnect(graceful=False)
+        except Exception as e:
             self.logger.error(f"Exception for {self.session_id} while sending (type {message.get(35)}, seq {message.get(34)}): {e}", exc_info=True)
-            self.state_machine.on_event('disconnect') 
+            self.state_machine.on_event('disconnect')
             await self.disconnect(graceful=False)
 
     async def process_single_fix_message(self, message_bytes: bytes):
