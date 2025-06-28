@@ -295,9 +295,10 @@ class FixEngine:
         if message.get(35) == 'A' and is_reset_logon:
             message[34] = 1
         else:
-            # Remove any existing 34 to avoid accidental carry-over
-            if 34 in message:
-                del message[34]
+            # Remove any existing 34 to avoid accidental carry-over (int or str key)
+            for k in (34, '34'):
+                if k in message:
+                    del message[k]
             message[34] = self.message_store.get_next_outgoing_sequence_number()
         # -------------------------------------------------------------------------------
 
