@@ -295,8 +295,45 @@ class FixEngine:
         if not hasattr(self, "_just_sent_reset_logon"):
             self._just_sent_reset_logon = False
 
-        # Only increment outgoing seqnum for these types:
-        increment_seqnum_types = {'A', 'D', 'F', 'G', '8', '9', 'AB', 'AC', '0', '1', '3', '5'}
+        # Only increment outgoing seqnum for these types (FIX 4.4 session + application messages):
+        increment_seqnum_types = {
+            # Session-level
+            'A',  # Logon
+            '5',  # Logout
+            '0',  # Heartbeat
+            '1',  # TestRequest
+            '3',  # Reject
+
+            # Application-level (most common)
+            '8',   # ExecutionReport
+            '9',   # OrderCancelReject
+            'D',   # NewOrderSingle
+            'F',   # OrderCancelRequest
+            'G',   # OrderCancelReplaceRequest
+            'H',   # OrderStatusRequest
+            'Q',   # Don't Know Trade (DK)
+            'AB',  # NewOrderMultileg
+            'AC',  # MultilegOrderCancelReplaceRequest
+            'AE',  # TradeCaptureReport
+            'AF',  # OrderMassStatusRequest
+            'AG',  # QuoteRequestReject
+            'AI',  # QuoteStatusReport
+            'AJ',  # QuoteResponse
+            'AL',  # QuoteCancel
+            'AN',  # QuoteRequest
+            'AR',  # TradeCaptureReportAck
+            'AS',  # AllocationReport
+            'AT',  # AllocationReportAck
+            'AU',  # ConfirmationAck
+            'AX',  # SettlementInstructionRequest
+            'AY',  # AssignmentReport
+            'AZ',  # CollateralRequest
+            'BA',  # CollateralAssignment
+            'BB',  # CollateralResponse
+            'BC',  # CollateralReport
+            'AD',  # TradeCaptureReportRequest
+            # ...add more as needed for your use case...
+        }
 
         if 34 not in message:
             if is_reset_logon:
