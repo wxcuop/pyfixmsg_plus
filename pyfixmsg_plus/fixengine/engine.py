@@ -337,7 +337,6 @@ class FixEngine:
             parsed_message = msg_obj
         except Exception as e:
             self.logger.error(f"PARSE ERROR ({self.session_id}): '{full_fix_string[:150]}...' Error: {e}", exc_info=True)
-            # TODO: Consider sending reject if session is active and parse error is critical
             return 
 
         if parsed_message is None:
@@ -349,7 +348,7 @@ class FixEngine:
             received_seq_num_str = parsed_message.get(34)
             self.logger.info(f"Received ({self.session_id}): {msg_type} (Seq {received_seq_num_str})")
             if self.logger.isEnabledFor(logging.DEBUG):
-                self.logger.debug(f"Received Details ({self.session_id}): {str(parsed_message)}") # Use str() for FixMessage
+                self.logger.debug(f"Received Details ({self.session_id}): {str(parsed_message)}")
 
             if not received_seq_num_str or not received_seq_num_str.isdigit():
                 reason = f"Invalid or missing MsgSeqNum (34) in msg from {parsed_message.get(49, 'UNKNOWN')}: '{received_seq_num_str}'"
@@ -397,14 +396,23 @@ class FixEngine:
                 received_seq_num,
                 full_fix_string 
             )
-            
+
+            # --- FIX: Increment incoming seqnum after valid logon ---
+            if msg_type == 'A':
+                # After a valid logon, increment expected incoming sequence number
+                if hasattr(self.message_store, 'increment_incoming_sequence_number'):
+                    await self.message_store.increment_incoming_sequence_number()
+                else:
+                    await self.message_store.set_incoming_sequence_number(received_seq_num + 1)
+            # -------------------------------------------------------
+
             # Sequence number updates are now primarily handled by individual message handlers (Logon, SequenceReset)
             # or by a general increment for other messages if the sequence is expected.
-            if msg_type not in ['A', '5', '4']: # For most messages other than Logon, Logout, SeqReset
+            if msg_type not in ['A', '5', '4']:
                 if hasattr(self.message_store, 'increment_incoming_sequence_number'):
                     if received_seq_num == self.message_store.get_next_incoming_sequence_number():
                         await self.message_store.increment_incoming_sequence_number()
-                else: # Fallback for older store interface
+                else:
                     await self.message_store.set_incoming_sequence_number(received_seq_num + 1)
 
             await self.message_processor.process_message(parsed_message)
