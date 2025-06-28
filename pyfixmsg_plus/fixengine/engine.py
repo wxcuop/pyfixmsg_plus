@@ -354,7 +354,7 @@ class FixEngine:
         wire_message = message.to_wire(codec=self.codec)
         try:
             await self.network.send(wire_message)
-            self.message_store.store_message(
+            await self.message_store.store_message(
                 self.version, self.sender, self.target,
                 message[34],
                 wire_message.decode(errors='replace')
