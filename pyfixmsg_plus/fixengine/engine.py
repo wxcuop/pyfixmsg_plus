@@ -296,7 +296,7 @@ class FixEngine:
                 message[34] = 1
             else:
                 message[34] = self.message_store.get_next_outgoing_sequence_number()
-        
+    
         wire_message = message.to_wire(codec=self.codec)
         try:
             await self.network.send(wire_message)
@@ -310,9 +310,10 @@ class FixEngine:
                 if not is_reset_logon:
                     self.message_store.increment_outgoing_sequence_number()
                 else: 
-                    self.message_store.set_outgoing_sequence_number(2) # After sending 1, next is 2
+                    # PATCH: After sending Logon with ResetSeqNumFlag=Y, set outgoing to 2
+                    self.message_store.set_outgoing_sequence_number(2)
             elif not is_reset_logon:
-                 self.logger.debug("MessageStore does not have increment_outgoing_sequence_number. Assuming get_next or internal logic handles it.")
+                self.logger.debug("MessageStore does not have increment_outgoing_sequence_number. Assuming get_next or internal logic handles it.")
 
             self.logger.info(f"Sent ({self.session_id}): {message.get(35)} (SeqNum {message.get(34)})")
             if message.get(35) != '0' or self.logger.isEnabledFor(logging.DEBUG):
