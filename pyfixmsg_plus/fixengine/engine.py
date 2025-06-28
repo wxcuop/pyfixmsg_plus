@@ -431,30 +431,24 @@ class FixEngine:
 
 
     async def process_single_fix_message(self, message_bytes: bytes):
-        full_fix_string = message_bytes.decode(errors='replace') 
+        full_fix_string = message_bytes.decode(errors='replace')
         self.logger.debug(f"Attempting to parse full_fix_string: '{full_fix_string}'")
         parsed_message = None
         try:
             msg_obj = self.fixmsg()
             msg_obj.from_wire(full_fix_string, codec=self.codec)
             parsed_message = msg_obj
-             
         except Exception as e:
             self.logger.error(f"PARSE ERROR ({self.session_id}): '{full_fix_string[:150]}...' Error: {e}", exc_info=True)
-            # TODO: Consider sending reject if session is active and parse error is critical
-            return 
+            return
 
         if parsed_message is None:
             self.logger.error(f"PARSING FAILED for full_fix_string: '{full_fix_string}'. from_wire returned None.")
             return
 
-        async with self.lock: 
+        async with self.lock:
             msg_type = parsed_message.get(35)
             received_seq_num_str = parsed_message.get(34)
-            self.logger.info(f"Received ({self.session_id}): {msg_type} (Seq {received_seq_num_str})")
-            if self.logger.isEnabledFor(logging.DEBUG):
-                self.logger.debug(f"Received Details ({self.session_id}): {str(parsed_message)}") # Use str() for FixMessage
-
             if not received_seq_num_str or not received_seq_num_str.isdigit():
                 reason = f"Invalid or missing MsgSeqNum (34) in msg from {parsed_message.get(49, 'UNKNOWN')}: '{received_seq_num_str}'"
                 self.logger.error(reason)
@@ -463,54 +457,66 @@ class FixEngine:
                 return
 
             received_seq_num = int(received_seq_num_str)
+            expected_seq_num = self.message_store.get_next_incoming_sequence_number()
 
-            if msg_type not in ['A', '5'] and not (msg_type == '4' and parsed_message.get(123) == 'Y'): 
-                expected_seq_num = self.message_store.get_next_incoming_sequence_number()
+            # 1. Handle Sequence Reset (GapFill)
+            if msg_type == '4' and parsed_message.get(123) == 'Y':
+                new_seq_no = parsed_message.get(36)
+                if new_seq_no and new_seq_no.isdigit():
+                    new_seq_no = int(new_seq_no)
+                    if new_seq_no > expected_seq_num:
+                        self.logger.info(f"Processing SequenceReset-GapFill. Setting next expected incoming to {new_seq_no}.")
+                        self.message_store.set_incoming_sequence_number(new_seq_no)
+                    else:
+                        self.logger.info(f"Ignoring duplicate or out-of-order SequenceReset-GapFill with NewSeqNo={new_seq_no}.")
+                return  # Do not process further
 
-                if received_seq_num < expected_seq_num:
-                    poss_dup_flag = parsed_message.get(43) 
-                    if poss_dup_flag == 'Y':
-                        self.logger.info(f"PossDup {msg_type} (Seq {received_seq_num}) rcvd for {self.session_id} (expected {expected_seq_num}). App layer should handle.")
-                    else:
-                        text = f"MsgSeqNum too low, expected {expected_seq_num} but received {received_seq_num}"
-                        self.logger.error(f"{text} for {self.session_id}. Not PossDup. Sending Logout.")
-                        await self.send_logout_message(text=text)
-                        return
-                elif received_seq_num > expected_seq_num:
-                    if not self.resend_request_outstanding or self.resend_request_expected_seq != expected_seq_num:
-                        self.logger.warning(f"MsgSeqNum TOO HIGH (Gap) for {self.session_id}. Expected: {expected_seq_num}, Rcvd: {received_seq_num}. Sending Resend Request.")
-                        resend_req = self.fixmsg({ 35: '2', 7: expected_seq_num, 16: 0 }) 
-                        await self.send_message(resend_req)
-                        self.resend_request_outstanding = True
-                        self.resend_request_expected_seq = expected_seq_num
-                    else:
-                        self.logger.debug(f"ResendRequest already outstanding for expected_seq_num={expected_seq_num}, not sending another.")
+            # 2. Handle Logon with ResetSeqNumFlag=Y
+            if msg_type == 'A' and parsed_message.get(141) == 'Y':
+                self.logger.info("Processing Logon with ResetSeqNumFlag=Y. Setting next expected incoming to 2.")
+                self.message_store.set_incoming_sequence_number(2)
+                await self.message_processor.process_message(parsed_message)
+                return
+
+            # 3. Sequence number checks for all other messages
+            if received_seq_num < expected_seq_num:
+                poss_dup_flag = parsed_message.get(43)
+                if poss_dup_flag == 'Y':
+                    self.logger.info(f"PossDup {msg_type} (Seq {received_seq_num}) rcvd for {self.session_id} (expected {expected_seq_num}). App layer should handle.")
+                else:
+                    text = f"MsgSeqNum too low, expected {expected_seq_num} but received {received_seq_num}"
+                    self.logger.error(f"{text} for {self.session_id}. Not PossDup. Sending Logout.")
+                    await self.send_logout_message(text=text)
                     return
+            elif received_seq_num > expected_seq_num:
+                if not self.resend_request_outstanding or self.resend_request_expected_seq != expected_seq_num:
+                    self.logger.warning(f"MsgSeqNum TOO HIGH (Gap) for {self.session_id}. Expected: {expected_seq_num}, Rcvd: {received_seq_num}. Sending Resend Request.")
+                    resend_req = self.fixmsg({35: '2', 7: expected_seq_num, 16: 0})
+                    await self.send_message(resend_req)
+                    self.resend_request_outstanding = True
+                    self.resend_request_expected_seq = expected_seq_num
+                else:
+                    self.logger.debug(f"ResendRequest already outstanding for expected_seq_num={expected_seq_num}, not sending another.")
+                return
 
-            # If we get here, the message is in sequence or a gap fill/sequence reset
-            # Clear the outstanding resend request if the gap is filled
-            if self.resend_request_outstanding:
-                expected_seq_num = self.message_store.get_next_incoming_sequence_number()
-                if received_seq_num == expected_seq_num:
-                    self.logger.debug("Gap filled, clearing resend_request_outstanding flag.")
-                    self.resend_request_outstanding = False
-                    self.resend_request_expected_seq = None
+            # 4. If we get here, the message is in sequence
+            if self.resend_request_outstanding and received_seq_num == expected_seq_num:
+                self.logger.debug("Gap filled, clearing resend_request_outstanding flag.")
+                self.resend_request_outstanding = False
+                self.resend_request_expected_seq = None
 
             self.message_store.store_message(
                 self.version, parsed_message.get(49), parsed_message.get(56),
                 received_seq_num,
-                full_fix_string 
+                full_fix_string
             )
-            
-            # Sequence number updates are now primarily handled by individual message handlers (Logon, SequenceReset)
-            # or by a general increment for other messages if the sequence is expected.
-            if msg_type not in ['A', '5', '4']: # For most messages other than Logon, Logout, SeqReset
-                if hasattr(self.message_store, 'increment_incoming_sequence_number'):
-                    if received_seq_num == self.message_store.get_next_incoming_sequence_number():
-                         self.message_store.increment_incoming_sequence_number()
-                else: # Fallback for older store interface
-                    self.message_store.set_incoming_sequence_number(received_seq_num + 1)
 
+            # Increment expected incoming sequence number for normal messages
+            if msg_type not in ['A', '5', '4']:
+                if hasattr(self.message_store, 'increment_incoming_sequence_number'):
+                    self.message_store.increment_incoming_sequence_number()
+                else:
+                    self.message_store.set_incoming_sequence_number(received_seq_num + 1)
 
             await self.message_processor.process_message(parsed_message)
 
