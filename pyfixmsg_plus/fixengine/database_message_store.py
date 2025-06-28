@@ -184,49 +184,97 @@ class DatabaseMessageStore:
             self.logger.error(f"Error saving sequence numbers: {e}", exc_info=True)
 
     def get_next_incoming_sequence_number(self) -> int:
+        """
+        Returns the next expected incoming sequence number.
+        Use this to check which sequence number should be received next.
+        Does NOT increment the sequence number.
+        """
         return self.incoming_seqnum
 
     async def increment_incoming_sequence_number(self):
-        self.incoming_seqnum += 1
-        await self.save_sequence_numbers()
-        self.logger.debug(f"Incremented incoming sequence. Next expected is now: {self.incoming_seqnum}")
+        """
+        Increments the incoming sequence number by one and saves it to the database.
+        Call this after successfully processing an incoming message.
+        """
+        async with self._seq_lock:
+            self.incoming_seqnum += 1
+            await self.save_sequence_numbers()
+            self.logger.debug(f"Incremented incoming sequence. Next expected is now: {self.incoming_seqnum}")
 
     def get_next_outgoing_sequence_number(self) -> int:
+        """
+        Returns the next outgoing sequence number (the value that will be used for the next sent message).
+        For diagnostics or test purposes only.
+        Do NOT use this for sending messages—use get_and_increment_outgoing_sequence_number instead.
+        """
         return self.outgoing_seqnum
 
-    async def increment_outgoing_sequence_number(self):
-        self.outgoing_seqnum += 1
-        await self.save_sequence_numbers()
-        self.logger.debug(f"Incremented outgoing sequence. Next to be used is now: {self.outgoing_seqnum}")
+    async def get_and_increment_outgoing_sequence_number(self) -> int:
+        """
+        Atomically retrieves and increments the outgoing sequence number.
+        This is the ONLY method that should be used to obtain a sequence number for sending a message.
+        Ensures each outgoing message gets a unique, correct sequence number, even under concurrency.
+        """
+        async with self._seq_lock:
+            seq = self.outgoing_seqnum
+            self.outgoing_seqnum += 1
+            await self.save_sequence_numbers()
+            self.logger.debug(f"get_and_increment_outgoing_sequence_number: Used {seq}, Next is now {self.outgoing_seqnum}")
+            return seq
 
     async def set_incoming_sequence_number(self, number: int):
+        """
+        Sets the next expected incoming sequence number.
+        Use this for administrative actions such as sequence resets or recovery.
+        """
         if not isinstance(number, int) or number < 1:
             self.logger.error(f"Invalid attempt to set incoming sequence number to: {number}")
             return
-        self.incoming_seqnum = number
-        await self.save_sequence_numbers()
-        self.logger.info(f"Next incoming sequence number set to: {self.incoming_seqnum}")
+        async with self._seq_lock:
+            self.incoming_seqnum = number
+            await self.save_sequence_numbers()
+            self.logger.info(f"Next incoming sequence number set to: {self.incoming_seqnum}")
 
     async def set_outgoing_sequence_number(self, number: int):
+        """
+        Sets the next outgoing sequence number.
+        Use this for administrative actions such as sequence resets or recovery.
+        Do NOT use this for normal message sending.
+        """
         if not isinstance(number, int) or number < 1:
             self.logger.error(f"Invalid attempt to set outgoing sequence number to: {number}")
             return
-        self.outgoing_seqnum = number
-        await self.save_sequence_numbers()
-        self.logger.info(f"Next outgoing sequence number set to: {self.outgoing_seqnum}")
+        async with self._seq_lock:
+            self.outgoing_seqnum = number
+            await self.save_sequence_numbers()
+            self.logger.info(f"Next outgoing sequence number set to: {self.outgoing_seqnum}")
 
     async def reset_sequence_numbers(self):
+        """
+        Resets both incoming and outgoing sequence numbers to 1.
+        Use this for session resets (e.g., after Logon with ResetSeqNumFlag=Y).
+        """
         self.logger.info(f"Resetting sequence numbers for session {self.beginstring}-{self.sendercompid}-{self.targetcompid} to 1.")
-        self.incoming_seqnum = 1
-        self.outgoing_seqnum = 1
-        await self.save_sequence_numbers()
+        async with self._seq_lock:
+            self.incoming_seqnum = 1
+            self.outgoing_seqnum = 1
+            await self.save_sequence_numbers()
 
     def is_new_session(self) -> bool:
+        """
+        Returns True if both incoming and outgoing sequence numbers are at their initial values (1).
+        Indicates a new or reset session.
+        """
         is_new = (self.incoming_seqnum == 1 and self.outgoing_seqnum == 1)
         self.logger.debug(f"is_new_session check: NextIncoming={self.incoming_seqnum}, NextOutgoing={self.outgoing_seqnum}. Is new? {is_new}")
         return is_new
 
     def get_current_outgoing_sequence_number(self) -> int:
+        """
+        Returns the last used outgoing sequence number (i.e., the most recently sent message's sequence number).
+        Returns 0 if no messages have been sent yet.
+        For diagnostics or logging only.
+        """
         if self.outgoing_seqnum > 1:
             last_used = self.outgoing_seqnum - 1
             self.logger.debug(f"get_current_outgoing_sequence_number: NextOutgoing is {self.outgoing_seqnum}, so current (last used) is {last_used}")

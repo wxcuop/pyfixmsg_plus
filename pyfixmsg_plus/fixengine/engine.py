@@ -295,11 +295,11 @@ class FixEngine:
         if message.get(35) == 'A' and is_reset_logon:
             message[34] = 1
         else:
-            # Remove any existing 34 to avoid accidental carry-over (int or str key)
             for k in (34, '34'):
                 if k in message:
                     del message[k]
-            message[34] = self.message_store.get_next_outgoing_sequence_number()
+            # Use atomic get-and-increment
+            message[34] = await self.message_store.get_and_increment_outgoing_sequence_number()
         # -------------------------------------------------------------------------------
 
         wire_message = message.to_wire(codec=self.codec)
@@ -307,17 +307,10 @@ class FixEngine:
             await self.network.send(wire_message)
             await self.message_store.store_message( 
                 self.version, self.sender, self.target,
-                message[34], 
+                message[34],
                 wire_message.decode(errors='replace')
             )
-            
-            if hasattr(self.message_store, 'increment_outgoing_sequence_number'):
-                if not is_reset_logon:
-                    await self.message_store.increment_outgoing_sequence_number()
-                else: 
-                    await self.message_store.set_outgoing_sequence_number(2) # After sending 1, next is 2
-            elif not is_reset_logon:
-                self.logger.debug("MessageStore does not have increment_outgoing_sequence_number. Assuming get_next or internal logic handles it.")
+            # No need to call increment_outgoing_sequence_number here!
 
             self.logger.info(f"Sent ({self.session_id}): {message.get(35)} (SeqNum {message.get(34)})")
             if message.get(35) != '0' or self.logger.isEnabledFor(logging.DEBUG):

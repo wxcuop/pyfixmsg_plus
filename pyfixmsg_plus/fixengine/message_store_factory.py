@@ -30,7 +30,8 @@ async def main():
 
     print(f"Initial: NextIn={store1.get_next_incoming_sequence_number()}, NextOut (peek)={store1.outgoing_seqnum}, IsNew={store1.is_new_session()}")
 
-    seq_to_send = store1.get_next_outgoing_sequence_number()
+    # Use the atomic method for outgoing sequence number
+    seq_to_send = await store1.get_and_increment_outgoing_sequence_number()
     print(f"SeqNum to use for next outgoing message: {seq_to_send}")
     await store1.store_message(store1.beginstring, store1.sendercompid, store1.targetcompid, seq_to_send, f"Test message {seq_to_send}")
     print(f"Stored message with SeqNum {seq_to_send}")
