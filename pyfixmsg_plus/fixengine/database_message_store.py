@@ -207,6 +207,7 @@ class DatabaseMessageStore:
         For diagnostics or test purposes only.
         Do NOT use this for sending messages—use get_and_increment_outgoing_sequence_number instead.
         """
+        self.logger.debug(f"get_next_outgoing_sequence_number called on id={id(self)}: {self.outgoing_seqnum}")
         return self.outgoing_seqnum
 
     async def get_and_increment_outgoing_sequence_number(self) -> int:
@@ -245,6 +246,7 @@ class DatabaseMessageStore:
             self.logger.error(f"Invalid attempt to set outgoing sequence number to: {number}")
             return
         async with self._seq_lock:
+            self.logger.debug(f"set_outgoing_sequence_number({number}) called on id={id(self)}")
             self.outgoing_seqnum = number
             await self.save_sequence_numbers()
             self.logger.info(f"Next outgoing sequence number set to: {self.outgoing_seqnum}")

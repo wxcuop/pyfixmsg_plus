@@ -141,7 +141,8 @@ async def main():
                     logger.info(f"Engine is DISCONNECTED (check {loop_count}/{max_loops_disconnected}). Will check again.")
 
             if current_state == 'ACTIVE' and not sent_test_order:
-                logger.info("Session is ACTIVE. Waiting for outgoing sequence number to be 2 before sending test NewOrderSingle...")
+                logger.info("Session is ACTIVE. Waiting 0.5s for outgoing sequence number update...")
+                await asyncio.sleep(0.5)
                 # --- Wait until outgoing seqnum is 2 (after Logon with ResetSeqNumFlag=Y) ---
                 wait_loops = 0
                 while True:
