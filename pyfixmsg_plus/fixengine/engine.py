@@ -295,6 +295,9 @@ class FixEngine:
         if not hasattr(self, "_just_sent_reset_logon"):
             self._just_sent_reset_logon = False
 
+        # Only increment outgoing seqnum for these types:
+        increment_seqnum_types = {'A', 'D', 'F', 'G', '8', '9', 'AB', 'AC', '0', '1', '3', '5'}
+
         if 34 not in message:
             if is_reset_logon:
                 message[34] = 1
@@ -303,8 +306,12 @@ class FixEngine:
                 if self._just_sent_reset_logon:
                     await self.message_store.set_outgoing_sequence_number(2)
                     self._just_sent_reset_logon = False
-                # Use and increment the outgoing seqnum for all non-logon messages
-                message[34] = await self.message_store.get_and_increment_outgoing_sequence_number()
+                # Only increment for application/session messages
+                if message.get(35) in increment_seqnum_types:
+                    message[34] = await self.message_store.get_and_increment_outgoing_sequence_number()
+                else:
+                    # For admin messages like ResendRequest (35=2), just use current seqnum, don't increment
+                    message[34] = self.message_store.get_next_outgoing_sequence_number()
         # --- PATCH END ---
 
         wire_message = message.to_wire(codec=self.codec)
