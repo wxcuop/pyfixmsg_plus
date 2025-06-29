@@ -103,25 +103,24 @@ class DatabaseMessageStore:
         if not (self.beginstring and self.sendercompid and self.targetcompid):
             self.logger.warning("Cannot save sequence numbers: session identifiers not set.")
             return
-        async with self._lock:
-            try:
-                cursor = self.conn.cursor()
-                cursor.execute('''
-                    INSERT INTO sessions (beginstring, sendercompid, targetcompid, creation_time, next_incoming_seqnum, next_outgoing_seqnum)
-                    VALUES (?, ?, ?, ?, ?, ?)
-                    ON CONFLICT(beginstring, sendercompid, targetcompid)
-                    DO UPDATE SET next_incoming_seqnum = excluded.next_incoming_seqnum, 
-                                  next_outgoing_seqnum = excluded.next_outgoing_seqnum,
-                                  creation_time = CASE WHEN excluded.next_incoming_seqnum = 1 AND excluded.next_outgoing_seqnum = 1 
-                                                       THEN excluded.creation_time 
-                                                       ELSE creation_time END
-                ''', (self.beginstring, self.sendercompid, self.targetcompid, 
-                      datetime.now(UTC).strftime("%Y-%m-%d %H:%M:%S"),
-                      self.incoming_seqnum, self.outgoing_seqnum))
-                self.conn.commit()
-                self.logger.debug(f"Saved sequence numbers: Next Incoming={self.incoming_seqnum}, Next Outgoing={self.outgoing_seqnum}")
-            except Exception as e:
-                self.logger.error(f"Error saving sequence numbers: {e}", exc_info=True)
+        try:
+            cursor = self.conn.cursor()
+            cursor.execute('''
+                INSERT INTO sessions (beginstring, sendercompid, targetcompid, creation_time, next_incoming_seqnum, next_outgoing_seqnum)
+                VALUES (?, ?, ?, ?, ?, ?)
+                ON CONFLICT(beginstring, sendercompid, targetcompid)
+                DO UPDATE SET next_incoming_seqnum = excluded.next_incoming_seqnum, 
+                              next_outgoing_seqnum = excluded.next_outgoing_seqnum,
+                              creation_time = CASE WHEN excluded.next_incoming_seqnum = 1 AND excluded.next_outgoing_seqnum = 1 
+                                                   THEN excluded.creation_time 
+                                                   ELSE creation_time END
+            ''', (self.beginstring, self.sendercompid, self.targetcompid, 
+                  datetime.now(UTC).strftime("%Y-%m-%d %H:%M:%S"),
+                  self.incoming_seqnum, self.outgoing_seqnum))
+            self.conn.commit()
+            self.logger.debug(f"Saved sequence numbers: Next Incoming={self.incoming_seqnum}, Next Outgoing={self.outgoing_seqnum}")
+        except Exception as e:
+            self.logger.error(f"Error saving sequence numbers: {e}", exc_info=True)
 
     def get_next_incoming_sequence_number(self) -> int:
         return self.incoming_seqnum

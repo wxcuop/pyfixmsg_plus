@@ -17,8 +17,7 @@ async def db_store(db_path):
     store.sendercompid = 'SENDER'
     store.targetcompid = 'TARGET'
     # Only call initialize if it exists
-    if hasattr(store, "initialize"):
-        await store.initialize()
+    await store.initialize()
     return store
 
 @pytest.mark.asyncio
