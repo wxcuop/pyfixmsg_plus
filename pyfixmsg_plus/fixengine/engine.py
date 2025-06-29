@@ -661,3 +661,11 @@ class FixEngine:
             targetcompid=self.target
         )
         return self
+
+    async def initialize(self):
+        """
+        Perform any asynchronous initialization required after construction.
+        """
+        if self.message_store and hasattr(self.message_store, "initialize"):
+            await self.message_store.initialize()
+        # Add any other async setup here if needed
