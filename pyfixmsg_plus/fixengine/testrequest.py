@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 
 class TestRequest:
     def __init__(self, send_message_callback, config_manager, fix_message_creator): # Added fix_message_creator
@@ -7,7 +7,8 @@ class TestRequest:
         self.fix_message_creator = fix_message_creator # Store the creator
 
     async def send_test_request(self):
-        test_req_id = datetime.utcnow().strftime("%Y%m%d-%H:%M:%S.%f")[:-3] # Ensure milliseconds
+        # Use datetime.now(timezone.utc) instead of deprecated utcnow()
+        test_req_id = datetime.now(timezone.utc).strftime("%Y%m%d-%H:%M:%S.%f")[:-3] # Ensure milliseconds
         
         # Use the provided fix_message_creator (engine.fixmsg)
         message = self.fix_message_creator() # Create a new message instance
