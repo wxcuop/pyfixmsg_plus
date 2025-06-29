@@ -128,35 +128,20 @@ class LogonHandler(MessageHandler):
             expected_incoming_seq_num = self.message_store.get_next_incoming_sequence_number()
             our_logon_had_reset = self.engine.config_manager.get('FIX', 'reset_seq_num_on_logon', 'false').lower() == 'true'
 
-            if our_logon_had_reset:
-                if not reset_seq_num_flag:
-                    reason = "Initiator sent ResetSeqNumFlag=Y, but Logon response did not have it."
+            if our_logon_had_reset and reset_seq_num_flag and received_seq_num == 1:
+                # Accept Logon response with MsgSeqNum=1 if we sent ResetSeqNumFlag=Y
+                self.logger.info("Initiator: Accepting Logon response with MsgSeqNum=1 due to ResetSeqNumFlag=Y.")
+            else:
+                if received_seq_num < expected_incoming_seq_num:
+                    reason = f"MsgSeqNum too low in Logon response. Expected >= {expected_incoming_seq_num}, Got {received_seq_num}."
                     self.logger.error(reason)
                     await self.engine.send_logout_message(text=reason)
                     return
-                if received_seq_num != 1:
-                    reason = f"Initiator sent ResetSeqNumFlag=Y, expected MsgSeqNum=1 in response, got {received_seq_num}."
+                elif received_seq_num > expected_incoming_seq_num:
+                    reason = f"MsgSeqNum too high in Logon response. Expected {expected_incoming_seq_num}, Got {received_seq_num}."
                     self.logger.error(reason)
                     await self.engine.send_logout_message(text=reason)
                     return
-                # PATCH: Do NOT forcibly reset the store if expected_incoming_seq_num != 1.
-                # The engine should have already set incoming to 2 after processing Logon.
-                # Remove the following block:
-                # if expected_incoming_seq_num != 1:
-                #     self.logger.error(f"CRITICAL INTERNAL ERROR: Initiator sent Reset, response is Reset with Seq 1, but our expected incoming is {expected_incoming_seq_num}. Forcing store reset.")
-                #     await self.engine.reset_sequence_numbers()
-                #     expected_incoming_seq_num = 1
-
-            if received_seq_num < expected_incoming_seq_num:
-                reason = f"MsgSeqNum too low in Logon response. Expected >= {expected_incoming_seq_num}, Got {received_seq_num}."
-                self.logger.error(reason)
-                await self.engine.send_logout_message(text=reason)
-                return
-            elif received_seq_num > expected_incoming_seq_num:
-                reason = f"MsgSeqNum too high in Logon response. Expected {expected_incoming_seq_num}, Got {received_seq_num}."
-                self.logger.error(reason)
-                await self.engine.send_logout_message(text=reason)
-                return
 
             self.logger.info(f"Initiator: Logon response from {received_sender_comp_id} is valid (SeqNum {received_seq_num}).")
             self.engine.heartbeat.set_remote_interval(received_heartbeat_interval)
