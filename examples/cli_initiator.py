@@ -67,19 +67,19 @@ class DummyApplication(Application):
 
     async def toAdmin(self, message, sessionID):
         # self.logger.debug(f"[{sessionID}] Initiator App toAdmin: MsgType {message.get(35) if hasattr(message, 'get') else 'Unknown'}")
-        return message,sessionID 
+        return message, sessionID 
 
     async def fromAdmin(self, message, sessionID):
         # self.logger.debug(f"[{sessionID}] Initiator App fromAdmin: MsgType {message.get(35) if hasattr(message, 'get') else 'Unknown'}")
-        return message,sessionID 
+        return message, sessionID 
 
     async def toApp(self, message, sessionID):
         # self.logger.debug(f"[{sessionID}] Initiator App toApp: MsgType {message.get(35) if hasattr(message, 'get') else 'Unknown'}")
-        return message,sessionID 
+        return message, sessionID 
 
     async def fromApp(self, message, sessionID):
         # self.logger.debug(f"[{sessionID}] Initiator App fromApp: MsgType {message.get(35) if hasattr(message, 'get') else 'Unknown'}")
-        return message,sessionID 
+        return message, sessionID 
 
     async def onMessage(self, message, sessionID):
         msg_type = message.get(35) if hasattr(message, 'get') else "Unknown"
@@ -93,9 +93,12 @@ async def main():
     config = ConfigManager(config_path) 
     
     app = DummyApplication()
-    engine = FixEngine(config, app) 
+    # Use the async classmethod to create the engine
+    engine = await FixEngine.create(config, app)
     if hasattr(app, 'set_engine'):
-        app.set_engine(engine) 
+        app.set_engine(engine)
+    # Optionally, call initialize if you have additional async setup
+    if hasattr(engine, "initialize") and callable(engine.initialize):
         await engine.initialize()
 
     engine_task = None
@@ -105,13 +108,11 @@ async def main():
         engine_task = asyncio.create_task(engine.start()) 
         
         logger.info("Initiator engine.start() task created. Allowing time for connection attempt...")
-        
-        # Give the engine a moment to attempt connection and change state
-        await asyncio.sleep(2) # Increased initial delay to 2 seconds
+        await asyncio.sleep(2)
 
         sent_test_order = False
         loop_count = 0
-        max_loops_disconnected = 5 # Exit if disconnected for ~5 seconds after initial wait
+        max_loops_disconnected = 5
 
         logoff_requested = False
         logoff_confirmed = False
@@ -162,7 +163,7 @@ async def main():
             if engine_task and engine_task.done():
                 logger.info("Engine task has completed. Exiting main loop.")
                 try:
-                    engine_task.result() # To raise any exceptions from the engine task
+                    engine_task.result()
                 except Exception as e_task:
                     logger.error(f"Exception from engine task: {e_task}", exc_info=True)
                 break
@@ -190,7 +191,7 @@ async def main():
 
         if engine and hasattr(engine, 'state_machine') and engine.state_machine.state.name != 'DISCONNECTED':
             logger.info("Ensuring initiator engine is disconnected (final check)...")
-            await engine.disconnect(graceful=False) # Force disconnect if still not done
+            await engine.disconnect(graceful=False)
         
         logger.info("Initiator main function finished.")
 
