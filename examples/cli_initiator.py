@@ -96,10 +96,7 @@ async def main():
     engine = FixEngine(config, app) 
     if hasattr(app, 'set_engine'):
         app.set_engine(engine) 
-
-    # --- ADD THIS: Ensure async engine initialization ---
-    await engine.async_init()
-    # ----------------------------------------------------
+        await engine.initialize()
 
     engine_task = None
     try:
@@ -110,7 +107,6 @@ async def main():
         logger.info("Initiator engine.start() task created. Allowing time for connection attempt...")
         
         # Give the engine a moment to attempt connection and change state
-        # This is a simple way; a more robust way might involve waiting for a specific state event
         await asyncio.sleep(2) # Increased initial delay to 2 seconds
 
         sent_test_order = False
@@ -141,10 +137,7 @@ async def main():
                     logger.info(f"Engine is DISCONNECTED (check {loop_count}/{max_loops_disconnected}). Will check again.")
 
             if current_state == 'ACTIVE' and not sent_test_order:
-                logger.info("Session is ACTIVE. Waiting 0.5s for state stabilization...")
-                await asyncio.sleep(0.5)
-                # No need to wait for outgoing seqnum to become 2; send order immediately.
-                logger.info("Attempting to send a test NewOrderSingle in 1 second...")
+                logger.info("Session is ACTIVE. Attempting to send a test NewOrderSingle in 1 second...")
                 await asyncio.sleep(1)
                 logger.info(f"State after sleep: {engine.state_machine.state.name}")
                 if engine.state_machine.state.name == 'ACTIVE':
@@ -194,7 +187,6 @@ async def main():
                 logger.info("Engine task successfully cancelled.")
             except Exception as e_task_cancel:
                  logger.error(f"Exception while cancelling engine task: {e_task_cancel}", exc_info=True)
-
 
         if engine and hasattr(engine, 'state_machine') and engine.state_machine.state.name != 'DISCONNECTED':
             logger.info("Ensuring initiator engine is disconnected (final check)...")
