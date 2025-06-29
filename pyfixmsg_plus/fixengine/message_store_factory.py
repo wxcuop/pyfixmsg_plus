@@ -3,12 +3,11 @@ import os # For example usage cleanup
 
 class MessageStoreFactory:
     @staticmethod
-    def get_message_store(store_type, db_path, beginstring=None, sendercompid=None, targetcompid=None): # Added optional args
+    async def get_message_store(store_type, db_path, beginstring=None, sendercompid=None, targetcompid=None):
         if store_type == 'database':
-            # Pass the identifiers to the DatabaseMessageStore constructor
-            return DatabaseMessageStore(db_path, beginstring, sendercompid, targetcompid)
-        # elif store_type == 'memory': # Example for a future store type
-            # return MemoryMessageStore(beginstring, sendercompid, targetcompid) # Assuming it would take these
+            store = DatabaseMessageStore(db_path, beginstring, sendercompid, targetcompid)
+            await store.initialize()
+            return store
         else:
             raise ValueError(f"Unknown store type: {store_type}")
 

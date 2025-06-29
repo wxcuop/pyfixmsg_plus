@@ -60,13 +60,7 @@ class FixEngine:
         self.logger = logging.getLogger('FixEngine')
 
         db_path = self.config_manager.get('FIX', 'state_file', 'fix_state.db')
-        self.message_store = MessageStoreFactory.get_message_store(
-            'database',
-            db_path,
-            beginstring=self.version,
-            sendercompid=self.sender,
-            targetcompid=self.target
-        )
+        self.message_store = None  # Will be set in async init
 
         # REMOVE: Awaiting in __init__ is not allowed. Set initial sequence numbers in a separate async method.
         self._initial_incoming_seqnum = initial_incoming_seqnum
@@ -654,3 +648,16 @@ class FixEngine:
         if hasattr(self, "_logoff_future") and self._logoff_future and not self._logoff_future.done():
             self._logoff_future.set_result(True)
             self.logger.debug(f"notify_logoff_received: Logoff future set for {self.session_id}")
+
+    @classmethod
+    async def create(cls, config_manager, application, initial_incoming_seqnum=None, initial_outgoing_seqnum=None):
+        self = cls(config_manager, application, initial_incoming_seqnum, initial_outgoing_seqnum)
+        db_path = self.config_manager.get('FIX', 'state_file', 'fix_state.db')
+        self.message_store = await MessageStoreFactory.get_message_store(
+            'database',
+            db_path,
+            beginstring=self.version,
+            sendercompid=self.sender,
+            targetcompid=self.target
+        )
+        return self

@@ -9,40 +9,21 @@ class DatabaseMessageStore:
         self.conn = sqlite3.connect(db_path)
         self.logger = logging.getLogger(self.__class__.__name__)
         self.create_table()
-        self._lock = asyncio.Lock()  # Use asyncio lock for async safety
-
+        self._lock = asyncio.Lock()
         self.beginstring = beginstring
         self.sendercompid = sendercompid
         self.targetcompid = targetcompid
+        self.incoming_seqnum = 1
+        self.outgoing_seqnum = 1
 
+    async def initialize(self):
         if self.beginstring and self.sendercompid and self.targetcompid:
-            loaded_in, loaded_out = self.load_sequence_numbers()
+            loaded_in, loaded_out = await self.load_sequence_numbers()
             self.incoming_seqnum = loaded_in
             self.outgoing_seqnum = loaded_out
             self.logger.info(f"Loaded sequence numbers for session {self.beginstring}-{self.sendercompid}-{self.targetcompid}: NextIncoming={self.incoming_seqnum}, NextOutgoing={self.outgoing_seqnum}")
         else:
-            self.incoming_seqnum = 1
-            self.outgoing_seqnum = 1
             self.logger.info("Session identifiers not set at init. Defaulting sequence numbers to 1 (as next expected).")
-
-    async def set_session_identifiers(self, beginstring, sendercompid, targetcompid):
-        should_load = False
-        if not (self.beginstring and self.sendercompid and self.targetcompid):
-            should_load = True
-        elif (self.beginstring != beginstring or 
-              self.sendercompid != sendercompid or 
-              self.targetcompid != targetcompid):
-            self.logger.warning("Attempting to change session identifiers on an already initialized store. This is not typical. Reloading sequences.")
-            should_load = True
-
-        if should_load:
-            self.beginstring = beginstring
-            self.sendercompid = sendercompid
-            self.targetcompid = targetcompid
-            loaded_in, loaded_out = self.load_sequence_numbers()
-            self.incoming_seqnum = loaded_in
-            self.outgoing_seqnum = loaded_out
-            self.logger.info(f"Session identifiers set/updated. Loaded sequence numbers: NextIncoming={self.incoming_seqnum}, NextOutgoing={self.outgoing_seqnum}")
 
     def create_table(self):
         cursor = self.conn.cursor()
@@ -55,18 +36,6 @@ class DatabaseMessageStore:
                 message TEXT NOT NULL,
                 timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
                 PRIMARY KEY (beginstring, sendercompid, targetcompid, msgseqnum) 
-            )
-        ''')
-        cursor.execute('''
-            CREATE TABLE IF NOT EXISTS messages_archive (
-                beginstring TEXT NOT NULL,
-                sendercompid TEXT NOT NULL, 
-                targetcompid TEXT NOT NULL, 
-                msgseqnum INTEGER NOT NULL,
-                message TEXT NOT NULL,
-                archived_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-                original_timestamp DATETIME,
-                PRIMARY KEY (beginstring, sendercompid, targetcompid, msgseqnum, archived_at)
             )
         ''')
         cursor.execute('''
@@ -86,7 +55,6 @@ class DatabaseMessageStore:
         async with self._lock:
             try:
                 cursor = self.conn.cursor()
-                # No archiving: just overwrite if exists
                 cursor.execute('''
                     INSERT OR REPLACE INTO messages (beginstring, sendercompid, targetcompid, msgseqnum, message)
                     VALUES (?, ?, ?, ?, ?)
@@ -114,7 +82,7 @@ class DatabaseMessageStore:
                 self.logger.error(f"Error retrieving message for Seq={msgseqnum}: {e}", exc_info=True)
                 return None
 
-    def load_sequence_numbers(self):
+    async def load_sequence_numbers(self):
         if self.beginstring and self.sendercompid and self.targetcompid:
             try:
                 cursor = self.conn.cursor()
