@@ -14,19 +14,22 @@ def db_store(db_path):
     store.targetcompid = 'TARGET'
     return store
 
-def test_store_message(db_store):
-    db_store.store_message('FIX.4.4', 'SENDER', 'TARGET', 1, 'Test message')
-    assert db_store.get_message('FIX.4.4', 'SENDER', 'TARGET', 1) == 'Test message'
+@pytest.mark.asyncio
+async def test_store_message(db_store):
+    await db_store.store_message('FIX.4.4', 'SENDER', 'TARGET', 1, 'Test message')
+    result = await db_store.get_message('FIX.4.4', 'SENDER', 'TARGET', 1)
+    assert result == 'Test message'
 
-def test_sequence_numbers(db_store):
-    db_store.set_incoming_sequence_number(0)
-    db_store.set_outgoing_sequence_number(0)
+@pytest.mark.asyncio
+async def test_sequence_numbers(db_store):
+    await db_store.set_incoming_sequence_number(0)
+    await db_store.set_outgoing_sequence_number(0)
     incoming_seqnum = db_store.get_next_incoming_sequence_number()
     outgoing_seqnum = db_store.get_next_outgoing_sequence_number()
     assert incoming_seqnum == 1
     assert outgoing_seqnum == 1
-    db_store.reset_sequence_numbers()
-    db_store.set_incoming_sequence_number(0)  # Reset to 0 for the test
-    db_store.set_outgoing_sequence_number(0)  # Reset to 0 for the test
+    await db_store.reset_sequence_numbers()
+    await db_store.set_incoming_sequence_number(0)  # Reset to 0 for the test
+    await db_store.set_outgoing_sequence_number(0)  # Reset to 0 for the test
     assert db_store.get_next_incoming_sequence_number() == 1
     assert db_store.get_next_outgoing_sequence_number() == 1
