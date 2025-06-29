@@ -1,4 +1,3 @@
-import time
 import datetime
 import logging
 import string
@@ -9,12 +8,11 @@ class ClientOrderIdGenerator:
     """
     Abstract base class for client order ID generators.
     """
+    def next_id(self) -> str:
+        raise NotImplementedError("Subclasses must implement next_id()")
 
-    def decode(self, to_be_decoded, length):
-        raise NotImplementedError
-
-    def encode(self, to_be_encoded):
-        raise NotImplementedError
+    def decode(self, to_be_decoded: str) -> int:
+        raise NotImplementedError("Subclasses must implement decode()")
 
 
 class NumericClOrdIdGenerator(ClientOrderIdGenerator):
@@ -60,16 +58,17 @@ class NumericClOrdIdGenerator(ClientOrderIdGenerator):
         return str(self.uid + to_be_encoded)
 
 
-class YMDClOrdIdGenerator(NumericClOrdIdGenerator):
+class YMDClOrdIdGenerator(ClientOrderIdGenerator):
     """
-    Generates unique ClOrdIDs with a YMD prefix.
+    Generates unique ClOrdIDs with a YMD prefix and a sequence number.
     """
-
-    def __init__(self, eid, seed=True):
-        super().__init__(eid, 10, seed)
+    def __init__(self, eid: int = 0, seed: bool = True):
+        self.eid = eid
+        self.seed = seed
+        self.counter = 1
         self.ymd_prefix = self.init_ymd_prefix()
 
-    def init_ymd_prefix(self):
+    def init_ymd_prefix(self) -> str:
         convert = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
         today = datetime.datetime.now(datetime.UTC)
         year_prefix = convert[today.year % 36]
@@ -77,14 +76,17 @@ class YMDClOrdIdGenerator(NumericClOrdIdGenerator):
         day_prefix = convert[today.day]
         return f"{year_prefix}{month_prefix}{day_prefix}-"
 
-    def decode(self, to_be_decoded):
-        return super().decode(to_be_decoded[4:])
+    def next_id(self) -> str:
+        clordid = f"{self.ymd_prefix}{self.counter}"
+        self.counter += 1
+        return clordid
 
-    def encode(self, to_be_encoded):
-        if to_be_encoded >= self.max_cl_ord_id:
-            raise ValueError("Max ClOrdID exceeded")
-        cl_ord_id = super().encode(to_be_encoded)
-        return f"{self.ymd_prefix}{cl_ord_id}"
+    def decode(self, to_be_decoded: str) -> int:
+        # Remove prefix and parse the integer part
+        try:
+            return int(to_be_decoded[4:])
+        except Exception:
+            return -1
 
 
 class BMESeqGenerator(ClientOrderIdGenerator):

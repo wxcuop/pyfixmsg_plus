@@ -27,7 +27,7 @@ import datetime
 from pyfixmsg_plus.fixengine.configmanager import ConfigManager
 from pyfixmsg_plus.fixengine.engine import FixEngine
 from pyfixmsg_plus.application import Application 
-from pyfixmsg_plus.fixengine.id_generator import ClientOrderIdGenerator  # <-- Add this import
+from pyfixmsg_plus.fixengine.id_generator import YMDClOrdIdGenerator
 
 # Basic logging setup for the example
 logging.basicConfig(
@@ -101,7 +101,7 @@ async def main():
         await engine.initialize()
 
     # Instantiate the ClOrdID generator
-    clordid_generator = ClientOrderIdGenerator(prefix="TestOrd-")
+    clordid_generator = YMDClOrdIdGenerator()
 
     engine_task = None
     try:
