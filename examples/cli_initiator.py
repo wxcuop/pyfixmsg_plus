@@ -96,7 +96,8 @@ async def main():
     engine = FixEngine(config, app) 
     if hasattr(app, 'set_engine'):
         app.set_engine(engine) 
-    
+        await engine.initialize()
+
     engine_task = None
     try:
         logger.info(f"Starting initiator engine (Sender: {engine.sender}, Target: {engine.target}) to connect to {engine.host}:{engine.port}...")
@@ -106,7 +107,6 @@ async def main():
         logger.info("Initiator engine.start() task created. Allowing time for connection attempt...")
         
         # Give the engine a moment to attempt connection and change state
-        # This is a simple way; a more robust way might involve waiting for a specific state event
         await asyncio.sleep(2) # Increased initial delay to 2 seconds
 
         sent_test_order = False
@@ -187,7 +187,6 @@ async def main():
                 logger.info("Engine task successfully cancelled.")
             except Exception as e_task_cancel:
                  logger.error(f"Exception while cancelling engine task: {e_task_cancel}", exc_info=True)
-
 
         if engine and hasattr(engine, 'state_machine') and engine.state_machine.state.name != 'DISCONNECTED':
             logger.info("Ensuring initiator engine is disconnected (final check)...")

@@ -1,30 +1,31 @@
 import sqlite3
 from datetime import datetime, UTC
-import logging # Added logging
+import logging
+import asyncio
 
 class DatabaseMessageStore:
-    def __init__(self, db_path, beginstring=None, sendercompid=None, targetcompid=None): # Added session identifiers
-        self.db_path = db_path # Store db_path for potential re-connect if needed
+    def __init__(self, db_path, beginstring=None, sendercompid=None, targetcompid=None):
+        self.db_path = db_path
         self.conn = sqlite3.connect(db_path)
-        self.logger = logging.getLogger(self.__class__.__name__) # Added logger
+        self.logger = logging.getLogger(self.__class__.__name__)
         self.create_table()
-        
+        self._lock = asyncio.Lock()  # Use asyncio lock for async safety
+
         self.beginstring = beginstring
         self.sendercompid = sendercompid
         self.targetcompid = targetcompid
-        
+
         if self.beginstring and self.sendercompid and self.targetcompid:
             loaded_in, loaded_out = self.load_sequence_numbers()
-            self.incoming_seqnum = loaded_in # Stores the next expected incoming sequence number
-            self.outgoing_seqnum = loaded_out # Stores the next outgoing sequence number to be used
+            self.incoming_seqnum = loaded_in
+            self.outgoing_seqnum = loaded_out
             self.logger.info(f"Loaded sequence numbers for session {self.beginstring}-{self.sendercompid}-{self.targetcompid}: NextIncoming={self.incoming_seqnum}, NextOutgoing={self.outgoing_seqnum}")
         else:
             self.incoming_seqnum = 1
             self.outgoing_seqnum = 1
             self.logger.info("Session identifiers not set at init. Defaulting sequence numbers to 1 (as next expected).")
 
-    def set_session_identifiers(self, beginstring, sendercompid, targetcompid):
-        """Allows setting session identifiers after instantiation and attempts to load sequence numbers."""
+    async def set_session_identifiers(self, beginstring, sendercompid, targetcompid):
         should_load = False
         if not (self.beginstring and self.sendercompid and self.targetcompid):
             should_load = True
@@ -42,7 +43,6 @@ class DatabaseMessageStore:
             self.incoming_seqnum = loaded_in
             self.outgoing_seqnum = loaded_out
             self.logger.info(f"Session identifiers set/updated. Loaded sequence numbers: NextIncoming={self.incoming_seqnum}, NextOutgoing={self.outgoing_seqnum}")
-
 
     def create_table(self):
         cursor = self.conn.cursor()
@@ -82,54 +82,39 @@ class DatabaseMessageStore:
         ''')
         self.conn.commit()
 
-    def store_message(self, beginstring, sendercompid, targetcompid, msgseqnum, message):
-        try:
-            cursor = self.conn.cursor()
-            # Check if a message with this seqnum already exists (i.e., possible overwrite)
-            cursor.execute('''
-                SELECT message, timestamp FROM messages WHERE beginstring = ? AND sendercompid = ? AND targetcompid = ? AND msgseqnum = ?
-            ''', (beginstring, sendercompid, targetcompid, msgseqnum))
-            existing = cursor.fetchone()
-            if existing:
-                self.logger.warning(
-                    f"Archiving and overwriting existing message for {sendercompid}->{targetcompid} Seq={msgseqnum} in DB. "
-                    "This usually happens when sequence numbers are reused (e.g., after a reset or resend)."
-                )
-                # Archive the old message
+    async def store_message(self, beginstring, sendercompid, targetcompid, msgseqnum, message):
+        async with self._lock:
+            try:
+                cursor = self.conn.cursor()
+                # No archiving: just overwrite if exists
                 cursor.execute('''
-                    INSERT INTO messages_archive (beginstring, sendercompid, targetcompid, msgseqnum, message, original_timestamp)
-                    VALUES (?, ?, ?, ?, ?, ?)
-                ''', (beginstring, sendercompid, targetcompid, msgseqnum, existing[0], existing[1]))
-            cursor.execute('''
-                INSERT OR REPLACE INTO messages (beginstring, sendercompid, targetcompid, msgseqnum, message)
-                VALUES (?, ?, ?, ?, ?)
-            ''', (beginstring, sendercompid, targetcompid, msgseqnum, message))
-            self.conn.commit()
-            self.logger.debug(f"Stored message: {sendercompid}->{targetcompid} Seq={msgseqnum}")
-        except Exception as e:
-            self.logger.error(f"Error storing message for Seq={msgseqnum}: {e}", exc_info=True)
+                    INSERT OR REPLACE INTO messages (beginstring, sendercompid, targetcompid, msgseqnum, message)
+                    VALUES (?, ?, ?, ?, ?)
+                ''', (beginstring, sendercompid, targetcompid, msgseqnum, message))
+                self.conn.commit()
+                self.logger.debug(f"Stored message: {sendercompid}->{targetcompid} Seq={msgseqnum}")
+            except Exception as e:
+                self.logger.error(f"Error storing message for Seq={msgseqnum}: {e}", exc_info=True)
 
-
-    def get_message(self, beginstring, sendercompid, targetcompid, msgseqnum):
-        try:
-            cursor = self.conn.cursor()
-            cursor.execute('''
-                SELECT message FROM messages WHERE beginstring = ? AND sendercompid = ? AND targetcompid = ? AND msgseqnum = ?
-            ''', (beginstring, sendercompid, targetcompid, msgseqnum))
-            result = cursor.fetchone()
-            if result:
-                self.logger.debug(f"Retrieved message for {sendercompid}->{targetcompid} Seq={msgseqnum}")
-                return result[0]
-            else:
-                self.logger.debug(f"No message found for {sendercompid}->{targetcompid} Seq={msgseqnum}")
+    async def get_message(self, beginstring, sendercompid, targetcompid, msgseqnum):
+        async with self._lock:
+            try:
+                cursor = self.conn.cursor()
+                cursor.execute('''
+                    SELECT message FROM messages WHERE beginstring = ? AND sendercompid = ? AND targetcompid = ? AND msgseqnum = ?
+                ''', (beginstring, sendercompid, targetcompid, msgseqnum))
+                result = cursor.fetchone()
+                if result:
+                    self.logger.debug(f"Retrieved message for {sendercompid}->{targetcompid} Seq={msgseqnum}")
+                    return result[0]
+                else:
+                    self.logger.debug(f"No message found for {sendercompid}->{targetcompid} Seq={msgseqnum}")
+                    return None
+            except Exception as e:
+                self.logger.error(f"Error retrieving message for Seq={msgseqnum}: {e}", exc_info=True)
                 return None
-        except Exception as e:
-            self.logger.error(f"Error retrieving message for Seq={msgseqnum}: {e}", exc_info=True)
-            return None
-
 
     def load_sequence_numbers(self):
-        """Loads the *next expected* sequence numbers for the current session."""
         if self.beginstring and self.sendercompid and self.targetcompid:
             try:
                 cursor = self.conn.cursor()
@@ -146,94 +131,79 @@ class DatabaseMessageStore:
         self.logger.debug("No sequence numbers found in DB for session, defaulting to 1,1 (next expected).")
         return 1, 1 
 
-    def save_sequence_numbers(self):
-        """Saves the current *next expected* sequence numbers for the session."""
+    async def save_sequence_numbers(self):
         if not (self.beginstring and self.sendercompid and self.targetcompid):
             self.logger.warning("Cannot save sequence numbers: session identifiers not set.")
             return
-        try:
-            cursor = self.conn.cursor()
-            cursor.execute('''
-                INSERT INTO sessions (beginstring, sendercompid, targetcompid, creation_time, next_incoming_seqnum, next_outgoing_seqnum)
-                VALUES (?, ?, ?, ?, ?, ?)
-                ON CONFLICT(beginstring, sendercompid, targetcompid)
-                DO UPDATE SET next_incoming_seqnum = excluded.next_incoming_seqnum, 
-                              next_outgoing_seqnum = excluded.next_outgoing_seqnum,
-                              creation_time = CASE WHEN excluded.next_incoming_seqnum = 1 AND excluded.next_outgoing_seqnum = 1 
-                                                   THEN excluded.creation_time 
-                                                   ELSE creation_time END
-            ''', (self.beginstring, self.sendercompid, self.targetcompid, 
-                  datetime.now(UTC).strftime("%Y-%m-%d %H:%M:%S"),
-                  self.incoming_seqnum, self.outgoing_seqnum))
-            self.conn.commit()
-            self.logger.debug(f"Saved sequence numbers: Next Incoming={self.incoming_seqnum}, Next Outgoing={self.outgoing_seqnum}")
-        except Exception as e:
-            self.logger.error(f"Error saving sequence numbers: {e}", exc_info=True)
-
+        async with self._lock:
+            try:
+                cursor = self.conn.cursor()
+                cursor.execute('''
+                    INSERT INTO sessions (beginstring, sendercompid, targetcompid, creation_time, next_incoming_seqnum, next_outgoing_seqnum)
+                    VALUES (?, ?, ?, ?, ?, ?)
+                    ON CONFLICT(beginstring, sendercompid, targetcompid)
+                    DO UPDATE SET next_incoming_seqnum = excluded.next_incoming_seqnum, 
+                                  next_outgoing_seqnum = excluded.next_outgoing_seqnum,
+                                  creation_time = CASE WHEN excluded.next_incoming_seqnum = 1 AND excluded.next_outgoing_seqnum = 1 
+                                                       THEN excluded.creation_time 
+                                                       ELSE creation_time END
+                ''', (self.beginstring, self.sendercompid, self.targetcompid, 
+                      datetime.now(UTC).strftime("%Y-%m-%d %H:%M:%S"),
+                      self.incoming_seqnum, self.outgoing_seqnum))
+                self.conn.commit()
+                self.logger.debug(f"Saved sequence numbers: Next Incoming={self.incoming_seqnum}, Next Outgoing={self.outgoing_seqnum}")
+            except Exception as e:
+                self.logger.error(f"Error saving sequence numbers: {e}", exc_info=True)
 
     def get_next_incoming_sequence_number(self) -> int:
-        """Returns the *next expected* incoming sequence number."""
         return self.incoming_seqnum
 
-    def increment_incoming_sequence_number(self):
-        """Increments the next expected incoming sequence number. Call after processing a message."""
-        self.incoming_seqnum +=1
-        self.save_sequence_numbers()
-        self.logger.debug(f"Incremented incoming sequence. Next expected is now: {self.incoming_seqnum}")
+    async def increment_incoming_sequence_number(self):
+        async with self._lock:
+            self.incoming_seqnum += 1
+            await self.save_sequence_numbers()
+            self.logger.debug(f"Incremented incoming sequence. Next expected is now: {self.incoming_seqnum}")
 
     def get_next_outgoing_sequence_number(self) -> int:
-        """Returns the *next* outgoing sequence number to be used. Does NOT auto-increment."""
         return self.outgoing_seqnum
 
-    def increment_outgoing_sequence_number(self):
-        """Increments the next outgoing sequence number. Call after using the current number."""
-        self.outgoing_seqnum += 1
-        self.save_sequence_numbers()
-        self.logger.debug(f"Incremented outgoing sequence. Next to be used is now: {self.outgoing_seqnum}")
+    async def increment_outgoing_sequence_number(self):
+        async with self._lock:
+            self.outgoing_seqnum += 1
+            await self.save_sequence_numbers()
+            self.logger.debug(f"Incremented outgoing sequence. Next to be used is now: {self.outgoing_seqnum}")
 
-
-    def set_incoming_sequence_number(self, number: int):
-        """Sets the *next expected* incoming sequence number."""
+    async def set_incoming_sequence_number(self, number: int):
         if not isinstance(number, int) or number < 1:
             self.logger.error(f"Invalid attempt to set incoming sequence number to: {number}")
             return
-        self.incoming_seqnum = number
-        self.save_sequence_numbers()
-        self.logger.info(f"Next incoming sequence number set to: {self.incoming_seqnum}")
+        async with self._lock:
+            self.incoming_seqnum = number
+            await self.save_sequence_numbers()
+            self.logger.info(f"Next incoming sequence number set to: {self.incoming_seqnum}")
 
-
-    def set_outgoing_sequence_number(self, number: int):
-        """Sets the *next* outgoing sequence number to be used."""
+    async def set_outgoing_sequence_number(self, number: int):
         if not isinstance(number, int) or number < 1:
             self.logger.error(f"Invalid attempt to set outgoing sequence number to: {number}")
             return
-        self.outgoing_seqnum = number
-        self.save_sequence_numbers()
-        self.logger.info(f"Next outgoing sequence number set to: {self.outgoing_seqnum}")
+        async with self._lock:
+            self.outgoing_seqnum = number
+            await self.save_sequence_numbers()
+            self.logger.info(f"Next outgoing sequence number set to: {self.outgoing_seqnum}")
 
-
-    def reset_sequence_numbers(self):
-        """Resets both *next expected* sequence numbers to 1."""
+    async def reset_sequence_numbers(self):
         self.logger.info(f"Resetting sequence numbers for session {self.beginstring}-{self.sendercompid}-{self.targetcompid} to 1.")
-        self.incoming_seqnum = 1
-        self.outgoing_seqnum = 1
-        self.save_sequence_numbers()
+        async with self._lock:
+            self.incoming_seqnum = 1
+            self.outgoing_seqnum = 1
+            await self.save_sequence_numbers()
 
     def is_new_session(self) -> bool:
-        """
-        Checks if the current session state (based on loaded/set sequence numbers)
-        indicates a new session (i.e., next expected for both incoming and outgoing is 1).
-        """
         is_new = (self.incoming_seqnum == 1 and self.outgoing_seqnum == 1)
         self.logger.debug(f"is_new_session check: NextIncoming={self.incoming_seqnum}, NextOutgoing={self.outgoing_seqnum}. Is new? {is_new}")
         return is_new
 
     def get_current_outgoing_sequence_number(self) -> int:
-        """
-        Returns the sequence number of the *last successfully sent and stored* outgoing message.
-        This is `self.outgoing_seqnum - 1` because self.outgoing_seqnum stores the *next* one to be used.
-        Returns 0 if no messages have been sent yet in the current session context.
-        """
         if self.outgoing_seqnum > 1:
             last_used = self.outgoing_seqnum - 1
             self.logger.debug(f"get_current_outgoing_sequence_number: NextOutgoing is {self.outgoing_seqnum}, so current (last used) is {last_used}")
@@ -241,9 +211,8 @@ class DatabaseMessageStore:
         else:
             self.logger.debug("get_current_outgoing_sequence_number: NextOutgoing is 1, so no messages sent yet in this context. Returning 0.")
             return 0
-            
+
     def close(self):
-        """Closes the database connection."""
         if self.conn:
             self.conn.close()
             self.logger.info("Database connection closed.")

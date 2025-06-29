@@ -59,18 +59,16 @@ class LogonHandler(MessageHandler):
         if not received_seq_num_str or not received_seq_num_str.isdigit():
             reason = f"Invalid or missing MsgSeqNum (34) in Logon: '{received_seq_num_str}'"
             self.logger.error(reason)
-            # engine.disconnect will trigger state machine event 'disconnect'
-            await self.engine.send_logout_message(text=reason) # This also calls disconnect
+            await self.engine.send_logout_message(text=reason)
             return
         received_seq_num = int(received_seq_num_str)
 
         if not received_heartbeat_interval_str or not received_heartbeat_interval_str.isdigit():
             reason = f"Invalid or missing HeartBtInt (108) in Logon: '{received_heartbeat_interval_str}'"
             self.logger.error(reason)
-            await self.engine.send_logout_message(text=reason) # This also calls disconnect
+            await self.engine.send_logout_message(text=reason)
             return
         received_heartbeat_interval = int(received_heartbeat_interval_str)
-
 
         if self.engine.mode == 'acceptor':
             self.logger.info(f"Acceptor ({self.engine.sender}) received Logon from Initiator ({received_sender_comp_id}): Seq={received_seq_num}, HBInt={received_heartbeat_interval}, ResetFlag={reset_seq_num_flag}")
@@ -105,9 +103,6 @@ class LogonHandler(MessageHandler):
                 return
             
             self.logger.info(f"Acceptor: Incoming Logon from {received_sender_comp_id} is valid (SeqNum {received_seq_num}).")
-            # Store message is done by FixEngine.handle_message for all messages
-            # Increment incoming is also done by FixEngine.handle_message after this handler if successful
-
             self.engine.heartbeat.set_remote_interval(received_heartbeat_interval)
 
             acceptor_logon_response = self.engine.fixmsg()
@@ -118,10 +113,8 @@ class LogonHandler(MessageHandler):
             await self.engine.send_message(acceptor_logon_response)
             self.logger.info(f"Acceptor sent Logon response to {received_sender_comp_id} (SeqNum {acceptor_logon_response.get(34)}).")
 
-            # State transition: AwaitingLogon -> Active
             self.state_machine.on_event('logon_received_valid') 
             if self.engine.heartbeat: await self.engine.heartbeat.start()
-            # Logger in on_state_change will confirm "Session ... is now ACTIVE."
 
         elif self.engine.mode == 'initiator':
             self.logger.info(f"Initiator ({self.engine.sender}) received Logon response from Acceptor ({received_sender_comp_id}): Seq={received_seq_num}, HBInt={received_heartbeat_interval}, ResetFlag={reset_seq_num_flag}")
@@ -146,10 +139,13 @@ class LogonHandler(MessageHandler):
                     self.logger.error(reason)
                     await self.engine.send_logout_message(text=reason)
                     return
-                if expected_incoming_seq_num != 1:
-                    self.logger.error(f"CRITICAL INTERNAL ERROR: Initiator sent Reset, response is Reset with Seq 1, but our expected incoming is {expected_incoming_seq_num}. Forcing store reset.")
-                    await self.engine.reset_sequence_numbers()
-                    expected_incoming_seq_num = 1
+                # PATCH: Do NOT forcibly reset the store if expected_incoming_seq_num != 1.
+                # The engine should have already set incoming to 2 after processing Logon.
+                # Remove the following block:
+                # if expected_incoming_seq_num != 1:
+                #     self.logger.error(f"CRITICAL INTERNAL ERROR: Initiator sent Reset, response is Reset with Seq 1, but our expected incoming is {expected_incoming_seq_num}. Forcing store reset.")
+                #     await self.engine.reset_sequence_numbers()
+                #     expected_incoming_seq_num = 1
 
             if received_seq_num < expected_incoming_seq_num:
                 reason = f"MsgSeqNum too low in Logon response. Expected >= {expected_incoming_seq_num}, Got {received_seq_num}."
@@ -163,13 +159,8 @@ class LogonHandler(MessageHandler):
                 return
 
             self.logger.info(f"Initiator: Logon response from {received_sender_comp_id} is valid (SeqNum {received_seq_num}).")
-            # Store message and increment incoming are done by FixEngine.handle_message
-
             self.engine.heartbeat.set_remote_interval(received_heartbeat_interval)
-            # State transition: LogonInProgress -> Active
             self.state_machine.on_event('logon_successful') 
-            # Initiator's heartbeat was already started by FixEngine.logon()
-            # Logger in on_state_change will confirm "Session ... is now ACTIVE."
         else:
             self.logger.error(f"LogonHandler: Unknown engine mode '{self.engine.mode}'")
 
