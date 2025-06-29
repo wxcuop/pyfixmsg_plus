@@ -92,3 +92,15 @@ class SimpleCrypt:
             return plaintext_bytes.decode('utf-8')
         except Exception as e:
             raise SimpleCryptException(f"Decryption failed: {e}")
+
+if __name__ == "__main__":
+    # Example usage
+    crypt = SimpleCrypt("my_master_password")
+    encrypted = crypt.check_crypt("clear:my_db_password")
+    print("Encrypted password for config:", encrypted)
+
+    decrypted = crypt.check_crypt(encrypted)
+    print("Decrypted password:", decrypted)
+    
+    # This should match the original clear text
+    assert decrypted == "my_db_password"
