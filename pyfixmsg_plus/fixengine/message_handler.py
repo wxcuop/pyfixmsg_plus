@@ -1,24 +1,20 @@
 from functools import wraps
 import asyncio
-import logging # Import logging module
-# from pyfixmsg_plus.fixengine.state_machine import StateMachine, Disconnected, LogonInProgress, LogoutInProgress, Active, Reconnecting # Not directly used here, but engine has it
-# from pyfixmsg_plus.fixengine.fixmessage_factory import FixMessageFactory # We'll use engine.fixmsg()
+import logging
+from typing import Any, Callable, Awaitable, Dict
 
-# Define the logging decorator
-def logging_decorator(handler_func):
+def logging_decorator(handler_func: Callable[..., Awaitable[Any]]) -> Callable[..., Awaitable[Any]]:
     @wraps(handler_func)
-    async def wrapper(self, message): # Ensure wrapper is async if handler_func is async
+    async def wrapper(self, message: Any) -> Any:
         msg_type_for_log = message.get(35, "UNKNOWN_TYPE")
         seq_num_for_log = message.get(34, "NO_SEQ")
         if hasattr(self, 'logger') and self.logger:
-            # Ensure codec is available and message is suitable for to_wire
             log_message_str = message.to_wire(self.engine.codec) if hasattr(self.engine, 'codec') and hasattr(message, 'to_wire') else str(message)
             self.logger.debug(f"Handling {msg_type_for_log} (Seq {seq_num_for_log}). Incoming: {log_message_str}")
-        else: # Fallback if logger not set up on self
-            # This print statement is for extreme fallback, ideally logger is always available
+        else:
             print(f"Fallback Logging: Handling message before {msg_type_for_log} (Seq {seq_num_for_log})")
         
-        result = await handler_func(self, message) # Await the async handler
+        result = await handler_func(self, message)
         
         if hasattr(self, 'logger') and self.logger:
             self.logger.debug(f"Finished handling {msg_type_for_log} (Seq {seq_num_for_log}).")
@@ -27,24 +23,20 @@ def logging_decorator(handler_func):
         return result
     return wrapper
 
-# Base class for message handlers
 class MessageHandler:
-    def __init__(self, message_store, state_machine, application, engine): # Added engine
+    def __init__(self, message_store: Any, state_machine: Any, application: Any, engine: Any) -> None:
         self.message_store = message_store
         self.state_machine = state_machine
         self.application = application
-        self.engine = engine # Store the engine instance
-        # Setup a logger for each handler instance
+        self.engine = engine
         self.logger = logging.getLogger(f"{self.__class__.__module__}.{self.__class__.__name__}")
 
-
-    async def handle(self, message): # Made handle async as most handlers will be
+    async def handle(self, message: Any) -> Any:
         raise NotImplementedError
 
-# Concrete implementations of message handlers
 class LogonHandler(MessageHandler):
     @logging_decorator
-    async def handle(self, message): # message is the received Logon message
+    async def handle(self, message: Any) -> None:
         msg_type = message.get(35)
         if msg_type != 'A':
             self.logger.error(f"LogonHandler received non-Logon message: {msg_type}")
@@ -152,7 +144,7 @@ class LogonHandler(MessageHandler):
 
 class TestRequestHandler(MessageHandler):
     @logging_decorator
-    async def handle(self, message):
+    async def handle(self, message: Any) -> None:
         test_req_id = message.get(112)
         if not test_req_id:
             self.logger.warning("Received TestRequest without TestReqID (112). Cannot properly respond.")
@@ -175,42 +167,42 @@ class TestRequestHandler(MessageHandler):
 
 class ExecutionReportHandler(MessageHandler):
     @logging_decorator
-    async def handle(self, message):
+    async def handle(self, message: Any) -> None:
         await self.application.onMessage(message, self.engine.session_id)
 
 class NewOrderHandler(MessageHandler):
     @logging_decorator
-    async def handle(self, message):
+    async def handle(self, message: Any) -> None:
         await self.application.onMessage(message, self.engine.session_id)
 
 class CancelOrderHandler(MessageHandler):
     @logging_decorator
-    async def handle(self, message):
+    async def handle(self, message: Any) -> None:
         await self.application.onMessage(message, self.engine.session_id)
 
 class OrderCancelReplaceHandler(MessageHandler):
     @logging_decorator
-    async def handle(self, message):
+    async def handle(self, message: Any) -> None:
         await self.application.onMessage(message, self.engine.session_id)
 
 class OrderCancelRejectHandler(MessageHandler):
     @logging_decorator
-    async def handle(self, message):
+    async def handle(self, message: Any) -> None:
         await self.application.onMessage(message, self.engine.session_id)
 
 class NewOrderMultilegHandler(MessageHandler):
     @logging_decorator
-    async def handle(self, message):
+    async def handle(self, message: Any) -> None:
         await self.application.onMessage(message, self.engine.session_id)
 
 class MultilegOrderCancelReplaceHandler(MessageHandler):
     @logging_decorator
-    async def handle(self, message):
+    async def handle(self, message: Any) -> None:
         await self.application.onMessage(message, self.engine.session_id)
 
 class ResendRequestHandler(MessageHandler):
     @logging_decorator
-    async def handle(self, message):
+    async def handle(self, message: Any) -> None:
         start_seq_num_str = message.get(7)
         end_seq_num_str = message.get(16)
 
@@ -276,7 +268,7 @@ class ResendRequestHandler(MessageHandler):
         
         self.logger.info(f"Completed processing Resend Request from {start_seq_num} to {end_seq_num} (effective {effective_end_seq_num}).")
 
-    async def send_gap_fill(self, begin_gap_seq_num, end_gap_seq_num):
+    async def send_gap_fill(self, begin_gap_seq_num: int, end_gap_seq_num: int) -> None:
         next_seq_no_after_gap = end_gap_seq_num + 1
         self.logger.info(f"Sending SequenceReset-GapFill for range {begin_gap_seq_num}-{end_gap_seq_num}. NewSeqNo will be {next_seq_no_after_gap}.")
         gap_fill_msg = self.engine.fixmsg()
@@ -286,7 +278,7 @@ class ResendRequestHandler(MessageHandler):
 
 class SequenceResetHandler(MessageHandler):
     @logging_decorator
-    async def handle(self, message):
+    async def handle(self, message: Any) -> None:
         gap_fill_flag = message.get(123) == 'Y'
         new_seq_no_str = message.get(36)
         msg_seq_num_header_str = message.get(34)
@@ -333,7 +325,7 @@ class SequenceResetHandler(MessageHandler):
 
 class RejectHandler(MessageHandler):
     @logging_decorator
-    async def handle(self, message):
+    async def handle(self, message: Any) -> None:
         ref_seq_num = message.get(45) 
         ref_tag_id = message.get(371)
         ref_msg_type = message.get(372)
@@ -347,33 +339,28 @@ class RejectHandler(MessageHandler):
 
 class LogoutHandler(MessageHandler): 
     @logging_decorator
-    async def handle(self, message): 
+    async def handle(self, message: Any) -> None:
         text = message.get(58, "")
         received_seq_num = message.get(34)
         self.logger.info(f"Logout (Seq={received_seq_num}) received from counterparty. Text: '{text}'.")
         
         current_engine_state = self.state_machine.state.name
-        # Use class attributes for state name comparison for robustness, e.g. Disconnected.name
-        # Assuming Disconnected and LogoutInProgress are imported or defined in a way that .name is accessible
-        if current_engine_state not in ['DISCONNECTED', 'LOGOUT_IN_PROGRESS']: # Replace with Class.name if available
+        if current_engine_state not in ['DISCONNECTED', 'LOGOUT_IN_PROGRESS']:
             self.logger.info(f"Session was {current_engine_state}. Sending confirming Logout.")
             await self.engine.send_logout_message(text="Logout Acknowledged by Handler")
         else:
             self.logger.info(f"Session already in state {current_engine_state}. Not sending confirming Logout from handler.")
         
-        # The engine.disconnect call will handle the state transition to Disconnected
-        # via the 'disconnect' event handled by states like Active, LogoutInProgress, etc.
         await self.engine.disconnect(graceful=False) 
         self.logger.info("LogoutHandler initiated engine disconnect to ensure cleanup.")
 
-        # Notify logoff received if the method exists
         if hasattr(self.engine, "notify_logoff_received"):
             self.engine.notify_logoff_received()
 
 
 class HeartbeatHandler(MessageHandler):
     @logging_decorator
-    async def handle(self, message):
+    async def handle(self, message: Any) -> None:
         test_req_id_in_hb = message.get(112) 
         self.logger.debug(f"Received Heartbeat. TestReqID (112) in Heartbeat: {test_req_id_in_hb}")
         
@@ -383,8 +370,8 @@ class HeartbeatHandler(MessageHandler):
             self.logger.warning("Received Heartbeat, but FixEngine.heartbeat object is not available.")
 
 class MessageProcessor:
-    def __init__(self, message_store, state_machine, application, engine): 
-        self.handlers = {}
+    def __init__(self, message_store: Any, state_machine: Any, application: Any, engine: Any) -> None:
+        self.handlers: Dict[str, MessageHandler] = {}
         self.message_store = message_store
         self.state_machine = state_machine
         self.application = application
@@ -392,12 +379,11 @@ class MessageProcessor:
         self.logger = logging.getLogger(self.__class__.__name__)
 
 
-    def register_handler(self, message_type, handler_instance): 
+    def register_handler(self, message_type: str, handler_instance: MessageHandler) -> None:
         self.handlers[message_type] = handler_instance
         self.logger.debug(f"Registered handler for message type '{message_type}': {handler_instance.__class__.__name__}")
 
-
-    async def process_message(self, message):
+    async def process_message(self, message: Any) -> None:
         message_type = message.get(35)
         handler = self.handlers.get(message_type)
         if handler:

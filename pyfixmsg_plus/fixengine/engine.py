@@ -1,7 +1,6 @@
 import asyncio
 import logging
 from datetime import datetime, timezone
-from pyfixmsg_plus.fixengine.heartbeat import Heartbeat
 from pyfixmsg_plus.fixengine.heartbeat_builder import HeartbeatBuilder
 from pyfixmsg_plus.fixengine.testrequest import TestRequest 
 from pyfixmsg_plus.fixengine.network import Acceptor, Initiator
@@ -26,22 +25,21 @@ from pyfixmsg_plus.fixengine.message_handler import (
 )
 from pyfixmsg_plus.fixengine.message_store_factory import MessageStoreFactory
 from pyfixmsg_plus.fixengine.state_machine import (
-    StateMachine, Disconnected, Connecting, LogonInProgress, 
-    AwaitingLogon, Active, LogoutInProgress, Reconnecting
-)
+    StateMachine, Disconnected)
 from pyfixmsg_plus.fixengine.scheduler import Scheduler
 from pyfixmsg.fixmessage import FixMessage, FixFragment
 from pyfixmsg.reference import FixSpec
 from pyfixmsg.codecs.stringfix import Codec
+from typing import Optional,Any
 
 
 class FixEngine:
     def __init__(
         self,
-        config_manager,
-        application,
-        initial_incoming_seqnum=None,
-        initial_outgoing_seqnum=None
+        config_manager: ConfigManager,
+        application: Any,
+        initial_incoming_seqnum: Optional[int] = None,
+        initial_outgoing_seqnum: Optional[int] = None
     ):
         self.config_manager = config_manager
         self.application = application
@@ -60,9 +58,8 @@ class FixEngine:
         self.logger = logging.getLogger('FixEngine')
 
         db_path = self.config_manager.get('FIX', 'state_file', 'fix_state.db')
-        self.message_store = None  # Will be set in async init
+        self.message_store = None
 
-        # REMOVE: Awaiting in __init__ is not allowed. Set initial sequence numbers in a separate async method.
         self._initial_incoming_seqnum = initial_incoming_seqnum
         self._initial_outgoing_seqnum = initial_outgoing_seqnum
 
@@ -85,20 +82,26 @@ class FixEngine:
         self.event_notifier = EventNotifier()
         self.message_processor = MessageProcessor(self.message_store, self.state_machine, self.application, self)
 
-        self.message_processor.register_handler('A', LogonHandler(self.message_store, self.state_machine, self.application, self))
-        self.message_processor.register_handler('1', TestRequestHandler(self.message_store, self.state_machine, self.application, self))
-        self.message_processor.register_handler('8', ExecutionReportHandler(self.message_store, self.state_machine, self.application, self))
-        self.message_processor.register_handler('D', NewOrderHandler(self.message_store, self.state_machine, self.application, self))
-        self.message_processor.register_handler('F', CancelOrderHandler(self.message_store, self.state_machine, self.application, self))
-        self.message_processor.register_handler('G', OrderCancelReplaceHandler(self.message_store, self.state_machine, self.application, self))
-        self.message_processor.register_handler('9', OrderCancelRejectHandler(self.message_store, self.state_machine, self.application, self))
-        self.message_processor.register_handler('AB', NewOrderMultilegHandler(self.message_store, self.state_machine, self.application, self))
-        self.message_processor.register_handler('AC', MultilegOrderCancelReplaceHandler(self.message_store, self.state_machine, self.application, self))
-        self.message_processor.register_handler('2', ResendRequestHandler(self.message_store, self.state_machine, self.application, self))
-        self.message_processor.register_handler('4', SequenceResetHandler(self.message_store, self.state_machine, self.application, self))
-        self.message_processor.register_handler('3', RejectHandler(self.message_store, self.state_machine, self.application, self))
-        self.message_processor.register_handler('5', LogoutHandler(self.message_store, self.state_machine, self.application, self))
-        self.message_processor.register_handler('0', HeartbeatHandler(self.message_store, self.state_machine, self.application, self))
+        handler_classes = {
+            'A': LogonHandler,
+            '1': TestRequestHandler,
+            '8': ExecutionReportHandler,
+            'D': NewOrderHandler,
+            'F': CancelOrderHandler,
+            'G': OrderCancelReplaceHandler,
+            '9': OrderCancelRejectHandler,
+            'AB': NewOrderMultilegHandler,
+            'AC': MultilegOrderCancelReplaceHandler,
+            '2': ResendRequestHandler,
+            '4': SequenceResetHandler,
+            '3': RejectHandler,
+            '5': LogoutHandler,
+            '0': HeartbeatHandler,
+        }
+        for msg_type, handler_cls in handler_classes.items():
+            self.message_processor.register_handler(
+                msg_type, handler_cls(self.message_store, self.state_machine, self.application, self)
+            )
 
         self.scheduler = Scheduler(self.config_manager, self)
         self.scheduler_task = None
@@ -114,13 +117,15 @@ class FixEngine:
         self.resend_request_outstanding = False
         self.resend_request_expected_seq = None
 
-    def fixmsg(self, *args, **kwargs):
+    def fixmsg(self, *args, **kwargs) -> FixMessage:
         message = FixMessage(*args, **kwargs)
         message.codec = self.codec
-        message[8] = self.version # <--- ADD BEGINSTRING HERE
+        message[8] = self.version
         return message
 
-    def create_message_with_repeating_group(self, msg_type: str, group_data: dict, **kwargs) -> FixMessage:
+    def create_message_with_repeating_group(
+        self, msg_type: str, group_data: dict, **kwargs
+    ) -> FixMessage:
         initial_fields = {35: msg_type}
         initial_fields.update(kwargs)
         message = self.fixmsg(initial_fields)
@@ -138,7 +143,7 @@ class FixEngine:
             message[num_in_group_tag] = fragments_list
         return message
 
-    def on_state_change(self, state_name):
+    def on_state_change(self, state_name: str) -> None:
         self.logger.info(f"STATE CHANGE ({self.session_id}): {state_name}")
         if state_name == "ACTIVE": 
             self.logger.info(f"Session {self.session_id} is now ACTIVE.")
@@ -150,7 +155,7 @@ class FixEngine:
                  asyncio.create_task(self.heartbeat.stop())
             self.incoming_buffer = b"" 
 
-    async def start(self):
+    async def start(self) -> None:
         if not self.scheduler_task or self.scheduler_task.done():
             self.scheduler_task = asyncio.create_task(self.scheduler.run_scheduler())
             self.logger.info("Scheduler task started.")
@@ -182,7 +187,7 @@ class FixEngine:
         finally:
             self.logger.info(f"FIX Engine {self.session_id} start/run attempt concluded.")
 
-    async def retry_connect(self):
+    async def retry_connect(self) -> None:
         if self.mode == 'acceptor': return
 
         if self.state_machine.state.name != "ACTIVE" and self.retry_attempts < self.max_retries:
@@ -198,8 +203,7 @@ class FixEngine:
         else:
             self.logger.info(f"Not retrying connection for {self.session_id}, current state: {self.state_machine.state.name}")
 
-
-    async def handle_incoming_connection(self, reader, writer):
+    async def handle_incoming_connection(self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter) -> None:
         client_address_info = writer.get_extra_info('peername')
         client_address = f"{client_address_info[0]}:{client_address_info[1]}" if client_address_info else "unknown client"
         self.logger.info(f"Accepted connection from {client_address} for session {self.session_id}.")
@@ -231,8 +235,7 @@ class FixEngine:
                  self.state_machine.on_event('disconnect') 
             self.logger.info(f"Connection with {client_address} (session {self.session_id}) ended.")
 
-
-    async def logon(self): 
+    async def logon(self) -> None: 
         if self.mode == 'acceptor':
             self.logger.critical("CRITICAL: Acceptor should not call FixEngine.logon().")
             return
@@ -268,8 +271,7 @@ class FixEngine:
             self.state_machine.on_event('logon_failed') 
             await self.disconnect(graceful=False) 
 
-
-    async def send_message(self, message: FixMessage):
+    async def send_message(self, message: FixMessage) -> None:
         current_state_name = self.state_machine.state.name
         can_send_logon = (message.get(35) == 'A' and self.mode == 'initiator' and current_state_name == "LOGON_IN_PROGRESS")
 
@@ -292,7 +294,7 @@ class FixEngine:
         wire_message = message.to_wire(codec=self.codec)
         try:
             await self.network.send(wire_message)
-            await self.message_store.store_message(  # <-- await the async method
+            await self.message_store.store_message(
                 self.version, self.sender, self.target,
                 message[34], 
                 wire_message.decode(errors='replace')
@@ -300,9 +302,9 @@ class FixEngine:
             
             if hasattr(self.message_store, 'increment_outgoing_sequence_number'):
                 if not is_reset_logon:
-                    await self.message_store.increment_outgoing_sequence_number()  # <-- await the async method
+                    await self.message_store.increment_outgoing_sequence_number()
                 else: 
-                    await self.message_store.set_outgoing_sequence_number(2)  # <-- await the async method
+                    await self.message_store.set_outgoing_sequence_number(2)
             elif not is_reset_logon:
                 self.logger.debug("MessageStore does not have increment_outgoing_sequence_number. Assuming get_next or internal logic handles it.")
 
@@ -319,7 +321,7 @@ class FixEngine:
             self.state_machine.on_event('disconnect') 
             await self.disconnect(graceful=False)
 
-    async def receive_message(self):
+    async def receive_message(self) -> None:
         if not self.network.running:
             self.logger.warning(f"Network not running for {self.session_id} at start of receive_message. Ensuring disconnect state.")
             if self.state_machine.state.name != "DISCONNECTED":
@@ -336,7 +338,7 @@ class FixEngine:
         finally:
             self.logger.info(f"FixEngine's receive_message loop for {self.session_id} has ended.")
 
-    async def on_network_data(self, data_bytes: bytes):
+    async def on_network_data(self, data_bytes: bytes) -> None:
         self.incoming_buffer += data_bytes
         self.logger.debug(f"Received {len(data_bytes)} bytes. Buffer size: {len(self.incoming_buffer)}")
         
@@ -345,7 +347,7 @@ class FixEngine:
                 begin_string_index = self.incoming_buffer.find(b"8=FIX")
                 if begin_string_index == -1:
                     self.logger.debug("No '8=FIX' found in buffer. Waiting for more data.")
-                    if len(self.incoming_buffer) > 8192: # Safety break for very large non-FIX data
+                    if len(self.incoming_buffer) > 8192:
                         self.logger.error("Buffer grew very large without '8=FIX'. Discarding buffer.")
                         self.incoming_buffer = b""
                     break 
@@ -375,14 +377,12 @@ class FixEngine:
                 body_length_str = self.incoming_buffer[body_length_value_start:body_length_value_end]
                 if not body_length_str.isdigit():
                     self.logger.error(f"Invalid BodyLength value: '{body_length_str.decode(errors='replace')}'. Discarding buffer and attempting resync.")
-                    self.incoming_buffer = self.incoming_buffer[body_length_value_end:] # Try to find next message
+                    self.incoming_buffer = self.incoming_buffer[body_length_value_end:]
                     continue 
                 body_length = int(body_length_str)
 
                 body_starts_after_bodylength_field_soh = body_length_value_end + 1
                 
-                # Standard checksum is 3 digits + "10=" + SOH = 7 bytes
-                # Some implementations might vary, but 7 is common.
                 checksum_field_len = 7 
                 
                 message_end_index = body_starts_after_bodylength_field_soh + body_length + checksum_field_len
@@ -393,17 +393,14 @@ class FixEngine:
 
                 full_fix_message_bytes = self.incoming_buffer[:message_end_index]
                 
-                # Check for SOH at the end of the checksum as a final validation of framing
                 if not full_fix_message_bytes.endswith(soh):
                     self.logger.error(f"Framed message does not end with SOH. Likely framing error or malformed message. Discarding: {full_fix_message_bytes.decode(errors='replace')[:100]}")
-                    # Attempt to recover by finding the next '8=FIX'
                     next_begin_string_index = self.incoming_buffer.find(b"8=FIX", 1)
                     if next_begin_string_index != -1:
                         self.incoming_buffer = self.incoming_buffer[next_begin_string_index:]
                     else:
-                        self.incoming_buffer = b"" # No more hope in this buffer
+                        self.incoming_buffer = b""
                     continue
-
 
                 await self.process_single_fix_message(full_fix_message_bytes)
                 self.incoming_buffer = self.incoming_buffer[message_end_index:]
@@ -417,8 +414,7 @@ class FixEngine:
                 self.incoming_buffer = b"" 
                 break
 
-
-    async def process_single_fix_message(self, message_bytes: bytes):
+    async def process_single_fix_message(self, message_bytes: bytes) -> None:
         full_fix_string = message_bytes.decode(errors='replace')
         self.logger.debug(f"Attempting to parse full_fix_string: '{full_fix_string}'")
         parsed_message = None
@@ -447,26 +443,23 @@ class FixEngine:
             received_seq_num = int(received_seq_num_str)
             expected_seq_num = self.message_store.get_next_incoming_sequence_number()
 
-            # 1. Handle Sequence Reset (GapFill)
             if msg_type == '4' and parsed_message.get(123) == 'Y':
                 new_seq_no = parsed_message.get(36)
                 if new_seq_no and new_seq_no.isdigit():
                     new_seq_no = int(new_seq_no)
                     if new_seq_no > expected_seq_num:
                         self.logger.info(f"Processing SequenceReset-GapFill. Setting next expected incoming to {new_seq_no}.")
-                        await self.message_store.set_incoming_sequence_number(new_seq_no)  # <-- await
+                        await self.message_store.set_incoming_sequence_number(new_seq_no)
                     else:
                         self.logger.info(f"Ignoring duplicate or out-of-order SequenceReset-GapFill with NewSeqNo={new_seq_no}.")
-                return  # Do not process further
+                return
 
-            # 2. Handle Logon with ResetSeqNumFlag=Y
             if msg_type == 'A' and parsed_message.get(141) == 'Y':
                 self.logger.info("Processing Logon with ResetSeqNumFlag=Y. Setting next expected incoming to 2.")
-                await self.message_store.set_incoming_sequence_number(2)  # <-- await
+                await self.message_store.set_incoming_sequence_number(2)
                 await self.message_processor.process_message(parsed_message)
                 return
 
-            # 3. Sequence number checks for all other messages
             if received_seq_num < expected_seq_num:
                 poss_dup_flag = parsed_message.get(43)
                 if poss_dup_flag == 'Y':
@@ -487,29 +480,33 @@ class FixEngine:
                     self.logger.debug(f"ResendRequest already outstanding for expected_seq_num={expected_seq_num}, not sending another.")
                 return
 
-            # 4. If we get here, the message is in sequence
             if self.resend_request_outstanding and received_seq_num == expected_seq_num:
                 self.logger.debug("Gap filled, clearing resend_request_outstanding flag.")
                 self.resend_request_outstanding = False
                 self.resend_request_expected_seq = None
 
-            await self.message_store.store_message(  # <-- await the async method
+            await self.message_store.store_message(
                 self.version, parsed_message.get(49), parsed_message.get(56),
                 received_seq_num,
                 full_fix_string
             )
 
-            # Increment expected incoming sequence number for normal messages
             if msg_type not in ['A', '5', '4']:
                 if hasattr(self.message_store, 'increment_incoming_sequence_number'):
-                    await self.message_store.increment_incoming_sequence_number()  # <-- await the async method
+                    await self.message_store.increment_incoming_sequence_number()
                 else:
-                    await self.message_store.set_incoming_sequence_number(received_seq_num + 1)  # <-- await
+                    await self.message_store.set_incoming_sequence_number(received_seq_num + 1)
 
             await self.message_processor.process_message(parsed_message)
 
-
-    async def send_reject_message(self, ref_seq_num, ref_tag_id, session_reject_reason, text, ref_msg_type=None):
+    async def send_reject_message(
+        self,
+        ref_seq_num: int,
+        ref_tag_id: Optional[int],
+        session_reject_reason: Optional[int],
+        text: str,
+        ref_msg_type: Optional[str] = None
+    ) -> None:
         self.logger.info(f"Preparing Session Reject for {self.session_id}: RefSeq={ref_seq_num}, RefTag={ref_tag_id}, Reason={session_reject_reason}, Text='{text}'")
         reject_msg = self.fixmsg({
             35: '3', 45: ref_seq_num, 58: text
@@ -519,8 +516,7 @@ class FixEngine:
         if session_reject_reason is not None: reject_msg[373] = session_reject_reason
         await self.send_message(reject_msg)
 
-
-    async def disconnect(self, graceful=True):
+    async def disconnect(self, graceful: bool = True) -> None:
         current_state_name = self.state_machine.state.name
         self.logger.info(f"Disconnect requested for {self.session_id}. Graceful: {graceful}. Current state: {current_state_name}.")
         self.incoming_buffer = b"" 
@@ -567,30 +563,28 @@ class FixEngine:
 
         self.logger.info(f"FIX Engine {self.session_id} disconnected operations complete.")
 
-
-    async def reset_sequence_numbers(self):
+    async def reset_sequence_numbers(self) -> None:
         self.logger.info(f"Resetting sequence numbers to 1 for {self.session_id} (both inbound and outbound).")
         if self.message_store:
-            await self.message_store.reset_sequence_numbers()  # <-- await
+            await self.message_store.reset_sequence_numbers()
 
-    async def set_inbound_sequence_number(self, seq_num: int):
+    async def set_inbound_sequence_number(self, seq_num: int) -> None:
         self.logger.info(f"Externally setting inbound sequence for {self.session_id} to {seq_num}.")
         if self.message_store:
-            await self.message_store.set_incoming_sequence_number(seq_num)  # <-- await
+            await self.message_store.set_incoming_sequence_number(seq_num)
 
-    async def set_outbound_sequence_number(self, seq_num: int):
+    async def set_outbound_sequence_number(self, seq_num: int) -> None:
         self.logger.info(f"Externally setting outbound sequence for {self.session_id} to {seq_num}.")
         if self.message_store:
-            await self.message_store.set_outgoing_sequence_number(seq_num)  # <-- await
+            await self.message_store.set_outgoing_sequence_number(seq_num)
 
-    async def set_sequence_numbers(self, incoming_seqnum: int, outgoing_seqnum: int):
+    async def set_sequence_numbers(self, incoming_seqnum: int, outgoing_seqnum: int) -> None:
         self.logger.info(f"Externally setting both inbound ({incoming_seqnum}) and outbound ({outgoing_seqnum}) sequence numbers for {self.session_id}.")
         if self.message_store:
-            await self.message_store.set_incoming_sequence_number(incoming_seqnum)  # <-- await
-            await self.message_store.set_outgoing_sequence_number(outgoing_seqnum)  # <-- await
+            await self.message_store.set_incoming_sequence_number(incoming_seqnum)
+            await self.message_store.set_outgoing_sequence_number(outgoing_seqnum)
 
-
-    async def send_logout_message(self, text: str = "Operator requested logout"):
+    async def send_logout_message(self, text: str = "Operator requested logout") -> None:
         current_state_name = self.state_machine.state.name
         
         if current_state_name == "DISCONNECTED":
@@ -617,20 +611,13 @@ class FixEngine:
                     self.state_machine.on_event('disconnect') 
                     await self.disconnect(graceful=False)
 
-    async def request_logoff(self, timeout: float = 10.0):
-        """
-        Initiate a FIX logoff handshake: send Logoff, wait for Logoff response, then disconnect.
-        """
+    async def request_logoff(self, timeout: float = 10.0) -> None:
         self.logger.info(f"request_logoff() called for {self.session_id}")
-        # Only allow if session is ACTIVE or LOGOUT_IN_PROGRESS
         if self.state_machine.state.name not in ("ACTIVE", "LOGOUT_IN_PROGRESS"):
             self.logger.warning(f"Cannot request logoff: session state is {self.state_machine.state.name}")
             return
 
-        # Set up a future to be set by the LogoutHandler
         self._logoff_future = asyncio.get_event_loop().create_future()
-
-        # Send Logoff
         await self.send_logout_message("Operator requested logout")
 
         try:
@@ -641,16 +628,19 @@ class FixEngine:
 
         await self.disconnect(graceful=False)
 
-    def notify_logoff_received(self):
-        """
-        Called by LogoutHandler when a Logoff is received from the counterparty.
-        """
+    def notify_logoff_received(self) -> None:
         if hasattr(self, "_logoff_future") and self._logoff_future and not self._logoff_future.done():
             self._logoff_future.set_result(True)
             self.logger.debug(f"notify_logoff_received: Logoff future set for {self.session_id}")
 
     @classmethod
-    async def create(cls, config_manager, application, initial_incoming_seqnum=None, initial_outgoing_seqnum=None):
+    async def create(
+        cls,
+        config_manager: ConfigManager,
+        application: Any,
+        initial_incoming_seqnum: Optional[int] = None,
+        initial_outgoing_seqnum: Optional[int] = None
+    ) -> "FixEngine":
         self = cls(config_manager, application, initial_incoming_seqnum, initial_outgoing_seqnum)
         db_path = self.config_manager.get('FIX', 'state_file', 'fix_state.db')
         self.message_store = await MessageStoreFactory.get_message_store(
@@ -660,17 +650,11 @@ class FixEngine:
             sendercompid=self.sender,
             targetcompid=self.target
         )
-        # --- Fix: Patch message_store into processor and all handlers ---
         self.message_processor.message_store = self.message_store
         for handler in self.message_processor.handlers.values():
             handler.message_store = self.message_store
-        # ---------------------------------------------------------------
         return self
 
-    async def initialize(self):
-        """
-        Perform any asynchronous initialization required after construction.
-        """
+    async def initialize(self) -> None:
         if self.message_store and hasattr(self.message_store, "initialize"):
             await self.message_store.initialize()
-        # Add any other async setup here if needed

@@ -27,6 +27,7 @@ import datetime
 from pyfixmsg_plus.fixengine.configmanager import ConfigManager
 from pyfixmsg_plus.fixengine.engine import FixEngine
 from pyfixmsg_plus.application import Application 
+from pyfixmsg_plus.fixengine.id_generator import ClientOrderIdGenerator  # <-- Add this import
 
 # Basic logging setup for the example
 logging.basicConfig(
@@ -93,13 +94,14 @@ async def main():
     config = ConfigManager(config_path) 
     
     app = DummyApplication()
-    # Use the async classmethod to create the engine
     engine = await FixEngine.create(config, app)
     if hasattr(app, 'set_engine'):
         app.set_engine(engine)
-    # Optionally, call initialize if you have additional async setup
     if hasattr(engine, "initialize") and callable(engine.initialize):
         await engine.initialize()
+
+    # Instantiate the ClOrdID generator
+    clordid_generator = ClientOrderIdGenerator(prefix="TestOrd-")
 
     engine_task = None
     try:
@@ -142,9 +144,11 @@ async def main():
                 await asyncio.sleep(1)
                 logger.info(f"State after sleep: {engine.state_machine.state.name}")
                 if engine.state_machine.state.name == 'ACTIVE':
+                    # Use the ClOrdID generator here
+                    clordid = clordid_generator.next_id()
                     test_order = engine.fixmsg({
                         35: 'D',
-                        11: f'TestOrd-{datetime.datetime.now(datetime.timezone.utc).strftime("%H%M%S%f")}',
+                        11: clordid,
                         55: 'MSFT',
                         54: '1',
                         38: '100',
