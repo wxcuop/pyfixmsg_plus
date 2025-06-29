@@ -194,49 +194,57 @@ if __name__ == "__main__":
     
     logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 
-    print("\n--- Test Case 1: New Session ---")
-    store1 = DatabaseMessageStore(db_file, 'FIX.4.4', 'SENDER1', 'TARGET1')
-    print(f"Initial: NextIn={store1.get_next_incoming_sequence_number()}, NextOut={store1.get_next_outgoing_sequence_number()}, IsNew={store1.is_new_session()}")
-    
-    seq_to_send1 = store1.get_next_outgoing_sequence_number() # Should be 1
-    print(f"Seq to send1: {seq_to_send1}")
-    store1.store_message('FIX.4.4', 'SENDER1', 'TARGET1', seq_to_send1, f"Message {seq_to_send1} from SENDER1")
-    store1.increment_outgoing_sequence_number() # Increment after using 1, internal next becomes 2
-    print(f"After send 1: NextIn={store1.get_next_incoming_sequence_number()}, NextOut={store1.get_next_outgoing_sequence_number()}, CurrentOut={store1.get_current_outgoing_sequence_number()}")
-    
-    print(f"GetNextIn (doesn't increment): {store1.get_next_incoming_sequence_number()}") # Should be 1
-    store1.increment_incoming_sequence_number() # Simulate processing incoming message 1, internal next becomes 2
-    print(f"After receive 1: NextIn={store1.get_next_incoming_sequence_number()}, NextOut={store1.get_next_outgoing_sequence_number()}")
-    store1.close()
+    async def main():
+        print("\n--- Test Case 1: New Session ---")
+        store1 = DatabaseMessageStore(db_file, 'FIX.4.4', 'SENDER1', 'TARGET1')
+        await store1.initialize()
+        print(f"Initial: NextIn={store1.get_next_incoming_sequence_number()}, NextOut={store1.get_next_outgoing_sequence_number()}, IsNew={store1.is_new_session()}")
+        
+        seq_to_send1 = store1.get_next_outgoing_sequence_number() # Should be 1
+        print(f"Seq to send1: {seq_to_send1}")
+        await store1.store_message('FIX.4.4', 'SENDER1', 'TARGET1', seq_to_send1, f"Message {seq_to_send1} from SENDER1")
+        await store1.increment_outgoing_sequence_number() # Increment after using 1, internal next becomes 2
+        print(f"After send 1: NextIn={store1.get_next_incoming_sequence_number()}, NextOut={store1.get_next_outgoing_sequence_number()}, CurrentOut={store1.get_current_outgoing_sequence_number()}")
+        
+        print(f"GetNextIn (doesn't increment): {store1.get_next_incoming_sequence_number()}") # Should be 1
+        await store1.increment_incoming_sequence_number() # Simulate processing incoming message 1, internal next becomes 2
+        print(f"After receive 1: NextIn={store1.get_next_incoming_sequence_number()}, NextOut={store1.get_next_outgoing_sequence_number()}")
+        store1.close()
 
-    print("\n--- Test Case 2: Load Existing Session ---")
-    store2 = DatabaseMessageStore(db_file, 'FIX.4.4', 'SENDER1', 'TARGET1')
-    print(f"Loaded: NextIn={store2.get_next_incoming_sequence_number()}, NextOut={store2.get_next_outgoing_sequence_number()}, IsNew={store2.is_new_session()}")
-    
-    seq_to_send2 = store2.get_next_outgoing_sequence_number() # Should be 2
-    print(f"Seq to send2: {seq_to_send2}")
-    store2.store_message('FIX.4.4', 'SENDER1', 'TARGET1', seq_to_send2, f"Message {seq_to_send2} from SENDER1")
-    store2.increment_outgoing_sequence_number() # Increment after using 2, internal next becomes 3
-    print(f"After send 2: NextOut={store2.get_next_outgoing_sequence_number()}, CurrentOut={store2.get_current_outgoing_sequence_number()}") # Should be 3, 2
-    store2.close()
+        print("\n--- Test Case 2: Load Existing Session ---")
+        store2 = DatabaseMessageStore(db_file, 'FIX.4.4', 'SENDER1', 'TARGET1')
+        await store2.initialize()
+        print(f"Loaded: NextIn={store2.get_next_incoming_sequence_number()}, NextOut={store2.get_next_outgoing_sequence_number()}, IsNew={store2.is_new_session()}")
+        
+        seq_to_send2 = store2.get_next_outgoing_sequence_number() # Should be 2
+        print(f"Seq to send2: {seq_to_send2}")
+        await store2.store_message('FIX.4.4', 'SENDER1', 'TARGET1', seq_to_send2, f"Message {seq_to_send2} from SENDER1")
+        await store2.increment_outgoing_sequence_number() # Increment after using 2, internal next becomes 3
+        print(f"After send 2: NextOut={store2.get_next_outgoing_sequence_number()}, CurrentOut={store2.get_current_outgoing_sequence_number()}") # Should be 3, 2
+        store2.close()
 
-    print("\n--- Test Case 3: Reset ---")
-    store3 = DatabaseMessageStore(db_file, 'FIX.4.4', 'SENDER1', 'TARGET1')
-    print(f"Before Reset: NextIn={store3.get_next_incoming_sequence_number()}, NextOut={store3.get_next_outgoing_sequence_number()}")
-    store3.reset_sequence_numbers()
-    print(f"After Reset: NextIn={store3.get_next_incoming_sequence_number()}, NextOut={store3.get_next_outgoing_sequence_number()}, IsNew={store3.is_new_session()}")
-    print(f"CurrentOut after reset: {store3.get_current_outgoing_sequence_number()}") # Should be 0
-    store3.close()
+        print("\n--- Test Case 3: Reset ---")
+        store3 = DatabaseMessageStore(db_file, 'FIX.4.4', 'SENDER1', 'TARGET1')
+        await store3.initialize()
+        print(f"Before Reset: NextIn={store3.get_next_incoming_sequence_number()}, NextOut={store3.get_next_outgoing_sequence_number()}")
+        await store3.reset_sequence_numbers()
+        print(f"After Reset: NextIn={store3.get_next_incoming_sequence_number()}, NextOut={store3.get_next_outgoing_sequence_number()}, IsNew={store3.is_new_session()}")
+        print(f"CurrentOut after reset: {store3.get_current_outgoing_sequence_number()}") # Should be 0
+        store3.close()
 
-    print("\n--- Test Case 4: Set Identifiers Later ---")
-    if os.path.exists(db_file): os.remove(db_file) # Clean slate
-    store4_no_id = DatabaseMessageStore(db_file)
-    print(f"No ID: NextIn={store4_no_id.get_next_incoming_sequence_number()}, NextOut={store4_no_id.get_next_outgoing_sequence_number()}")
-    store4_no_id.set_session_identifiers('FIX.4.2', 'SENDERX', 'TARGETX')
-    print(f"ID Set: NextIn={store4_no_id.get_next_incoming_sequence_number()}, NextOut={store4_no_id.get_next_outgoing_sequence_number()}, IsNew={store4_no_id.is_new_session()}")
-    
-    first_out_s4 = store4_no_id.get_next_outgoing_sequence_number()
-    store4_no_id.store_message('FIX.4.2', 'SENDERX', 'TARGETX', first_out_s4, "Test S4")
-    store4_no_id.increment_outgoing_sequence_number()
-    print(f"CurrentOut S4: {store4_no_id.get_current_outgoing_sequence_number()}")
-    store4_no_id.close()
+        print("\n--- Test Case 4: Set Identifiers Later ---")
+        if os.path.exists(db_file): os.remove(db_file) # Clean slate
+        store4_no_id = DatabaseMessageStore(db_file)
+        print(f"No ID: NextIn={store4_no_id.get_next_incoming_sequence_number()}, NextOut={store4_no_id.get_next_outgoing_sequence_number()}")
+        # You may want to make set_session_identifiers async if it loads from DB
+        # await store4_no_id.set_session_identifiers('FIX.4.2', 'SENDERX', 'TARGETX')
+        store4_no_id.set_session_identifiers('FIX.4.2', 'SENDERX', 'TARGETX')
+        print(f"ID Set: NextIn={store4_no_id.get_next_incoming_sequence_number()}, NextOut={store4_no_id.get_next_outgoing_sequence_number()}, IsNew={store4_no_id.is_new_session()}")
+        
+        first_out_s4 = store4_no_id.get_next_outgoing_sequence_number()
+        await store4_no_id.store_message('FIX.4.2', 'SENDERX', 'TARGETX', first_out_s4, "Test S4")
+        await store4_no_id.increment_outgoing_sequence_number()
+        print(f"CurrentOut S4: {store4_no_id.get_current_outgoing_sequence_number()}")
+        store4_no_id.close()
+
+    asyncio.run(main())

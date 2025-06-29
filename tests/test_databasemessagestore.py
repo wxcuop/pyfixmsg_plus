@@ -2,8 +2,9 @@ import pytest
 import pytest_asyncio
 import os
 from pyfixmsg_plus.fixengine.database_message_store import DatabaseMessageStore
-print(hasattr(DatabaseMessageStore, "initialize"))
+
 print("Loaded DatabaseMessageStore from", __file__)
+print("store_message is async:", hasattr(DatabaseMessageStore, "store_message") and callable(getattr(DatabaseMessageStore, "store_message")) and DatabaseMessageStore.store_message.__code__.co_flags & 0x80)
 
 @pytest.fixture
 def db_path(tmp_path):
@@ -15,7 +16,9 @@ async def db_store(db_path):
     store.beginstring = 'FIX.4.4'
     store.sendercompid = 'SENDER'
     store.targetcompid = 'TARGET'
-    await store.initialize()  # if needed
+    # Only call initialize if it exists
+    if hasattr(store, "initialize"):
+        await store.initialize()
     return store
 
 @pytest.mark.asyncio
