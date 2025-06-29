@@ -8,8 +8,8 @@ class ClientOrderIdGenerator:
     """
     Abstract base class for client order ID generators.
     """
-    def next_id(self) -> str:
-        raise NotImplementedError("Subclasses must implement next_id()")
+    def encode(self) -> str:
+        raise NotImplementedError("Subclasses must implement encode()")
 
     def decode(self, to_be_decoded: str) -> int:
         raise NotImplementedError("Subclasses must implement decode()")
@@ -38,7 +38,7 @@ class NumericClOrdIdGenerator(ClientOrderIdGenerator):
 
         segment = 1
         if self.seed:
-            now = int(time.time())
+            now = int(datetime.time.time())
             segment = now % 86400
             segment //= self.time_divisor
             segment += 1
@@ -81,161 +81,14 @@ class YMDClOrdIdGenerator(ClientOrderIdGenerator):
         self.counter += 1
         return clordid
 
+    def encode(self) -> str:
+        return self.next_id()
+
     def decode(self, to_be_decoded: str) -> int:
         # Remove prefix and parse the integer part
         try:
             return int(to_be_decoded[4:])
         except Exception:
-            return -1
-
-
-class BMESeqGenerator(ClientOrderIdGenerator):
-    """
-    Generates unique ClOrdIDs with a fixed prefix.
-    """
-
-    def __init__(self, prefix):
-        if not prefix or len(prefix) > 20:
-            raise ValueError("Prefix length should be less than or equal to 20.")
-        self.id_prefix = prefix.ljust(20, '0')
-
-    def encode(self, to_be_encoded):
-        if not isinstance(to_be_encoded, int):
-            raise ValueError("Input should be an integer.")
-        return f"{self.id_prefix}{to_be_encoded:010d}"
-
-    def decode(self, to_be_decoded):
-        if not to_be_decoded or len(to_be_decoded) != 30:
-            return -1
-        try:
-            return int(to_be_decoded[20:])
-        except ValueError:
-            return -1
-
-
-class BranchSeqIdGenerator(ClientOrderIdGenerator):
-    """
-    Generates unique ClOrdIDs with a branch sequence.
-    """
-
-    class Type:
-        CBOE = "CBOE"
-
-    def __init__(self, str_value, type_value):
-        self.type = type_value
-        self.today_date = time.strftime("%Y%m%d", time.localtime())
-        self.start, self.end = self.init_ranges(str_value)
-
-    def init_ranges(self, str_value):
-        parts = str_value.split('-')
-        if len(parts) == 1:
-            parts.append("ZZZ")
-
-        start_str = f"{parts[0]:<3}0001"
-        end_str = f"{parts[1]:<3}9999"
-
-        start = self.decode(start_str) - 1
-        end = self.decode(end_str)
-
-        logging.debug(f"Id generator: date {self.today_date} start {start_str} {start} end {end_str} {end}")
-        return start, end
-
-    def get_mapped_seq_no(self, in_seq_no):
-        num_skips = (in_seq_no - 1) // 9999
-        return num_skips + in_seq_no + self.start
-
-    def get_seq_no_from_mapped(self, mapped_seq_no):
-        return mapped_seq_no
-
-    def decode(self, to_be_decoded):
-        if len(to_be_decoded) < 7:
-            return -1
-
-        if not (to_be_decoded[0].isalpha() and to_be_decoded[1].isalpha() and to_be_decoded[2].isalpha()):
-            return -1
-
-        branch_seq = to_be_decoded[3:] if to_be_decoded[3] != ' ' else to_be_decoded[4:]
-        if not all(c.isdigit() for c in branch_seq):
-            return -1
-
-        ret = ((ord(to_be_decoded[0]) - ord('A')) * 26 + (ord(to_be_decoded[1]) - ord('A'))) * 26 + (ord(to_be_decoded[2]) - ord('A'))
-        for i in range(4):
-            ret = ret * 10 + int(branch_seq[i])
-        return self.get_seq_no_from_mapped(ret)
-
-    def encode(self, to_be_encoded):
-        if to_be_encoded == 0:
-            logging.error("Encoded id should be > 0")
-            return ""
-
-        mapped_seq_no = self.get_mapped_seq_no(to_be_encoded)
-        if mapped_seq_no > self.end:
-            logging.error("Id generator allocation ended, cannot allocate anymore")
-            return ""
-
-        branch = [None] * 3
-        branch_seq = [None] * 4
-
-        for i in range(3):
-            branch_seq[3 - i] = chr(mapped_seq_no % 10 + ord('0'))
-            mapped_seq_no //= 10
-
-        for i in range(3):
-            branch[2 - i] = chr(mapped_seq_no % 26 + ord('A'))
-            mapped_seq_no //= 26
-
-        if self.type == self.Type.CBOE:
-            return f"{''.join(branch)}{''.join(branch_seq)}-{self.today_date}"
-        return ""
-
-
-class ESPSeqGenerator(ClientOrderIdGenerator):
-    """
-    Generates unique ClOrdIDs with a fixed prefix.
-    """
-
-    def __init__(self, prefix):
-        if not prefix or len(prefix) > 10:
-            raise ValueError("Prefix length should be less than or equal to 10.")
-        self.id_prefix = prefix.ljust(10, '0')
-
-    def encode(self, to_be_encoded):
-        if not isinstance(to_be_encoded, int):
-            raise ValueError("Input should be an integer.")
-        return f"{self.id_prefix}{to_be_encoded:010d}"
-
-    def decode(self, to_be_decoded):
-        if not to_be_decoded or len(to_be_decoded) != 20:
-            return -1
-        try:
-            return int(to_be_decoded[10:])
-        except ValueError:
-            return -1
-
-
-class KSESeqGenerator(ClientOrderIdGenerator):
-    """
-    Generates unique ClOrdIDs with a fixed prefix.
-    """
-
-    PSE_SEQ_LENGTH = 10
-
-    def __init__(self, prefix):
-        if not prefix or len(prefix) > 1:
-            raise ValueError("Prefix length should be equal to 1.")
-        self.id_prefix = prefix.ljust(1, '0')
-
-    def encode(self, to_be_encoded):
-        if not isinstance(to_be_encoded, int):
-            raise ValueError("Input should be an integer.")
-        return f"{self.id_prefix}{to_be_encoded:09d}"
-
-    def decode(self, to_be_decoded):
-        if not to_be_decoded or len(to_be_decoded) != self.PSE_SEQ_LENGTH:
-            return -1
-        try:
-            return int(to_be_decoded[1:])
-        except ValueError:
             return -1
 
 
@@ -317,8 +170,8 @@ class NyseBranchSeqGenerator(ClientOrderIdGenerator):
         logging.info(f"Number of skips of min for {s} = {self.num_of_skips_for_min_}")
         logging.info(f"Index skipped by min for {s} = {self.idx_skipped_by_min_}")
 
-        now = time.localtime()
-        self.id_template_ = f"XXX{sep}NNNN/{time.strftime('%m%d%Y', now)}"
+        now = datetime.time.localtime()
+        self.id_template_ = f"XXX{sep}NNNN/{datetime.time.strftime('%m%d%Y', now)}"
 
         logging.info(f"Min = {self.min_}, Max = {self.max_}")
 
