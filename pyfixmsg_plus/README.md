@@ -46,7 +46,7 @@ Sequence numbers are managed by the `DatabaseMessageStore` class, which provides
   `await store_message(...)`, `await get_message(...)` (async)
 
 **Do not** set sequence numbers directly on the message store from application code.  
-Always use the engine's async API to ensure protocol compliance.
+**Always use the engine's async API** to ensure protocol compliance and encapsulation.
 
 ---
 
@@ -153,7 +153,7 @@ Your engine's `LogonHandler` is designed to handle this scenario and will accept
 ---
 
 **Do not** set sequence numbers directly on the message store from application code.  
-Always use the engine's API to ensure proper encapsulation and protocol compliance.
+**Always use the engine's API** to ensure proper encapsulation and protocol compliance.
 
 ---
 
