@@ -1,7 +1,6 @@
 import argparse
 import asyncio
-from pyfixmsg_plus.fixengine.engine import FixEngine
-from pyfixmsg_plus.fixengine.configmanager import ConfigManager
+from pyfixmsg_plus.fixengine import FixEngine, ConfigManager
 
 def print_message(msg):
     if msg is None:

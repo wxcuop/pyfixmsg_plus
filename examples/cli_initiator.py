@@ -27,7 +27,7 @@ import datetime
 from pyfixmsg_plus.fixengine.configmanager import ConfigManager
 from pyfixmsg_plus.fixengine.engine import FixEngine
 from pyfixmsg_plus.application import Application 
-from pyfixmsg_plus.id_generator import YMDClOrdIdGenerator
+from pyfixmsg_plus.idgen.id_generator import YMDClOrdIdGenerator
 
 # Basic logging setup for the example
 logging.basicConfig(
