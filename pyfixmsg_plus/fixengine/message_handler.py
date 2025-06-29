@@ -266,7 +266,7 @@ class ResendRequestHandler(MessageHandler):
                  return
 
         for seq_num_to_resend in range(start_seq_num, effective_end_seq_num + 1):
-            stored_message_str = self.message_store.get_message(
+            stored_message_str = await self.message_store.get_message(
                 self.engine.version,
                 self.engine.sender, 
                 self.engine.target, 
@@ -330,8 +330,8 @@ class SequenceResetHandler(MessageHandler):
                 return
             
             self.logger.info(f"Processing SequenceReset-Reset. Setting next incoming and outgoing to {new_seq_no}.")
-            self.message_store.set_incoming_sequence_number(new_seq_no)
-            self.message_store.set_outgoing_sequence_number(new_seq_no) 
+            await self.message_store.set_incoming_sequence_number(new_seq_no)
+            await self.message_store.set_outgoing_sequence_number(new_seq_no) 
             self.logger.info(f"Both incoming and outgoing sequence numbers reset to {new_seq_no}.")
             await self.engine.send_message(self.engine.fixmsg({35: '0'}))
 
@@ -343,7 +343,7 @@ class SequenceResetHandler(MessageHandler):
                      return
             
             self.logger.info(f"Processing SequenceReset-GapFill. Setting next expected incoming to {new_seq_no}.")
-            self.message_store.set_incoming_sequence_number(new_seq_no)
+            await self.message_store.set_incoming_sequence_number(new_seq_no)
 
 
 class RejectHandler(MessageHandler):

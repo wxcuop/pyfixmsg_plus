@@ -660,6 +660,11 @@ class FixEngine:
             sendercompid=self.sender,
             targetcompid=self.target
         )
+        # --- Fix: Patch message_store into processor and all handlers ---
+        self.message_processor.message_store = self.message_store
+        for handler in self.message_processor.handlers.values():
+            handler.message_store = self.message_store
+        # ---------------------------------------------------------------
         return self
 
     async def initialize(self):
