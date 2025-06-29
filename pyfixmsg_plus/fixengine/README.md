@@ -1,168 +1,101 @@
 # FIX Session Logic Implementation
 
-This directory contains the implementation of the session logic for the FIX protocol. Below is a detailed explanation of how the code handles various session-related messages.
+This directory contains the implementation of the session logic for the FIX protocol. Below is a detailed explanation of how the code handles various session-related messages and sequence number management.
+
+---
 
 ## Logon (35=A)
 
-The logon process is initiated by the `LogonHandler` class, which creates and sends a logon message. The `logon` method in `FixEngine` handles the logon sequence:
-- Creates a logon message using `fixmsg` factory function.
-- Sets the appropriate sender, target, and sequence number.
-- Sends the logon message and starts the heartbeat.
+The logon process is managed by the `LogonHandler` and the `FixEngine.logon()` method:
 
+- The engine creates a logon message using the `fixmsg()` factory.
+- If `reset_seq_num_on_logon` is set in the config, the engine will reset both inbound and outbound sequence numbers to 1 and set `ResetSeqNumFlag (141=Y)`.
+- The logon message is sent with the correct sender, target, and sequence number.
+- The heartbeat mechanism is started after sending Logon.
+
+**Example:**
 ```python
-class LogonHandler(MessageHandler):
-    @logging_decorator
-    async def handle(self, message):
-        ...
-
 async def logon(self):
     logon_message = self.fixmsg()
-    logon_message[49] = self.sender
-    logon_message[56] = self.target
-    logon_message[34] = self.message_store.get_next_outgoing_sequence_number()
+    reset_seq_num_flag_config = self.config_manager.get('FIX', 'reset_seq_num_on_logon', 'false').lower() == 'true'
+    if reset_seq_num_flag_config:
+        await self.reset_sequence_numbers()
+        logon_message[141] = 'Y'
+    else:
+        logon_message[141] = 'N'
+    logon_message.update({35: 'A', 108: self.heartbeat_interval})
+    logon_message[98] = int(self.config_manager.get('FIX', 'encryptmethod', '0'))
     await self.send_message(logon_message)
-    await self.heartbeat.start()
-```
-
-## Heartbeat (35=0)
-
-Heartbeats are managed by the `HeartbeatHandler` class, and are sent at regular intervals to ensure the session is alive. The heartbeat logic has been enhanced with the following features:
-- **Configurable Timeout**: A timeout value can be set for network operations, ensuring timely responses and handling delays effectively.
-- **Corrective Actions**: If connection issues occur (e.g., missed heartbeats), the `Heartbeat` class initiates corrective actions such as reconnecting.
-- **HeartbeatBuilder**: The `HeartbeatBuilder` class constructs the `Heartbeat` object with all required dependencies.
-
-```python
-class HeartbeatHandler(MessageHandler):
-    @logging_decorator
-    async def handle(self, message):
-        self.heartbeat.last_received_time = asyncio.get_event_loop().time()
-        if '112' in message:
-            self.heartbeat.test_request_id = None
-```
-
-## Test Request (35=1)
-
-The `TestRequestHandler` class handles incoming test requests. If a test request is received, the system responds with a heartbeat.
-
-```python
-class TestRequestHandler(MessageHandler):
-    @logging_decorator
-    async def handle(self, message):
-        await self.handle_test_request(message)
-```
-
-## Resend Request (35=2)
-
-The `ResendRequestHandler` class processes resend requests. If there are sequence number gaps, it sends the missing messages or gap fill messages.
-
-```python
-class ResendRequestHandler(MessageHandler):
-    @logging_decorator
-    async def handle(self, message):
-        start_seq_num = int(message[7])
-        end_seq_num = int(message[16])
-        if end_seq_num == 0:
-            end_seq_num = self.message_store.get_next_outgoing_sequence_number() - 1
-        
-        for seq_num in range(start_seq_num, end_seq_num + 1):
-            stored_message = self.message_store.get_message(self.version, self.sender, self.target, seq_num)
-            if stored_message:
-                await self.send_message(stored_message)
-            else:
-                await self.send_gap_fill_message(seq_num)
-```
-
-## Reject (35=3)
-
-The `RejectHandler` class handles reject messages, logging them and updating the sequence number.
-
-```python
-class RejectHandler(MessageHandler):
-    @logging_decorator
-    async def handle(self, message):
-        self.logger.warning(f"Message rejected: {message}")
-```
-
-## Sequence Reset (35=4)
-
-The `SequenceResetHandler` class manages sequence reset messages. It can either reset the sequence numbers or fill gaps in the sequence.
-
-```python
-class SequenceResetHandler(MessageHandler):
-    @logging_decorator
-    async def handle(self, message):
-        gap_fill_flag = message[123]
-        new_seq_no = int(message[36])
-
-        if new_seq_no <= self.message_store.get_next_incoming_sequence_number():
-            await self.send_reject_message(message[34], 36, 99, "Sequence Reset attempted to decrease sequence number")
-            return
-
-        if gap_fill_flag == 'Y':
-            self.message_store.set_incoming_sequence_number(new_seq_no)
-        else:
-            self.message_store.set_incoming_sequence_number(new_seq_no)
-```
-
-## Logout (35=5) and Logoff Handshake
-
-The `LogoutHandler` class handles logout messages, and the logoff handshake is managed by the `FixEngine` to ensure protocol compliance and clean disconnects.
-
-### Logoff Handshake Flow
-
-1. **Application Initiates Logoff**  
-   The application calls:
-   ```python
-   await engine.request_logoff(timeout=10)
-   ```
-   This sends a FIX Logoff message and waits for the counterparty's Logoff response.
-
-2. **Engine Waits for Logoff Response**  
-   The engine sets up an internal future and waits for the `LogoutHandler` to notify when a Logoff is received from the counterparty.
-
-3. **Engine Disconnects**  
-   Once the Logoff response is received (or a timeout occurs), the engine disconnects the session and cleans up resources.  
-   `graceful=False` is used on disconnect because the handshake is already complete, so the connection is closed immediately.
-
-```python
-class LogoutHandler(MessageHandler):
-    @logging_decorator
-    async def handle(self, message):
-        # Notify engine that logoff was received
-        self.engine.notify_logoff_received()
-        # Disconnect session
-        self.state_machine.on_event('disconnect')
-        await self.disconnect()
-```
-
-**Key Points:**
-- The logoff handshake is encapsulated in the engine, not the application.
-- The application only needs to call `request_logoff()`.
-- The engine manages sending, waiting, and disconnecting for a robust and protocol-compliant session shutdown.
-
-## Message Processing
-
-The `MessageProcessor` class registers handlers for different message types and processes incoming messages by delegating them to the appropriate handler.
-
-```python
-class MessageProcessor:
-    def register_handler(self, message_type, handler):
-        self.handlers[message_type] = handler
-
-    async def process_message(self, message):
-        message_type = message[35]
-        handler = self.handlers.get(message_type)
-        if handler:
-            await handler.handle(message)
+    if self.heartbeat:
+        await self.heartbeat.start()
 ```
 
 ---
 
-### **Added Features**
-- **Configurable Timeout**: Improves control over network delays in heartbeat and test request operations.
-- **Corrective Actions**: Ensures session resilience during connection issues.
-- **HeartbeatBuilder**: Simplifies the creation of heartbeat objects with necessary dependencies.
-- **Encapsulated Logoff Handshake**: The engine manages the full logoff handshake, keeping application code clean and protocol-agnostic.
+## Sequence Number Management
+
+Sequence numbers are managed by the `DatabaseMessageStore` class, which provides async methods for storing, retrieving, and updating sequence numbers and messages.
+
+- **Get next incoming/outgoing sequence number:**  
+  `get_next_incoming_sequence_number()` and `get_next_outgoing_sequence_number()` (sync)
+- **Increment sequence numbers:**  
+  `await increment_incoming_sequence_number()` and `await increment_outgoing_sequence_number()` (async)
+- **Set/reset sequence numbers:**  
+  `await set_incoming_sequence_number(n)`, `await set_outgoing_sequence_number(n)`, `await reset_sequence_numbers()` (async)
+- **Store and retrieve messages:**  
+  `await store_message(...)`, `await get_message(...)` (async)
+
+**Do not** set sequence numbers directly on the message store from application code.  
+Always use the engine's async API to ensure protocol compliance.
+
+---
+
+## Message Handling
+
+Handlers for all core FIX session messages are implemented in `message_handler.py` and registered with the `MessageProcessor`.  
+All handlers use async methods and the correct await/sync pattern for the message store.
+
+### Example: ResendRequestHandler (35=2)
+```python
+class ResendRequestHandler(MessageHandler):
+    @logging_decorator
+    async def handle(self, message):
+        start_seq_num = int(message.get(7))
+        end_seq_num = int(message.get(16))
+        if end_seq_num == 0:
+            end_seq_num = self.message_store.get_current_outgoing_sequence_number()
+        for seq_num in range(start_seq_num, end_seq_num + 1):
+            stored_message_str = await self.message_store.get_message(
+                self.engine.version, self.engine.sender, self.engine.target, seq_num
+            )
+            if stored_message_str:
+                # resend logic...
+                await self.engine.send_message(...)
+            else:
+                await self.send_gap_fill(seq_num, seq_num)
+```
+
+### Example: SequenceResetHandler (35=4)
+```python
+class SequenceResetHandler(MessageHandler):
+    @logging_decorator
+    async def handle(self, message):
+        gap_fill_flag = message.get(123) == 'Y'
+        new_seq_no = int(message.get(36))
+        if not gap_fill_flag:
+            await self.message_store.set_incoming_sequence_number(new_seq_no)
+            await self.message_store.set_outgoing_sequence_number(new_seq_no)
+        else:
+            await self.message_store.set_incoming_sequence_number(new_seq_no)
+```
+
+---
+
+## Logoff Handshake
+
+The logoff handshake is managed by the engine, not the application.  
+Call `await engine.request_logoff()` to initiate a protocol-compliant logoff handshake.  
+The engine will send Logout, wait for a response, and disconnect cleanly.
 
 ---
 
@@ -172,38 +105,47 @@ You can set the initial incoming and outgoing sequence numbers for a session in 
 
 ### 1. Via `FixEngine` Constructor
 
-Pass `initial_incoming_seqnum` and/or `initial_outgoing_seqnum` as keyword arguments when creating the engine:
-
 ```python
-engine = FixEngine(
+engine = await FixEngine.create(
     config_manager,
     application,
-    initial_incoming_seqnum=100,    # Next expected incoming seqnum
-    initial_outgoing_seqnum=200     # Next outgoing seqnum to use
+    initial_incoming_seqnum=100,
+    initial_outgoing_seqnum=200
 )
 ```
 
-This will set the sequence numbers before the session starts.
-
----
-
 ### 2. Via Setter Methods (before `engine.start()`)
-
-You can also set or reset the sequence numbers using the provided async setters before starting the engine:
 
 ```python
 await engine.set_inbound_sequence_number(100)
 await engine.set_outbound_sequence_number(200)
-# Or set both at once:
 await engine.set_sequence_numbers(incoming_seqnum=100, outgoing_seqnum=200)
 ```
 
-**Note:**  
-Always set sequence numbers before calling `await engine.start()` to ensure correct session state.
+**Always set sequence numbers before calling `await engine.start()` to ensure correct session state.**
 
 ---
 
-### When to Use Each Method
+## Handling ResetSeqNumFlag (141=Y) and Logon Sequence Numbers
+
+When using `ResetSeqNumFlag=Y` in a Logon message, both initiator and acceptor must reset their sequence numbers to 1.  
+After a successful Logon with `ResetSeqNumFlag=Y`, both sides should accept and send Logon messages with `MsgSeqNum=1`.
+
+**Important:**  
+If your engine sends Logon with `ResetSeqNumFlag=Y`, it must accept a Logon response from the counterparty with `MsgSeqNum=1`, even if the next expected incoming sequence number would otherwise be higher.  
+This ensures interoperability with QuickFIX and other compliant FIX engines.
+
+#### Example (Initiator/Acceptor Logon Exchange):
+
+- Initiator sends: `35=A, 34=1, 141=Y`
+- Acceptor responds: `35=A, 34=1, 141=Y`
+- Both sides reset their sequence numbers to 1 and proceed with the session.
+
+Your engine's `LogonHandler` is designed to handle this scenario and will accept a Logon response with `MsgSeqNum=1` if `ResetSeqNumFlag=Y` was sent, ensuring protocol compliance.
+
+---
+
+## When to Use Each Method
 
 - **Constructor:** Use for config-driven or one-time setup at engine creation.
 - **Setters:** Use for scripting, testing, or when you need to reset sequence numbers dynamically before session start.
@@ -212,3 +154,11 @@ Always set sequence numbers before calling `await engine.start()` to ensure corr
 
 **Do not** set sequence numbers directly on the message store from application code.  
 Always use the engine's API to ensure proper encapsulation and protocol compliance.
+
+---
+
+## Additional Notes
+
+- All message store methods that interact with the database and may block are async and must be awaited.
+- All sequence number logic in handlers and engine is now fully async-aware and protocol-compliant.
+- The engine and handlers are robust to out-of-order, duplicate, and gap-fill scenarios, and will interoperate with QuickFIX and other major FIX engines.
