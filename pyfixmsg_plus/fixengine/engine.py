@@ -1,4 +1,5 @@
 import asyncio
+import inspect
 import logging
 from datetime import datetime, timezone
 from pyfixmsg_plus.fixengine.heartbeat_builder import HeartbeatBuilder
@@ -547,13 +548,16 @@ class FixEngine:
         if self.scheduler_task and not self.scheduler_task.done():
             self.logger.debug(f"Cancelling scheduler task for {self.session_id}.")
             self.scheduler_task.cancel()
-            try: await self.scheduler_task
-            except asyncio.CancelledError: self.logger.info(f"Scheduler task for {self.session_id} cancelled.")
+            try:
+                await self.scheduler_task
+            except asyncio.CancelledError:
+                self.logger.info(f"Scheduler task for {self.session_id} cancelled.")
             self.scheduler_task = None
 
         if self.message_store and hasattr(self.message_store, 'close'):
-            self.logger.debug(f"Closing message store for {self.session_id}.")
-            self.message_store.close()
+            close_result = self.message_store.close()
+            if inspect.isawaitable(close_result):
+                await close_result
 
         self.retry_attempts = 0 
         
@@ -643,8 +647,10 @@ class FixEngine:
     ) -> "FixEngine":
         self = cls(config_manager, application, initial_incoming_seqnum, initial_outgoing_seqnum)
         db_path = self.config_manager.get('FIX', 'state_file', 'fix_state.db')
+        store_type = self.config_manager.get_message_store_type('database')
+        self.logger.info(f"Using message store type: {store_type}")
         self.message_store = await MessageStoreFactory.get_message_store(
-            'database',
+            store_type,
             db_path,
             beginstring=self.version,
             sendercompid=self.sender,

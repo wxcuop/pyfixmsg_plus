@@ -36,6 +36,10 @@ class ConfigManager:
             print(f"Warning: Section '{section}' or option '{option}' not found. Returning fallback value.")
             return fallback
 
+    def get_message_store_type(self, fallback='database'):
+        """Gets the message store type from the config, e.g., 'database' or 'aiosqlite'."""
+        return self.get('FIX', 'message_store_type', fallback=fallback)
+
     def set(self, section, option, value):
         if not self.config.has_section(section):
             self.config.add_section(section)

@@ -45,7 +45,15 @@ jobs:
       run: |
         pip install . --force-reinstall --no-cache-dir
 
+    - name: Cache QuickFIX/J Engine
+      id: cache-quickfixj
+      uses: actions/cache@v4
+      with:
+        path: org.quickfixj-2.3.2
+        key: ${{ runner.os }}-quickfixj-v2.3.2
+
     - name: Download and unzip QuickFIX/J Engine
+      if: steps.cache-quickfixj.outputs.cache-hit != 'true'
       run: |
         wget https://github.com/quickfix-j/quickfixj/releases/download/QFJ_RELEASE_2_3_2/org.quickfixj-2.3.2-bin.zip
         unzip org.quickfixj-2.3.2-bin.zip
