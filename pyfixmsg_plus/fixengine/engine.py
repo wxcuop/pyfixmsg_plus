@@ -555,9 +555,7 @@ class FixEngine:
             self.scheduler_task = None
 
         if self.message_store and hasattr(self.message_store, 'close'):
-            close_result = self.message_store.close()
-            if inspect.isawaitable(close_result):
-                await close_result
+            await self.message_store.close()
 
         self.retry_attempts = 0 
         

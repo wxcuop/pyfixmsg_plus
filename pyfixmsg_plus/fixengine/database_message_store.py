@@ -184,9 +184,23 @@ class DatabaseMessageStore:
             self.logger.debug("get_current_outgoing_sequence_number: NextOutgoing is 1, so no messages sent yet in this context. Returning 0.")
             return 0
 
-    def close(self):
+    async def shutdown(self):
+        """
+        Wait for all pending DB operations to finish before closing the DB.
+        Call this before close() during shutdown.
+        """
+        async with self._lock:
+            pass  # Ensures all other operations using the lock are done
+
+    async def close(self):
+        """
+        Async close: ensures all pending DB operations are finished before closing the DB.
+        Always call this with 'await'.
+        """
+        await self.shutdown()
         if self.conn:
             self.conn.close()
+            self.conn = None
             self.logger.info("Database connection closed.")
 
 # Example usage (updated to reflect new get_next/increment pattern)
