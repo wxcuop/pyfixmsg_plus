@@ -6,7 +6,6 @@ from pyfixmsg_plus.fixengine.heartbeat_builder import HeartbeatBuilder
 from pyfixmsg_plus.fixengine.testrequest import TestRequest 
 from pyfixmsg_plus.fixengine.network import Acceptor, Initiator
 from pyfixmsg_plus.fixengine.configmanager import ConfigManager
-from pyfixmsg_plus.fixengine.events import EventNotifier
 from pyfixmsg_plus.fixengine.message_handler import (
     MessageProcessor,
     LogonHandler,
@@ -80,7 +79,6 @@ class FixEngine:
         self.session_id = f"{self.sender}-{self.target}-{self.host}:{self.port}"
         self.network = Acceptor(self.host, self.port, self.use_tls) if self.mode == 'acceptor' else Initiator(self.host, self.port, self.use_tls)
 
-        self.event_notifier = EventNotifier()
         self.message_processor = MessageProcessor(self.message_store, self.state_machine, self.application, self)
 
         handler_classes = {

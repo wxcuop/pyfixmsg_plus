@@ -265,7 +265,10 @@ class ResendRequestHandler(MessageHandler):
             else:
                 self.logger.warning(f"Message for SeqNum {seq_num_to_resend} not found in store. Sending GapFill.")
                 await self.send_gap_fill(seq_num_to_resend, seq_num_to_resend)
-        
+                # Always call application callback
+
+        if hasattr(self.application, "fromAdmin"):
+            await self.application.fromAdmin(message, self.engine.session_id)
         self.logger.info(f"Completed processing Resend Request from {start_seq_num} to {end_seq_num} (effective {effective_end_seq_num}).")
 
     async def send_gap_fill(self, begin_gap_seq_num: int, end_gap_seq_num: int) -> None:
@@ -322,6 +325,9 @@ class SequenceResetHandler(MessageHandler):
             self.logger.info(f"Processing SequenceReset-GapFill. Setting next expected incoming to {new_seq_no}.")
             await self.message_store.set_incoming_sequence_number(new_seq_no)
 
+            # Always call application callback
+            if hasattr(self.application, "fromAdmin"):
+                await self.application.fromAdmin(message, self.engine.session_id)
 
 class RejectHandler(MessageHandler):
     @logging_decorator
@@ -333,6 +339,9 @@ class RejectHandler(MessageHandler):
         text = message.get(58) 
         self.logger.warning(f"Received Session-Level Reject: RefSeqNum={ref_seq_num}, RefTagID={ref_tag_id}, RefMsgType={ref_msg_type}, ReasonCode={reject_reason_code}, Text='{text}'")
         
+        # Always call application callback
+        if hasattr(self.application, "fromAdmin"):
+            await self.application.fromAdmin(message, self.engine.session_id)       
         if hasattr(self.application, 'onReject'):
             await self.application.onReject(message)
 
@@ -356,6 +365,9 @@ class LogoutHandler(MessageHandler):
 
         if hasattr(self.engine, "notify_logoff_received"):
             self.engine.notify_logoff_received()
+        # Always call application callback
+        if hasattr(self.application, "fromAdmin"):
+            await self.application.fromAdmin(message, self.engine.session_id)
 
 
 class HeartbeatHandler(MessageHandler):
@@ -368,6 +380,9 @@ class HeartbeatHandler(MessageHandler):
             self.engine.heartbeat.process_incoming_heartbeat(test_req_id_in_hb)
         else:
             self.logger.warning("Received Heartbeat, but FixEngine.heartbeat object is not available.")
+        # Always call application callback
+        if hasattr(self.application, "fromAdmin"):
+            await self.application.fromAdmin(message, self.engine.session_id)
 
 class MessageProcessor:
     def __init__(self, message_store: Any, state_machine: Any, application: Any, engine: Any) -> None:
