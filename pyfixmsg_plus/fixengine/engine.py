@@ -118,10 +118,12 @@ class FixEngine:
         self.resend_request_outstanding = False
         self.resend_request_expected_seq = None
 
-    def fixmsg(self, *args, **kwargs) -> FixMessage:
-        message = FixMessage(*args, **kwargs)
+    def fixmsg(self, fields: dict) -> FixMessage:
+        message = FixMessage(fields)
         message.codec = self.codec
         message[8] = self.version
+        if 52 not in fields:
+            fields[52] = datetime.now(timezone.utc).strftime('%Y%m%d-%H:%M:%S.%f')[:-3]
         return message
 
     def create_message_with_repeating_group(

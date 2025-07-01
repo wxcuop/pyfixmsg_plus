@@ -26,156 +26,32 @@ import logging
 import datetime 
 from pyfixmsg_plus.fixengine.configmanager import ConfigManager
 from pyfixmsg_plus.fixengine.engine import FixEngine
-from pyfixmsg_plus.application import Application 
 from pyfixmsg_plus.idgen.id_generator import YMDClOrdIdGenerator
+from sample_application import DummyApplication, run_common_initiator_logic
 
 # Basic logging setup for the example
 logging.basicConfig(
-    level=logging.DEBUG, # <--- Ensure this is DEBUG
+    level=logging.DEBUG,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    # handlers=[
-    #     logging.StreamHandler() # To see logs in console if running locally
-    # ]
 )
 logger = logging.getLogger(__name__)
 
-class DummyApplication(Application):
-    def __init__(self):
-        self.engine = None
-        self.logoff_confirmed = False
-        if hasattr(super(), '__init__'):
-            super().__init__()
-        # self.logger = logging.getLogger(self.__class__.__name__)
-
-
-    def set_engine(self, engine): 
-        self.engine = engine
-        # self.logger.info("Engine set on Initiator DummyApplication.")
-
-    async def onCreate(self, sessionID):
-        # self.logger.info(f"[{sessionID}] Initiator App: onCreate")
-        pass
-
-    async def onLogon(self, sessionID, message=None): 
-        # self.logger.info(f"[{sessionID}] Initiator App: Logon successful.")
-        if message and hasattr(message, 'to_wire'):
-            pass
-            # self.logger.info(f"Logon Message: {message.to_wire()}")
-
-    async def onLogout(self, sessionID, message=None):
-        logger.info(f"[{sessionID}] Initiator App: Received Logoff from counterparty.")
-        self.logoff_confirmed = True
-
-    async def toAdmin(self, message, sessionID):
-        # self.logger.debug(f"[{sessionID}] Initiator App toAdmin: MsgType {message.get(35) if hasattr(message, 'get') else 'Unknown'}")
-        return message, sessionID 
-
-    async def fromAdmin(self, message, sessionID):
-        # self.logger.debug(f"[{sessionID}] Initiator App fromAdmin: MsgType {message.get(35) if hasattr(message, 'get') else 'Unknown'}")
-        return message, sessionID 
-
-    async def toApp(self, message, sessionID):
-        # self.logger.debug(f"[{sessionID}] Initiator App toApp: MsgType {message.get(35) if hasattr(message, 'get') else 'Unknown'}")
-        return message, sessionID 
-
-    async def fromApp(self, message, sessionID):
-        # self.logger.debug(f"[{sessionID}] Initiator App fromApp: MsgType {message.get(35) if hasattr(message, 'get') else 'Unknown'}")
-        return message, sessionID 
-
-    async def onMessage(self, message, sessionID):
-        msg_type = message.get(35) if hasattr(message, 'get') else "Unknown"
-        logger.info(f"[{sessionID}] Initiator App: Received message type {msg_type}: {str(message)}")
-
-
 async def main():
-    script_dir = os.path.dirname(__file__)
-    config_path = os.path.join(script_dir, 'config_initiator.ini') 
-    
-    config = ConfigManager(config_path) 
-    
-    app = DummyApplication()
-    engine = await FixEngine.create(config, app)
-    if hasattr(app, 'set_engine'):
-        app.set_engine(engine)
-    if hasattr(engine, "initialize") and callable(engine.initialize):
-        await engine.initialize()
-
-    # Instantiate the ClOrdID generator
+    config_file = os.environ.get("FIX_CONFIG", "examples/initiator.cfg")
+    config_manager = ConfigManager(config_file)
     clordid_generator = YMDClOrdIdGenerator()
 
-    engine_task = None
+    app = DummyApplication()
+    engine = await FixEngine.create(config_manager, app)
+    app.set_engine(engine)
+
+    await engine.initialize()
+    await engine.connect()
+
     try:
-        logger.info(f"Starting initiator engine (Sender: {engine.sender}, Target: {engine.target}) to connect to {engine.host}:{engine.port}...")
-        
-        engine_task = asyncio.create_task(engine.start()) 
-        
-        logger.info("Initiator engine.start() task created. Allowing time for connection attempt...")
-        await asyncio.sleep(2)
-
-        sent_test_order = False
-        loop_count = 0
-        max_loops_disconnected = 5
-
-        logoff_requested = False
-        logoff_confirmed = False
-
-        while True:
-            loop_count += 1
-            if not engine or not hasattr(engine, 'state_machine'):
-                logger.warning("Engine or state_machine not available yet, sleeping...")
-                await asyncio.sleep(1)
-                continue
-
-            current_state = engine.state_machine.state.name
-            logger.debug(f"Main loop check: Engine state is {current_state}, sent_test_order={sent_test_order}")
-
-            if current_state == 'DISCONNECTED':
-                if loop_count > max_loops_disconnected:
-                    logger.info(f"Engine is persistently DISCONNECTED after {loop_count} checks. Exiting example loop.")
-                    if hasattr(engine, 'retry_attempts') and hasattr(engine, 'max_retries') and \
-                       engine.max_retries > 0 and engine.retry_attempts >= engine.max_retries:
-                        logger.warning(f"Max retries ({engine.max_retries}) also reached.")
-                    break
-                else:
-                    logger.info(f"Engine is DISCONNECTED (check {loop_count}/{max_loops_disconnected}). Will check again.")
-
-            if current_state == 'ACTIVE' and not sent_test_order:
-                logger.info("Session is ACTIVE. Attempting to send a test NewOrderSingle in 1 second...")
-                await asyncio.sleep(1)
-                logger.info(f"State after sleep: {engine.state_machine.state.name}")
-                if engine.state_machine.state.name == 'ACTIVE':
-                    # Use the ClOrdID generator here
-                    clordid = clordid_generator.next_id()
-                    test_order = engine.fixmsg({
-                        35: 'D',
-                        11: clordid,
-                        55: 'MSFT',
-                        54: '1',
-                        38: '100',
-                        40: '1',
-                        44: '150.00',
-                        60: datetime.datetime.now(datetime.timezone.utc).strftime('%Y%m%d-%H:%M:%S.%f')[:-3]
-                    })
-                    logger.info(f"Sending test NewOrderSingle: {str(test_order)}")
-                    await engine.send_message(test_order)
-                    sent_test_order = True
-                    await asyncio.sleep(5)
-                    logger.info("Test order sent. Initiating FIX Logoff handshake via engine.request_logoff().")
-                    await engine.request_logoff(timeout=10)
-                    break
-
-            if engine_task and engine_task.done():
-                logger.info("Engine task has completed. Exiting main loop.")
-                try:
-                    engine_task.result()
-                except Exception as e_task:
-                    logger.error(f"Exception from engine task: {e_task}", exc_info=True)
-                break
-
-            await asyncio.sleep(1)
-
-        logger.info(f"Initiator example loop finished. Final engine state: {engine.state_machine.state.name if engine and hasattr(engine, 'state_machine') else 'UNKNOWN'}")
-
+        # Use the shared logic for initiator test flow
+        await run_common_initiator_logic(engine, clordid_generator, logger)
+        logger.info("Initiator example loop finished. Final engine state: %s", engine.state_machine.state.name if engine and hasattr(engine, 'state_machine') else 'UNKNOWN')
     except KeyboardInterrupt:
         logger.info("Initiator shutting down due to KeyboardInterrupt...")
     except ConnectionRefusedError:
@@ -183,20 +59,9 @@ async def main():
     except Exception as e:
         logger.error(f"Error in initiator: {e}", exc_info=True)
     finally:
-        if engine_task and not engine_task.done():
-            logger.info("Cancelling engine task...")
-            engine_task.cancel()
-            try:
-                await engine_task
-            except asyncio.CancelledError:
-                logger.info("Engine task successfully cancelled.")
-            except Exception as e_task_cancel:
-                 logger.error(f"Exception while cancelling engine task: {e_task_cancel}", exc_info=True)
-
         if engine and hasattr(engine, 'state_machine') and engine.state_machine.state.name != 'DISCONNECTED':
             logger.info("Ensuring initiator engine is disconnected (final check)...")
             await engine.disconnect(graceful=False)
-        
         logger.info("Initiator main function finished.")
 
 if __name__ == "__main__":

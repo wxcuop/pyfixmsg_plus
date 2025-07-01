@@ -4,7 +4,6 @@ from .heartbeat import Heartbeat
 from .heartbeat_builder import HeartbeatBuilder
 from .testrequest import TestRequest
 from .network import Acceptor, Initiator
-from .events import EventNotifier
 from .message_handler import (
     MessageProcessor,
     MessageHandler,
@@ -26,6 +25,7 @@ from .message_handler import (
 from .message_store_factory import MessageStoreFactory
 from .state_machine import StateMachine, Disconnected
 from .scheduler import Scheduler
+from .simple_crypt import SimpleCrypt
 
 __all__ = [
     "FixEngine",
@@ -35,7 +35,6 @@ __all__ = [
     "TestRequest",
     "Acceptor",
     "Initiator",
-    "EventNotifier",
     "MessageProcessor",
     "MessageHandler",
     "LogonHandler",
@@ -56,4 +55,5 @@ __all__ = [
     "StateMachine",
     "Disconnected",
     "Scheduler",
+    "SimpleCrypt",
 ]

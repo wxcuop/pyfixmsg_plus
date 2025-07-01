@@ -1,6 +1,7 @@
 import asyncio
 import logging
 import os
+import datetime
 from pyfixmsg_plus.fixengine.configmanager import ConfigManager
 from pyfixmsg_plus.fixengine.engine import FixEngine
 from pyfixmsg_plus.application import Application # Correct import path
@@ -17,13 +18,7 @@ logger = logging.getLogger(__name__)
 class DummyApplication(Application):
     def __init__(self):
         self.engine = None
-        # If your pyfixmsg_plus.application.Application has an __init__ that sets up logging,
-        # calling super().__init__() is good practice.
-        if hasattr(super(), '__init__'): # Check if base class has __init__
-             super().__init__()
-        # If Application class does not have __init__ or you want to ensure this logger is used:
-        # self.logger = logging.getLogger(self.__class__.__name__)
-
+        self.logger = logging.getLogger(self.__class__.__name__)
 
     def set_engine(self, engine): 
         self.engine = engine
@@ -93,13 +88,65 @@ class DummyApplication(Application):
             await self.engine.send_message(exec_report)
 
 
+class AcceptorApplication(DummyApplication):
+    def __init__(self):
+        super().__init__()
+        self.logon_received = False
+        self.order_ack_sent = False
+
+    async def onLogon(self, sessionID, message=None):
+        logger.info(f"[{sessionID}] Pyfixmsg_plus Acceptor: Received Logon from counterparty.")
+        self.logon_received = True
+        # Send a TestRequest (35=1) after logon
+        if self.engine:
+            test_req_id = f"test-{datetime.datetime.now().strftime('%H%M%S')}"
+            test_request = self.engine.fixmsg({
+                35: '1',
+                34: self.engine.message_store.get_next_outgoing_sequence_number(),
+                49: self.engine.sender,
+                56: self.engine.target,
+                112: test_req_id,
+            })
+            logger.info(f"[{sessionID}] Sending TestRequest: {test_request}")
+            await self.engine.send_message(test_request)
+
+    async def onMessage(self, message, sessionID):
+        msg_type = message.get(35) if hasattr(message, 'get') else "Unknown"
+        logger.info(f"[{sessionID}] Pyfixmsg_plus Acceptor: Received message type {msg_type}: {str(message)}")
+
+        if msg_type == 'D' and not self.order_ack_sent:  # NewOrderSingle
+            if not self.engine:
+                logger.error(f"[{sessionID}] Engine not set in AcceptorApplication. Cannot send ExecutionReport.")
+                return
+
+            cl_ord_id = message.get(11)
+            symbol = message.get(55)
+            side = message.get(54)
+            order_qty = message.get(38)
+            price = message.get(44)
+
+            if not all([cl_ord_id, symbol, side, order_qty]):
+                logger.error(f"[{sessionID}] Missing required fields in NewOrderSingle to send ExecutionReport. ClOrdID={cl_ord_id}, Symbol={symbol}, Side={side}, OrderQty={order_qty}")
+                return
+
+            exec_report = self.engine.fixmsg({
+                35: '8', 11: cl_ord_id, 37: f"exec-{cl_ord_id}", 17: f"execid-{cl_ord_id}",
+                150: '0', 39: '0', 55: symbol, 54: side, 38: order_qty, 14: 0, 6: 0,
+            })
+            if price:
+                exec_report[44] = price
+
+            logger.info(f"[{sessionID}] Application: Sending ExecutionReport (ACK) for {cl_ord_id}")
+            await self.engine.send_message(exec_report)
+            self.order_ack_sent = True
+
 async def main():
     logger.info("Starting acceptor engine...")
     script_dir = os.path.dirname(__file__)
     config_path = os.path.join(script_dir, 'config_acceptor.ini')
     
     config = ConfigManager(config_path)
-    app = DummyApplication()
+    app = AcceptorApplication()
     engine = FixEngine(config, app) 
     
     # The FixEngine should call app.set_engine(self) during its initialization.
