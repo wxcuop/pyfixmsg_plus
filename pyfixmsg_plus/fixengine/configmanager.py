@@ -1,5 +1,5 @@
 import configparser
-from simple_crypt import SimpleCrypt
+from pyfixmsg_plus.fixengine.simple_crypt import SimpleCrypt
 
 # Provide module-level encrypt/decrypt helpers using a default salt
 _DEFAULT_CRYPT_SALT = "seasalt_is_salty"
