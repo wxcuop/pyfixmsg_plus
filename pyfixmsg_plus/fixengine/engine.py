@@ -421,7 +421,7 @@ class FixEngine:
         self.logger.debug(f"Attempting to parse full_fix_string: '{full_fix_string}'")
         parsed_message = None
         try:
-            msg_obj = self.fixmsg()
+            msg_obj = self.fixmsg({})
             msg_obj.from_wire(full_fix_string, codec=self.codec)
             parsed_message = msg_obj
         except Exception as e:
