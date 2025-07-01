@@ -1,29 +1,6 @@
-# At the beginning of examples/cli_initiator.py
-# import sys
-import os # Add this import
-
-# Try to import pyfixmsg early to check its path
-try:
-    import pyfixmsg
-    pyfixmsg_path = os.path.abspath(pyfixmsg.__file__)
-    pyfixmsg_version = getattr(pyfixmsg, '__version__', 'N/A')
-except ImportError as e:
-    pyfixmsg_path = f"Error importing pyfixmsg: {e}"
-    pyfixmsg_version = "N/A"
-except AttributeError: # If pyfixmsg is a namespace package or __file__ is not set
-    pyfixmsg_path = "pyfixmsg.__file__ not found (possibly a namespace package or an issue)"
-    pyfixmsg_version = getattr(pyfixmsg, '__version__', 'N/A')
-
-
-# print(f"DEBUG_INITIATOR_SCRIPT: Current working directory: {os.getcwd()}", flush=True)
-# print(f"DEBUG_INITIATOR_SCRIPT: sys.path = {sys.path}", flush=True)
-# print(f"DEBUG_INITIATOR_SCRIPT: pyfixmsg module loaded from: {pyfixmsg_path}", flush=True)
-# print(f"DEBUG_INITIATOR_SCRIPT: pyfixmsg version (if defined): {pyfixmsg_version}", flush=True)
-
-
+import os
 import asyncio
 import logging
-import datetime 
 from pyfixmsg_plus.fixengine.configmanager import ConfigManager
 from pyfixmsg_plus.fixengine.engine import FixEngine
 from pyfixmsg_plus.idgen.id_generator import YMDClOrdIdGenerator
@@ -36,22 +13,23 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-async def main():
-    config_file = os.environ.get("FIX_CONFIG", "examples/initiator.cfg")
-    config_manager = ConfigManager(config_file)
-    clordid_generator = YMDClOrdIdGenerator()
-
+async def main(config_manager):
     app = DummyApplication()
     engine = await FixEngine.create(config_manager, app)
-    app.set_engine(engine)
+    if hasattr(app, 'set_engine'):
+        app.set_engine(engine)
+    if hasattr(engine, "initialize") and callable(engine.initialize):
+        await engine.initialize()
 
-    await engine.initialize()
-    await engine.connect()
-
+    clordid_generator = YMDClOrdIdGenerator()
+    engine_task = None
     try:
-        # Use the shared logic for initiator test flow
-        await run_common_initiator_logic(engine, clordid_generator, logger)
-        logger.info("Initiator example loop finished. Final engine state: %s", engine.state_machine.state.name if engine and hasattr(engine, 'state_machine') else 'UNKNOWN')
+        logger.info(f"Starting initiator engine (Sender: {engine.sender}, Target: {engine.target}) to connect to {engine.host}:{engine.port}...")
+        engine_task = asyncio.create_task(engine.start())
+        logger.info("Initiator engine.start() task created. Allowing time for connection attempt...")
+        await asyncio.sleep(2)
+        await run_common_initiator_logic(engine, clordid_generator, logger, max_loops_disconnected=5)
+        logger.info(f"Initiator example loop finished. Final engine state: {engine.state_machine.state.name if engine and hasattr(engine, 'state_machine') else 'UNKNOWN'}")
     except KeyboardInterrupt:
         logger.info("Initiator shutting down due to KeyboardInterrupt...")
     except ConnectionRefusedError:
@@ -59,40 +37,51 @@ async def main():
     except Exception as e:
         logger.error(f"Error in initiator: {e}", exc_info=True)
     finally:
+        if engine_task and not engine_task.done():
+            logger.info("Cancelling engine task...")
+            engine_task.cancel()
+            try:
+                await engine_task
+            except asyncio.CancelledError:
+                logger.info("Engine task successfully cancelled.")
+            except Exception as e_task_cancel:
+                logger.error(f"Exception while cancelling engine task: {e_task_cancel}", exc_info=True)
+
         if engine and hasattr(engine, 'state_machine') and engine.state_machine.state.name != 'DISCONNECTED':
             logger.info("Ensuring initiator engine is disconnected (final check)...")
             await engine.disconnect(graceful=False)
         logger.info("Initiator main function finished.")
 
 if __name__ == "__main__":
-    script_dir_for_config = os.path.dirname(__file__)
-    initiator_config_file = os.path.join(script_dir_for_config, 'config_initiator.ini')
+    script_dir = os.path.dirname(__file__)
+    initiator_config_file = os.path.join(script_dir, 'config_initiator.ini')
 
+    # Create default config if it doesn't exist
     if not os.path.exists(initiator_config_file):
-        default_cfg_writer = ConfigManager(initiator_config_file) 
-        default_cfg_writer.set('FIX', 'mode', 'initiator')
-        default_cfg_writer.set('FIX', 'sender', 'BANZAI') 
-        default_cfg_writer.set('FIX', 'target', 'EXEC') 
-        default_cfg_writer.set('FIX', 'version', 'FIX.4.4')
-        default_cfg_writer.set('FIX', 'spec_filename', 'FIX44.xml') 
-        default_cfg_writer.set('FIX', 'host', '127.0.0.1')
-        default_cfg_writer.set('FIX', 'port', '9880')
-        default_cfg_writer.set('FIX', 'heartbeat_interval', '30')
-        default_cfg_writer.set('FIX', 'retry_interval', '5')
-        default_cfg_writer.set('FIX', 'max_retries', '3') 
-        default_cfg_writer.set('FIX', 'state_file', os.path.join(script_dir_for_config, 'initiator_fix_state.db'))
-        default_cfg_writer.set('FIX', 'reset_seq_num_on_logon', 'true')
-        default_cfg_writer.set('FIX', 'EncryptMethod', '0')
-        default_cfg_writer.save_config() 
+        default_cfg = ConfigManager(initiator_config_file)
+        default_cfg.set('FIX', 'mode', 'initiator')
+        default_cfg.set('FIX', 'sender', 'BANZAI')
+        default_cfg.set('FIX', 'target', 'EXEC')
+        default_cfg.set('FIX', 'version', 'FIX.4.4')
+        default_cfg.set('FIX', 'spec_filename', 'FIX44.xml')
+        default_cfg.set('FIX', 'host', '127.0.0.1')
+        default_cfg.set('FIX', 'port', '9880')
+        default_cfg.set('FIX', 'heartbeat_interval', '30')
+        default_cfg.set('FIX', 'retry_interval', '5')
+        default_cfg.set('FIX', 'max_retries', '3')
+        default_cfg.set('FIX', 'state_file', os.path.join(script_dir, 'initiator_fix_state.db'))
+        default_cfg.set('FIX', 'reset_seq_num_on_logon', 'true')
+        default_cfg.set('FIX', 'EncryptMethod', '0')
+        default_cfg.save_config()
         logger.info(f"Created default initiator config: {initiator_config_file}")
 
-    db_path_reader = ConfigManager(initiator_config_file)
-    db_file_init = db_path_reader.get('FIX', 'state_file', os.path.join(script_dir_for_config, 'initiator_fix_state.db'))
-    if os.path.exists(db_file_init):
+    config_manager = ConfigManager(initiator_config_file)
+    db_file = config_manager.get('FIX', 'state_file', os.path.join(script_dir, 'initiator_fix_state.db'))
+    if os.path.exists(db_file):
         try:
-            os.remove(db_file_init)
-            logger.info(f"Removed previous initiator state file: {db_file_init}")
+            os.remove(db_file)
+            logger.info(f"Removed previous initiator state file: {db_file}")
         except OSError as e:
-            logger.error(f"Error removing initiator state file {db_file_init}: {e}")
+            logger.error(f"Error removing initiator state file {db_file}: {e}")
 
-    asyncio.run(main())
+    asyncio.run(main(config_manager))
