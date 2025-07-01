@@ -248,7 +248,8 @@ class FixEngine:
             return
 
         try:
-            logon_message = self.fixmsg()
+            logon_message = self.fixmsg({})
+
             reset_seq_num_flag_config = self.config_manager.get('FIX', 'reset_seq_num_on_logon', 'false').lower() == 'true'
 
             if reset_seq_num_flag_config:
