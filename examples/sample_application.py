@@ -136,6 +136,8 @@ async def run_common_initiator_logic(engine, clordid_generator, logger, max_loop
                 })
                 logger.info(f"Sending SequenceReset (GapFill): {str(seq_reset)}")
                 await engine.send_message(seq_reset)
+                # After sending SequenceReset, set outgoing seqnum to 10
+                await engine.message_store.set_outgoing_sequence_number(10)
                 sent_reset_seq = True
 
             # Wait before sending NewOrderSingle
