@@ -92,7 +92,7 @@ jobs:
         # Make sure your initiator connects to port 9880 and uses SenderCompID=BANZAI, TargetCompID=EXEC
         PYTHONPATH=$PWD python examples/cli_initiator.py > initiator_logs.txt 2>&1 &
         INITIATOR_PID=$!
-        sleep 60
+        sleep 90
         kill $INITIATOR_PID || true
 
     - name: Stop QuickFIX/J acceptor
