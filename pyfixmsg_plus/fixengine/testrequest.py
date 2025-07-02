@@ -10,14 +10,14 @@ class TestRequest:
         # Use datetime.now(timezone.utc) instead of deprecated utcnow()
         test_req_id = datetime.now(timezone.utc).strftime("%Y%m%d-%H:%M:%S.%f")[:-3] # Ensure milliseconds
         
-        # Use the provided fix_message_creator (engine.fixmsg)
-        message = self.fix_message_creator() # Create a new message instance
-        message.update({
-            35: '1', # MsgType: TestRequest
+        fields = {
+            35: '1',  # MsgType: TestRequest
             49: self.config_manager.get('FIX', 'sender', 'SENDER'), # Use configured sender
             56: self.config_manager.get('FIX', 'target', 'TARGET'), # Use configured target
             112: test_req_id  # TestReqID
-        })
+        }
+        # Use the provided fix_message_creator (engine.fixmsg)
+        message = self.fix_message_creator(fields) # Create a new message instance
         # Other header fields like SendingTime, MsgSeqNum will be added by engine.send_message
         await self.send_message(message)
         return test_req_id

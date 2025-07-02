@@ -97,7 +97,7 @@ class LogonHandler(MessageHandler):
             self.logger.info(f"Acceptor: Incoming Logon from {received_sender_comp_id} is valid (SeqNum {received_seq_num}).")
             self.engine.heartbeat.set_remote_interval(received_heartbeat_interval)
 
-            acceptor_logon_response = self.engine.fixmsg()
+            acceptor_logon_response = self.engine.fixmsg({})
             acceptor_logon_response.update({ 35: 'A', 108: self.engine.heartbeat_interval })
             if reset_seq_num_flag:
                 acceptor_logon_response[141] = 'Y'
@@ -253,7 +253,7 @@ class ResendRequestHandler(MessageHandler):
             if stored_message_str:
                 self.logger.info(f"Resending stored message for SeqNum {seq_num_to_resend}.")
                 try:
-                    resent_msg = self.engine.fixmsg().from_wire(stored_message_str, codec=self.engine.codec)
+                    resent_msg = self.engine.fixmsg({}).from_wire(stored_message_str, codec=self.engine.codec)
                     resent_msg[43] = 'Y' 
                     original_sending_time = resent_msg.get(52) 
                     if original_sending_time:
@@ -274,7 +274,7 @@ class ResendRequestHandler(MessageHandler):
     async def send_gap_fill(self, begin_gap_seq_num: int, end_gap_seq_num: int) -> None:
         next_seq_no_after_gap = end_gap_seq_num + 1
         self.logger.info(f"Sending SequenceReset-GapFill for range {begin_gap_seq_num}-{end_gap_seq_num}. NewSeqNo will be {next_seq_no_after_gap}.")
-        gap_fill_msg = self.engine.fixmsg()
+        gap_fill_msg = self.engine.fixmsg({})
         gap_fill_msg.update({ 35: '4', 36: next_seq_no_after_gap, 123: 'Y' })
         await self.engine.send_message(gap_fill_msg)
 
