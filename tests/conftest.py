@@ -52,5 +52,20 @@ def event_loop():
         loop = asyncio.get_running_loop()
     except RuntimeError:
         loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
     yield loop
     loop.close()
+
+@pytest.fixture(scope="function")
+def mock_scheduler():
+    """Mock scheduler to avoid asyncio issues in engine tests."""
+    from unittest.mock import Mock, AsyncMock
+    mock = Mock()
+    mock.scheduler_task = Mock()
+    mock.start = AsyncMock()
+    mock.stop = AsyncMock()
+    mock.reset = AsyncMock()
+    mock.reset_start = AsyncMock()
+    mock.run_scheduler = AsyncMock()
+    mock.load_configuration = Mock()
+    return mock

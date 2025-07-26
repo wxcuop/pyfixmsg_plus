@@ -40,9 +40,14 @@ class CoverageAnalyzer:
         try:
             result = subprocess.run(cmd, capture_output=True, text=True, timeout=1800)
             
+            print(f"Coverage command completed with return code: {result.returncode}")
+            if result.stdout:
+                print("STDOUT:", result.stdout[-500:])  # Last 500 chars
+            if result.stderr:
+                print("STDERR:", result.stderr[-500:])  # Last 500 chars
+            
             if result.returncode != 0:
                 print(f"Coverage analysis failed with return code {result.returncode}")
-                print(f"STDERR: {result.stderr}")
                 return {}
             
             # Parse coverage results
