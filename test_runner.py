@@ -33,6 +33,8 @@ class TestRunner:
                     'tests/unit/test_network_core.py',
                     'tests/unit/test_state_machine_core.py::TestStateMachineCore',
                     'tests/unit/test_engine_mocked.py',  # Working engine tests with mocked scheduler
+                    'tests/unit/test_message_handler_comprehensive.py',  # Comprehensive message handler tests
+                    'tests/unit/test_database_message_store_comprehensive.py',  # Comprehensive database message store tests
                     # 'tests/unit/test_engine_core.py',  # Commented out due to async scheduler issue
                     # 'tests/unit/test_message_handler_core.py',  # Not tested yet
                 ]
