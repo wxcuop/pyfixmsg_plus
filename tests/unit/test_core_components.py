@@ -16,9 +16,9 @@ from pyfixmsg_plus.fixengine.engine import FixEngine
 from pyfixmsg_plus.fixengine.message_handler import MessageHandler
 from pyfixmsg_plus.fixengine.message_store_factory import MessageStoreFactory
 from pyfixmsg_plus.fixengine.database_message_store import DatabaseMessageStore
-from pyfixmsg_plus.fixengine.database_message_store_aiosqlite import AsyncDatabaseMessageStore
+from pyfixmsg_plus.fixengine.database_message_store_aiosqlite import DatabaseMessageStoreAioSqlite
 from pyfixmsg_plus.fixengine.state_machine import StateMachine
-from pyfixmsg_plus.fixengine.heartbeat import HeartbeatManager
+from pyfixmsg_plus.fixengine.heartbeat import Heartbeat
 from pyfixmsg_plus.application import Application
 
 
@@ -108,7 +108,7 @@ class TestMessageStoreFactory:
         
         store = MessageStoreFactory.create_message_store(config_manager)
         
-        assert isinstance(store, AsyncDatabaseMessageStore)
+        assert isinstance(store, DatabaseMessageStoreAioSqlite)
         assert store.db_path == ':memory:'
     
     def test_unsupported_database_type(self, config_manager):
@@ -283,7 +283,7 @@ class TestAsyncDatabaseMessageStore:
     
     async def test_async_initialization(self, temp_sqlite_db):
         """Test async message store initialization."""
-        store = AsyncDatabaseMessageStore(temp_sqlite_db)
+        store = DatabaseMessageStoreAioSqlite(temp_sqlite_db)
         await store.initialize()
         
         # Verify tables are created
@@ -299,7 +299,7 @@ class TestAsyncDatabaseMessageStore:
     
     async def test_async_store_message(self, temp_sqlite_db, sample_logon_message):
         """Test async message storage."""
-        store = AsyncDatabaseMessageStore(temp_sqlite_db)
+        store = DatabaseMessageStoreAioSqlite(temp_sqlite_db)
         await store.initialize()
         
         # Store message
@@ -318,7 +318,7 @@ class TestAsyncDatabaseMessageStore:
     
     async def test_async_sequence_numbers(self, temp_sqlite_db):
         """Test async sequence number management."""
-        store = AsyncDatabaseMessageStore(temp_sqlite_db)
+        store = DatabaseMessageStoreAioSqlite(temp_sqlite_db)
         await store.initialize()
         
         # Get initial sequence number
@@ -343,7 +343,7 @@ class TestAsyncDatabaseMessageStore:
     
     async def test_concurrent_access(self, temp_sqlite_db):
         """Test concurrent access to async message store."""
-        store = AsyncDatabaseMessageStore(temp_sqlite_db)
+        store = DatabaseMessageStoreAioSqlite(temp_sqlite_db)
         await store.initialize()
         
         async def store_messages(session_id, start_seq, count):

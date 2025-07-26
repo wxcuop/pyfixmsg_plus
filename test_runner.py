@@ -280,15 +280,15 @@ class TestRunner:
         print(f"RUNNING QUICK SMOKE TEST")
         print(f"{'='*80}")
         
-        # Run a subset of unit tests quickly
+        # Run a subset of unit tests quickly - use working test files
         cmd = [
             'python', '-m', 'pytest',
             '-x',  # Stop on first failure
             '--tb=short',
             '--timeout=60',
-            '-m', 'unit',
-            '-k', 'test_config or test_message_store',  # Quick tests only
-            'tests/unit/'
+            'tests/test_configmanager.py',
+            'tests/test_databasemessagestore.py',
+            'tests/unit/test_simple_components.py'
         ]
         
         try:
