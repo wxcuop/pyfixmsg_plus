@@ -582,34 +582,34 @@ stateDiagram-v2
 ```mermaid
 graph LR
     subgraph "External Events"
-        USER_START[User: start()]
-        NETWORK_CONNECT[Network: Connected]
-        NETWORK_ERROR[Network: Error]
-        MSG_RECEIVED[Message: Received]
-        TIMEOUT_EVENT[Timer: Timeout]
-        USER_STOP[User: stop()]
+        USER_START["User start()"]
+        NETWORK_CONNECT["Network Connected"]
+        NETWORK_ERROR["Network Error"]
+        MSG_RECEIVED["Message Received"]
+        TIMEOUT_EVENT["Timer Timeout"]
+        USER_STOP["User stop()"]
     end
     
     subgraph "State Machine"
-        STATE_MGR[StateMachine]
-        CURRENT_STATE[Current State]
-        EVENT_PROCESSOR[Event Processor]
-        TRANSITION_VALIDATOR[Transition Validator]
+        STATE_MGR["StateMachine"]
+        CURRENT_STATE["Current State"]
+        EVENT_PROCESSOR["Event Processor"]
+        TRANSITION_VALIDATOR["Transition Validator"]
     end
     
     subgraph "Actions"
-        NETWORK_ACTIONS[Network Actions]
-        MESSAGE_ACTIONS[Message Actions]
-        CLEANUP_ACTIONS[Cleanup Actions]
-        LOGGING_ACTIONS[Logging Actions]
-        CALLBACK_ACTIONS[Callback Actions]
+        NETWORK_ACTIONS["Network Actions"]
+        MESSAGE_ACTIONS["Message Actions"]
+        CLEANUP_ACTIONS["Cleanup Actions"]
+        LOGGING_ACTIONS["Logging Actions"]
+        CALLBACK_ACTIONS["Callback Actions"]
     end
     
     subgraph "Side Effects"
-        NOTIFY_APP[Notify Application]
-        UPDATE_METRICS[Update Metrics]
-        PERSIST_STATE[Persist State]
-        SCHEDULE_TASKS[Schedule Tasks]
+        NOTIFY_APP["Notify Application"]
+        UPDATE_METRICS["Update Metrics"]
+        PERSIST_STATE["Persist State"]
+        SCHEDULE_TASKS["Schedule Tasks"]
     end
     
     USER_START --> EVENT_PROCESSOR
@@ -944,7 +944,7 @@ graph TB
         subgraph "Kubernetes Cluster"
             subgraph "Ingress Layer"
                 INGRESS[Ingress Controller]
-                SERVICE_MESH[Service Mesh (Istio)]
+                SERVICE_MESH[Service Mesh - Istio]
             end
             
             subgraph "Application Pods"
@@ -1071,36 +1071,72 @@ graph TB
 ### Feature Evolution Across Phases
 
 ```mermaid
-timeline
-    title PyFixMsg Plus Feature Evolution
+graph LR
+    subgraph "Phase 1: Core Engine"
+        P1A[Core FIX Engine]
+        P1B[Session Management]
+        P1C[Basic Message Stores]
+        P1D[Configuration System]
+        P1E[CLI Tools]
+        
+        P1A --> P1B
+        P1B --> P1C
+        P1C --> P1D
+        P1D --> P1E
+    end
     
-    section Phase 1 : Core Engine
-        Foundation           : Core FIX Engine
-                            : Session Management
-                            : Basic Message Stores
-                            : Configuration System
-                            : CLI Tools
+    subgraph "Phase 2: Production Ready"
+        P2A[Comprehensive Testing]
+        P2B[Performance Optimization]
+        P2C[QuickFIX Interoperability]
+        P2D[Complete Documentation]
+        P2E[CI/CD Pipeline]
+        
+        P2A --> P2B
+        P2B --> P2C
+        P2C --> P2D
+        P2D --> P2E
+    end
     
-    section Phase 2 : Production Ready
-        Quality              : Comprehensive Testing
-                            : Performance Optimization
-                            : QuickFIX Interoperability
-                            : Complete Documentation
-                            : CI/CD Pipeline
+    subgraph "Phase 3: Enterprise"
+        P3A[Multiple DB Backends]
+        P3B[High Availability]
+        P3C[Advanced Monitoring]
+        P3D[Security Hardening]
+        P3E[HFT Optimization]
+        
+        P3A --> P3B
+        P3B --> P3C
+        P3C --> P3D
+        P3D --> P3E
+    end
     
-    section Phase 3 : Enterprise
-        Scalability          : Multiple DB Backends
-                            : High Availability
-                            : Advanced Monitoring
-                            : Security Hardening
-                            : HFT Optimization
+    subgraph "Phase 4: Ecosystem"
+        P4A[FIX 5.0+ Support]
+        P4B[Cloud Deployment]
+        P4C[Trading Framework]
+        P4D[Market Data Platform]
+        P4E[Community Tools]
+        
+        P4A --> P4B
+        P4B --> P4C
+        P4C --> P4D
+        P4D --> P4E
+    end
     
-    section Phase 4 : Ecosystem
-        Innovation           : FIX 5.0+ Support
-                            : Cloud Deployment
-                            : Trading Framework
-                            : Market Data Platform
-                            : Community Tools
+    P1E --> P2A
+    P2E --> P3A
+    P3E --> P4A
+    
+    classDef phase1 fill:#e1f5fe,stroke:#01579b,stroke-width:2px
+    classDef phase2 fill:#f3e5f5,stroke:#4a148c,stroke-width:2px
+    classDef phase3 fill:#e8f5e8,stroke:#1b5e20,stroke-width:2px
+    classDef phase4 fill:#fff3e0,stroke:#e65100,stroke-width:2px
+    
+    class P1A,P1B,P1C,P1D,P1E phase1
+    class P2A,P2B,P2C,P2D,P2E phase2
+    class P3A,P3B,P3C,P3D,P3E phase3
+    class P4A,P4B,P4C,P4D,P4E phase4
 ```
 
 ### Architecture Complexity Evolution
