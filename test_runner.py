@@ -35,6 +35,11 @@ class TestRunner:
                     'tests/unit/test_engine_mocked.py',  # Working engine tests with mocked scheduler
                     'tests/unit/test_message_handler_comprehensive.py',  # Comprehensive message handler tests
                     'tests/unit/test_database_message_store_comprehensive.py',  # Comprehensive database message store tests
+                    # Comprehensive test suites for core modules (Phase 2)
+                    'tests/unit/test_engine_comprehensive.py',  # Complete engine session management tests
+                    'tests/unit/test_state_machine_comprehensive.py',  # Complete state transition tests
+                    'tests/unit/test_heartbeat_comprehensive.py',  # Complete heartbeat lifecycle tests
+                    'tests/unit/test_network_comprehensive.py',  # Complete network connection tests
                     # 'tests/unit/test_engine_core.py',  # Commented out due to async scheduler issue
                     # 'tests/unit/test_message_handler_core.py',  # Not tested yet
                 ]
@@ -283,6 +288,58 @@ class TestRunner:
         
         return overall_success
     
+    def run_comprehensive_tests(self):
+        """Run just the comprehensive test suites (Phase 2 tests)."""
+        print("\n" + "="*80)
+        print("RUNNING COMPREHENSIVE TEST SUITES (PHASE 2)")
+        print("="*80)
+        
+        # Run just the comprehensive test files
+        comprehensive_tests = [
+            "tests/unit/test_engine_comprehensive.py",
+            "tests/unit/test_state_machine_comprehensive.py", 
+            "tests/unit/test_heartbeat_comprehensive.py",
+            "tests/unit/test_network_comprehensive.py"
+        ]
+        
+        cmd = [
+            'python', '-m', 'pytest',
+            '-v',
+            '--tb=short',
+            '--cov=pyfixmsg_plus.fixengine',
+            '--cov-report=term-missing',
+        ]
+        
+        cmd.extend(comprehensive_tests)
+        
+        if self.verbose:
+            cmd.append('-s')
+        
+        print(f"Running command: {' '.join(cmd)}")
+        
+        start_time = time.time()
+        
+        try:
+            result = subprocess.run(
+                cmd,
+                capture_output=False,  # Stream output directly
+                text=True,
+                timeout=300  # 5 minutes should be enough
+            )
+            
+            end_time = time.time()
+            duration = end_time - start_time
+            
+            print(f"\nCOMPREHENSIVE TESTS COMPLETED")
+            print(f"Status: {'PASSED' if result.returncode == 0 else 'FAILED'}")
+            print(f"Duration: {duration:.2f} seconds")
+            
+            return result.returncode == 0
+            
+        except subprocess.TimeoutExpired:
+            print(f"\nCOMPREHENSIVE TESTS TIMED OUT after 300 seconds")
+            return False
+    
     def run_smoke_test(self):
         """Run a quick smoke test to verify basic functionality."""
         print("\n" + "="*80)
@@ -350,6 +407,7 @@ def main():
 Examples:
   python test_runner.py --all                    # Run all tests
   python test_runner.py --unit --integration     # Run specific categories
+  python test_runner.py --comprehensive          # Run comprehensive test suites (Phase 2)
   python test_runner.py --smoke                  # Quick smoke test
   python test_runner.py --performance --verbose  # Run performance tests with verbose output
         """
@@ -362,6 +420,7 @@ Examples:
     parser.add_argument('--performance', action='store_true', help='Run performance tests')
     parser.add_argument('--chaos', action='store_true', help='Run chaos engineering tests')
     parser.add_argument('--property', action='store_true', help='Run property-based tests')
+    parser.add_argument('--comprehensive', action='store_true', help='Run comprehensive test suites (Phase 2)')
     parser.add_argument('--smoke', action='store_true', help='Run quick smoke test only')
     
     # Options
@@ -391,7 +450,7 @@ Examples:
             categories.append('property')
     
     # Default to unit tests if nothing specified
-    if not categories and not args.smoke:
+    if not categories and not args.smoke and not args.comprehensive:
         categories = ['unit']
     
     # Create test runner
@@ -401,6 +460,10 @@ Examples:
         if args.smoke:
             # Run smoke test
             success = runner.run_smoke_test()
+            sys.exit(0 if success else 1)
+        elif args.comprehensive:
+            # Run comprehensive test suites
+            success = runner.run_comprehensive_tests()
             sys.exit(0 if success else 1)
         else:
             # Run full test suite
