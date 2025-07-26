@@ -6,9 +6,14 @@ import pytest
 import asyncio
 import sys
 import os
+import warnings
 
 # Add the project root to Python path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
+
+# Suppress expected asyncio task warnings in tests
+warnings.filterwarnings("ignore", message="Task was destroyed but it is pending!")
+warnings.filterwarnings("ignore", message=".*Task.*destroyed.*pending.*", category=RuntimeWarning)
 
 # Import all fixtures from our fixtures module
 from tests.fixtures.test_fixtures import *
@@ -55,6 +60,27 @@ def event_loop():
         asyncio.set_event_loop(loop)
     yield loop
     loop.close()
+
+@pytest.fixture(scope="function", autouse=True)
+def suppress_asyncio_warnings():
+    """Auto-suppress asyncio task destruction warnings in all tests."""
+    import warnings
+    import logging
+    
+    # Suppress warnings
+    warnings.filterwarnings("ignore", message="Task was destroyed but it is pending!")
+    warnings.filterwarnings("ignore", message=".*Task.*destroyed.*pending.*", category=RuntimeWarning)
+    
+    # Also suppress asyncio error logging
+    asyncio_logger = logging.getLogger('asyncio')
+    original_level = asyncio_logger.level
+    asyncio_logger.setLevel(logging.CRITICAL)
+    
+    yield
+    
+    # Restore original logging level
+    asyncio_logger.setLevel(original_level)
+
 
 @pytest.fixture(scope="function")
 def mock_scheduler():

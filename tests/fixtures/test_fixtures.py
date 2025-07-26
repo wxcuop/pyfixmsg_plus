@@ -11,6 +11,7 @@ from contextlib import contextmanager
 from typing import Dict, Any, Optional, AsyncGenerator
 from unittest.mock import Mock, AsyncMock
 import pytest
+import pytest_asyncio
 import aiosqlite
 from faker import Faker
 
@@ -89,7 +90,7 @@ def memory_sqlite_db():
     """In-memory SQLite database for fast testing."""
     return ':memory:'
 
-@pytest.fixture
+@pytest_asyncio.fixture
 async def async_db_connection(temp_sqlite_db):
     """Async database connection for aiosqlite testing."""
     async with aiosqlite.connect(temp_sqlite_db) as db:
@@ -106,7 +107,7 @@ def sync_db_connection(temp_sqlite_db):
 # Message Store Fixtures
 # ============================================================================
 
-@pytest.fixture
+@pytest_asyncio.fixture
 async def async_message_store(config_manager, async_db_connection):
     """Async message store for testing."""
     store = MessageStoreFactory.create_message_store(config_manager)
@@ -160,15 +161,24 @@ def network_config(test_host, free_port):
 # FIX Engine Fixtures
 # ============================================================================
 
-@pytest.fixture
+@pytest_asyncio.fixture
 async def fix_engine(config_manager):
     """FIX Engine instance for testing."""
-    engine = FixEngine(config_manager)
+    app = Mock(spec=Application)
+    app.on_create = AsyncMock()
+    app.on_logon = AsyncMock()
+    app.on_logout = AsyncMock()
+    app.to_admin = AsyncMock()
+    app.from_admin = AsyncMock()
+    app.to_app = AsyncMock()
+    app.from_app = AsyncMock()
+    
+    engine = FixEngine(config_manager, app)
     yield engine
     if engine._running:
         await engine.stop()
 
-@pytest.fixture
+@pytest_asyncio.fixture
 async def fix_engine_pair(sample_config_dict, free_port):
     """Pair of FIX engines for testing interactions."""
     # Create initiator config
@@ -203,8 +213,27 @@ async def fix_engine_pair(sample_config_dict, free_port):
     initiator_cm = ConfigManager(initiator_config_path)
     acceptor_cm = ConfigManager(acceptor_config_path)
     
-    initiator = FixEngine(initiator_cm)
-    acceptor = FixEngine(acceptor_cm)
+    # Create mock applications for the engines
+    initiator_app = Mock(spec=Application)
+    initiator_app.on_create = AsyncMock()
+    initiator_app.on_logon = AsyncMock()
+    initiator_app.on_logout = AsyncMock()
+    initiator_app.to_admin = AsyncMock()
+    initiator_app.from_admin = AsyncMock()
+    initiator_app.to_app = AsyncMock()
+    initiator_app.from_app = AsyncMock()
+    
+    acceptor_app = Mock(spec=Application)
+    acceptor_app.on_create = AsyncMock()
+    acceptor_app.on_logon = AsyncMock()
+    acceptor_app.on_logout = AsyncMock()
+    acceptor_app.to_admin = AsyncMock()
+    acceptor_app.from_admin = AsyncMock()
+    acceptor_app.to_app = AsyncMock()
+    acceptor_app.from_app = AsyncMock()
+    
+    initiator = FixEngine(initiator_cm, initiator_app)
+    acceptor = FixEngine(acceptor_cm, acceptor_app)
     
     yield initiator, acceptor
     
