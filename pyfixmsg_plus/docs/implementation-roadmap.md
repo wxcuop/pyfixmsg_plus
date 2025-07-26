@@ -23,6 +23,386 @@ To create the most comprehensive, reliable, and developer-friendly Python FIX en
 - **Phase 3:** 📋 **PLANNED** - Enterprise Features  
 - **Phase 4:** 📋 **PLANNED** - Ecosystem Development
 
+## System Architecture Overview
+
+### Core Component Architecture
+
+```mermaid
+graph TB
+    subgraph "Application Layer"
+        APP[User Application]
+        CLI[CLI Tools]
+        TRADE[Trading Apps]
+    end
+    
+    subgraph "PyFixMsg Plus Core"
+        ENGINE[FixEngine]
+        CONFIG[ConfigManager]
+        STATE[StateMachine]
+        MSG_PROC[MessageProcessor]
+    end
+    
+    subgraph "Message Handling"
+        HANDLERS[Message Handlers]
+        LOGON[LogonHandler]
+        HEART[HeartbeatHandler]
+        ORDER[OrderHandlers]
+        ADMIN[AdminHandlers]
+    end
+    
+    subgraph "Network Layer"
+        NETWORK[Network Layer]
+        ACCEPTOR[Acceptor]
+        INITIATOR[Initiator]
+        SSL[SSL/TLS]
+    end
+    
+    subgraph "Message Storage"
+        STORE_FACTORY[MessageStoreFactory]
+        SQLITE[SQLite Store]
+        AIOSQLITE[AioSQLite Store]
+        POSTGRES[PostgreSQL Store]
+        REDIS[Redis Store]
+    end
+    
+    subgraph "Utilities"
+        CRYPTO[SimpleCrypt]
+        SCHEDULER[Scheduler]
+        HEARTBEAT[Heartbeat]
+        TESTREQ[TestRequest]
+    end
+    
+    subgraph "Foundation"
+        PYFIXMSG[PyFixMsg Library]
+        CODEC[Message Codec]
+        SPEC[FIX Specification]
+    end
+    
+    APP --> ENGINE
+    CLI --> ENGINE
+    TRADE --> ENGINE
+    
+    ENGINE --> CONFIG
+    ENGINE --> STATE
+    ENGINE --> MSG_PROC
+    ENGINE --> NETWORK
+    ENGINE --> STORE_FACTORY
+    
+    MSG_PROC --> HANDLERS
+    HANDLERS --> LOGON
+    HANDLERS --> HEART
+    HANDLERS --> ORDER
+    HANDLERS --> ADMIN
+    
+    NETWORK --> ACCEPTOR
+    NETWORK --> INITIATOR
+    NETWORK --> SSL
+    
+    STORE_FACTORY --> SQLITE
+    STORE_FACTORY --> AIOSQLITE
+    STORE_FACTORY --> POSTGRES
+    STORE_FACTORY --> REDIS
+    
+    ENGINE --> SCHEDULER
+    ENGINE --> HEARTBEAT
+    ENGINE --> TESTREQ
+    
+    CONFIG --> CRYPTO
+    ENGINE --> PYFIXMSG
+    PYFIXMSG --> CODEC
+    PYFIXMSG --> SPEC
+    
+    classDef completed fill:#90EE90,stroke:#006400,stroke-width:2px
+    classDef inProgress fill:#FFE4B5,stroke:#FF8C00,stroke-width:2px
+    classDef planned fill:#E6E6FA,stroke:#4B0082,stroke-width:2px
+    
+    class ENGINE,CONFIG,STATE,MSG_PROC,HANDLERS,NETWORK,STORE_FACTORY,SQLITE,AIOSQLITE completed
+    class POSTGRES,REDIS,TRADE planned
+```
+
+### Message Flow Architecture
+
+```mermaid
+sequenceDiagram
+    participant C as Counterparty
+    participant N as Network Layer
+    participant E as FixEngine
+    participant MP as MessageProcessor
+    participant MH as Message Handlers
+    participant MS as Message Store
+    participant A as Application
+    
+    C->>N: Raw FIX Message
+    N->>E: Parsed Message Bytes
+    E->>E: Message Framing & Validation
+    E->>MS: Store Incoming Message
+    E->>MP: Route Message
+    MP->>MH: Specific Handler
+    MH->>A: Application Callback
+    A->>MH: Response/Action
+    MH->>E: Outgoing Message
+    E->>MS: Store Outgoing Message
+    E->>N: Send Response
+    N->>C: Raw FIX Response
+```
+
+### Data Storage Architecture
+
+```mermaid
+graph LR
+    subgraph "Message Store Interface"
+        IFACE[MessageStore Interface]
+    end
+    
+    subgraph "Synchronous Backends"
+        SQLITE3[SQLite3 Backend]
+        SYNC_DB[(Local Database)]
+    end
+    
+    subgraph "Asynchronous Backends"
+        AIOSQLITE[AioSQLite Backend]
+        ASYNC_DB[(Local Async DB)]
+    end
+    
+    subgraph "Enterprise Backends (Phase 3)"
+        POSTGRES[PostgreSQL Backend]
+        MYSQL[MySQL Backend]
+        REDIS[Redis Backend]
+        MONGO[MongoDB Backend]
+        PG_DB[(PostgreSQL)]
+        MY_DB[(MySQL)]
+        REDIS_DB[(Redis)]
+        MONGO_DB[(MongoDB)]
+    end
+    
+    IFACE --> SQLITE3
+    IFACE --> AIOSQLITE
+    IFACE --> POSTGRES
+    IFACE --> MYSQL
+    IFACE --> REDIS
+    IFACE --> MONGO
+    
+    SQLITE3 --> SYNC_DB
+    AIOSQLITE --> ASYNC_DB
+    POSTGRES --> PG_DB
+    MYSQL --> MY_DB
+    REDIS --> REDIS_DB
+    MONGO --> MONGO_DB
+    
+    classDef completed fill:#90EE90,stroke:#006400,stroke-width:2px
+    classDef planned fill:#E6E6FA,stroke:#4B0082,stroke-width:2px
+    
+    class IFACE,SQLITE3,AIOSQLITE,SYNC_DB,ASYNC_DB completed
+    class POSTGRES,MYSQL,REDIS,MONGO,PG_DB,MY_DB,REDIS_DB,MONGO_DB planned
+```
+
+### Session State Machine
+
+```mermaid
+stateDiagram-v2
+    [*] --> DISCONNECTED
+    DISCONNECTED --> CONNECTING : start()
+    CONNECTING --> LOGON_IN_PROGRESS : connection_established
+    CONNECTING --> DISCONNECTED : connection_failed
+    LOGON_IN_PROGRESS --> ACTIVE : logon_successful
+    LOGON_IN_PROGRESS --> DISCONNECTED : logon_failed
+    ACTIVE --> LOGOUT_IN_PROGRESS : logout_initiated
+    ACTIVE --> DISCONNECTED : disconnect/error
+    LOGOUT_IN_PROGRESS --> DISCONNECTED : logout_confirmed
+    LOGOUT_IN_PROGRESS --> DISCONNECTED : timeout
+    DISCONNECTED --> RECONNECTING : retry_connection
+    RECONNECTING --> CONNECTING : reconnect_attempt
+    RECONNECTING --> DISCONNECTED : max_retries_reached
+    
+    note right of ACTIVE
+        Heartbeat Active
+        Message Processing
+        Application Logic
+    end note
+    
+    note right of DISCONNECTED
+        Cleanup Resources
+        Reset State
+        Log Session End
+    end note
+```
+
+### Deployment Architecture (Phase 3-4)
+
+```mermaid
+graph TB
+    subgraph "Load Balancer"
+        LB[Load Balancer]
+    end
+    
+    subgraph "Kubernetes Cluster"
+        subgraph "PyFixMsg Plus Pods"
+            POD1[Engine Pod 1]
+            POD2[Engine Pod 2]
+            POD3[Engine Pod 3]
+        end
+        
+        subgraph "Supporting Services"
+            CONFIG_SVC[Config Service]
+            MONITOR[Monitoring]
+            LOGGING[Logging]
+        end
+    end
+    
+    subgraph "Data Layer"
+        subgraph "Primary Storage"
+            POSTGRES_CLUSTER[(PostgreSQL Cluster)]
+            REDIS_CLUSTER[(Redis Cluster)]
+        end
+        
+        subgraph "Message Queue"
+            KAFKA[Apache Kafka]
+        end
+        
+        subgraph "Monitoring Storage"
+            PROMETHEUS[(Prometheus)]
+            GRAFANA[Grafana]
+        end
+    end
+    
+    subgraph "External Systems"
+        QUICKFIX[QuickFIX Counterparty]
+        TRADING_SYS[Trading Systems]
+        MARKET_DATA[Market Data Feeds]
+    end
+    
+    LB --> POD1
+    LB --> POD2
+    LB --> POD3
+    
+    POD1 --> POSTGRES_CLUSTER
+    POD2 --> POSTGRES_CLUSTER
+    POD3 --> POSTGRES_CLUSTER
+    
+    POD1 --> REDIS_CLUSTER
+    POD2 --> REDIS_CLUSTER
+    POD3 --> REDIS_CLUSTER
+    
+    POD1 --> KAFKA
+    POD2 --> KAFKA
+    POD3 --> KAFKA
+    
+    CONFIG_SVC --> POD1
+    CONFIG_SVC --> POD2
+    CONFIG_SVC --> POD3
+    
+    MONITOR --> PROMETHEUS
+    PROMETHEUS --> GRAFANA
+    
+    QUICKFIX <--> LB
+    TRADING_SYS <--> LB
+    MARKET_DATA --> LB
+    
+    classDef completed fill:#90EE90,stroke:#006400,stroke-width:2px
+    classDef planned fill:#E6E6FA,stroke:#4B0082,stroke-width:2px
+    
+    class POD1,POD2,POD3 completed
+    class LB,CONFIG_SVC,MONITOR,POSTGRES_CLUSTER,REDIS_CLUSTER,KAFKA,PROMETHEUS,GRAFANA planned
+```
+
+### Component Layer Architecture
+
+```mermaid
+graph TD
+    subgraph "Layer 1: Application Interface"
+        APP_API[Application API]
+        CLI_TOOLS[CLI Tools]
+        WEB_UI[Web Interface]
+    end
+    
+    subgraph "Layer 2: Business Logic"
+        TRADING_ENGINE[Trading Engine]
+        RISK_MGMT[Risk Management]
+        ORDER_MGMT[Order Management]
+        MARKET_DATA_PROC[Market Data Processor]
+    end
+    
+    subgraph "Layer 3: FIX Protocol Layer"
+        FIX_ENGINE[FIX Engine Core]
+        SESSION_MGMT[Session Management]
+        MSG_ROUTING[Message Routing]
+        PROTOCOL_HANDLER[Protocol Handler]
+    end
+    
+    subgraph "Layer 4: Message Processing"
+        MSG_PARSER[Message Parser]
+        MSG_VALIDATOR[Message Validator]
+        MSG_TRANSFORMER[Message Transformer]
+        SEQUENCE_MGMT[Sequence Management]
+    end
+    
+    subgraph "Layer 5: Network & Transport"
+        TCP_SSL[TCP/SSL Transport]
+        CONNECTION_POOL[Connection Pool]
+        HEARTBEAT_MGR[Heartbeat Manager]
+        RECONNECT_MGR[Reconnection Manager]
+    end
+    
+    subgraph "Layer 6: Data Persistence"
+        MESSAGE_STORE[Message Store]
+        SESSION_STATE[Session State]
+        CONFIG_STORE[Configuration Store]
+        AUDIT_LOG[Audit Log]
+    end
+    
+    subgraph "Layer 7: Infrastructure"
+        LOGGING[Logging Framework]
+        MONITORING[Monitoring & Metrics]
+        SECURITY[Security & Encryption]
+        THREADING[Async Runtime]
+    end
+    
+    APP_API --> TRADING_ENGINE
+    CLI_TOOLS --> FIX_ENGINE
+    WEB_UI --> TRADING_ENGINE
+    
+    TRADING_ENGINE --> FIX_ENGINE
+    RISK_MGMT --> FIX_ENGINE
+    ORDER_MGMT --> FIX_ENGINE
+    MARKET_DATA_PROC --> FIX_ENGINE
+    
+    FIX_ENGINE --> MSG_PARSER
+    SESSION_MGMT --> SEQUENCE_MGMT
+    MSG_ROUTING --> MSG_VALIDATOR
+    PROTOCOL_HANDLER --> MSG_TRANSFORMER
+    
+    MSG_PARSER --> TCP_SSL
+    MSG_VALIDATOR --> CONNECTION_POOL
+    MSG_TRANSFORMER --> HEARTBEAT_MGR
+    SEQUENCE_MGMT --> RECONNECT_MGR
+    
+    TCP_SSL --> MESSAGE_STORE
+    CONNECTION_POOL --> SESSION_STATE
+    HEARTBEAT_MGR --> CONFIG_STORE
+    RECONNECT_MGR --> AUDIT_LOG
+    
+    MESSAGE_STORE --> LOGGING
+    SESSION_STATE --> MONITORING
+    CONFIG_STORE --> SECURITY
+    AUDIT_LOG --> THREADING
+    
+    classDef layer1 fill:#FFB6C1,stroke:#DC143C,stroke-width:2px
+    classDef layer2 fill:#98FB98,stroke:#228B22,stroke-width:2px
+    classDef layer3 fill:#87CEEB,stroke:#4682B4,stroke-width:2px
+    classDef layer4 fill:#DDA0DD,stroke:#9932CC,stroke-width:2px
+    classDef layer5 fill:#F0E68C,stroke:#DAA520,stroke-width:2px
+    classDef layer6 fill:#FFA07A,stroke:#FF6347,stroke-width:2px
+    classDef layer7 fill:#D3D3D3,stroke:#696969,stroke-width:2px
+    
+    class APP_API,CLI_TOOLS,WEB_UI layer1
+    class TRADING_ENGINE,RISK_MGMT,ORDER_MGMT,MARKET_DATA_PROC layer2
+    class FIX_ENGINE,SESSION_MGMT,MSG_ROUTING,PROTOCOL_HANDLER layer3
+    class MSG_PARSER,MSG_VALIDATOR,MSG_TRANSFORMER,SEQUENCE_MGMT layer4
+    class TCP_SSL,CONNECTION_POOL,HEARTBEAT_MGR,RECONNECT_MGR layer5
+    class MESSAGE_STORE,SESSION_STATE,CONFIG_STORE,AUDIT_LOG layer6
+    class LOGGING,MONITORING,SECURITY,THREADING layer7
+```
+
 ## Phase Breakdown
 
 | Phase | Timeline | Status | Key Deliverables | Success Criteria |
